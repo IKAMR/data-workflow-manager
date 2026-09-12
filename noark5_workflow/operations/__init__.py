@@ -1,3 +1,4 @@
+from .build_noark5_depot_report import BuildNoark5DepotReportOperation
 from .compose_noark5_views import ComposeNoark5ViewsOperation
 from .analyse_arkivstruktur import AnalyseArkivstrukturOperation
 from .analyse_noark5_core import AnalyseNoark5CoreOperation
@@ -11,6 +12,7 @@ from .run_noark5_xpath_tests import (
 from .validate_xml_schema import ValidateXmlSchemaOperation
 
 __all__ = [
+    "BuildNoark5DepotReportOperation",
     "ComposeNoark5ViewsOperation",
     "AnalyseArkivstrukturOperation",
     "AnalyseNoark5CoreOperation",

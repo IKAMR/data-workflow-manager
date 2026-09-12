@@ -10,22 +10,74 @@ from . import theme
 
 
 class _Tooltip:
+    """Small hover tooltip that can never remain as a stale top-level overlay."""
+
+    AUTO_HIDE_MS = 1800
+
     def __init__(self, widget, text: str) -> None:
-        self.widget=widget; self.text=text; self.window=None
-        widget.bind("<Enter>",self._show,add="+")
-        widget.bind("<Leave>",self._hide,add="+")
-        widget.bind("<ButtonPress>",self._hide,add="+")
-    def _show(self,_event=None)->None:
-        if self.window is not None or not self.text: return
-        x=self.widget.winfo_rootx()+self.widget.winfo_width()//2
-        y=self.widget.winfo_rooty()+self.widget.winfo_height()+4
-        self.window=tip=ctk.CTkToplevel(self.widget); tip.withdraw()
-        tip.overrideredirect(True); tip.attributes("-topmost",True)
-        ctk.CTkLabel(tip,text=self.text,fg_color=theme.CARD_BG,text_color=theme.TEXT_MAIN,
-                     corner_radius=5,font=theme.font(theme.SMALL_SIZE)).pack(padx=1,pady=1)
-        tip.update_idletasks(); tip.geometry(f"+{x-tip.winfo_width()//2}+{y}"); tip.deiconify()
-    def _hide(self,_event=None)->None:
-        if self.window is not None: self.window.destroy(); self.window=None
+        self.widget = widget
+        self.text = text
+        self.window = None
+        self._after_id = None
+
+        widget.bind("<Enter>", self._show, add="+")
+        widget.bind("<Leave>", self._hide, add="+")
+        widget.bind("<ButtonPress>", self._hide, add="+")
+        widget.bind("<ButtonRelease>", self._hide, add="+")
+        widget.bind("<Destroy>", self._hide, add="+")
+
+    def _cancel_auto_hide(self) -> None:
+        if self._after_id is None:
+            return
+        try:
+            self.widget.after_cancel(self._after_id)
+        except Exception:
+            pass
+        self._after_id = None
+
+    def _show(self, _event=None) -> None:
+        if self.window is not None or not self.text:
+            return
+        try:
+            if not self.widget.winfo_exists():
+                return
+            x = self.widget.winfo_rootx() + self.widget.winfo_width() // 2
+            y = self.widget.winfo_rooty() + self.widget.winfo_height() + 4
+        except Exception:
+            return
+
+        self.window = tip = ctk.CTkToplevel(self.widget)
+        tip.withdraw()
+        tip.overrideredirect(True)
+        tip.attributes("-topmost", True)
+        ctk.CTkLabel(
+            tip,
+            text=self.text,
+            fg_color=theme.CARD_BG,
+            text_color=theme.TEXT_MAIN,
+            corner_radius=5,
+            font=theme.font(theme.SMALL_SIZE),
+        ).pack(padx=1, pady=1)
+        tip.update_idletasks()
+        tip.geometry(f"+{x-tip.winfo_width()//2}+{y}")
+        tip.deiconify()
+
+        # A tooltip is transient UI. Auto-hide is a final safety net for cases
+        # where the hovered workflow button is moved/rebuilt under the pointer.
+        self._cancel_auto_hide()
+        try:
+            self._after_id = self.widget.after(self.AUTO_HIDE_MS, self._hide)
+        except Exception:
+            self._after_id = None
+
+    def _hide(self, _event=None) -> None:
+        self._cancel_auto_hide()
+        if self.window is not None:
+            try:
+                self.window.destroy()
+            except Exception:
+                pass
+            self.window = None
 
 
 class WorkflowPanel(ctk.CTkFrame):

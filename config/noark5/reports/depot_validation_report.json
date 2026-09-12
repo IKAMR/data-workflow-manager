@@ -1,0 +1,88 @@
+{
+  "report_definition_format_version": 2,
+  "report_id": "noark5.depot_validation.v1",
+  "label": "Depotvalideringsrapport – Noark 5",
+  "source_presentation_profile": "depot",
+  "principles": {
+    "no_recalculation": true,
+    "source_is_materialized_presentation": true,
+    "archive_creator_remains_responsible_for_content": true,
+    "depot_documents_and_assesses_deviations": true,
+    "new_extraction_only_for_serious_structure_or_content_deficiencies": true
+  },
+  "sections": [
+    {
+      "id": "summary",
+      "label": "Sammendrag",
+      "order": 10
+    },
+    {
+      "id": "structure",
+      "label": "Struktur og omfang",
+      "order": 20
+    },
+    {
+      "id": "archive_parts",
+      "label": "Arkivdeler",
+      "order": 30
+    },
+    {
+      "id": "validation",
+      "label": "Teknisk validering",
+      "order": 40
+    },
+    {
+      "id": "standard_values",
+      "label": "Standardverdier og observerte verdier",
+      "order": 50
+    },
+    {
+      "id": "deviations",
+      "label": "Avvik og vurderingspunkter",
+      "order": 60
+    },
+    {
+      "id": "assessment",
+      "label": "Depotets vurdering",
+      "order": 70
+    },
+    {
+      "id": "evidence",
+      "label": "Evidens og sporbarhet",
+      "order": 80
+    }
+  ],
+  "status_model": {
+    "technical": [
+      "ok",
+      "warning",
+      "error",
+      "not_applicable"
+    ],
+    "assessment": [
+      "accepted",
+      "accepted_with_deviation",
+      "requires_clarification",
+      "new_extraction_required"
+    ]
+  },
+  "status": "implementation_qa_a26",
+  "presentation": {
+    "archive_part_columns": [
+      "system_id",
+      "title",
+      "folder_count",
+      "registration_count",
+      "journalpost_count",
+      "document_description_count",
+      "document_object_count",
+      "screening_count",
+      "disposal_decision_count",
+      "performed_disposal_count",
+      "deletion_count"
+    ],
+    "show_source_references": true,
+    "show_standard_value_statuses": true,
+    "show_reconciliation_summary": true
+  }
+}

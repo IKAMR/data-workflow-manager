@@ -1,5 +1,6 @@
 from app.profile import WorkflowProfile
 from noark5_workflow.operations import (
+    BuildNoark5DepotReportOperation,
     ComposeNoark5ViewsOperation,
     AnalyseArkivstrukturOperation,
     AnalyseNoark5CoreOperation,
@@ -51,6 +52,7 @@ NOARK5_PROFILE = WorkflowProfile(
         RunNoark5XpathTestsOperation,
             RunNoark5XpathRegressionOperation,
         ComposeNoark5ViewsOperation,
+        BuildNoark5DepotReportOperation,
         ValidateXmlSchemaOperation,
         DiasPackageOperation,
     ),

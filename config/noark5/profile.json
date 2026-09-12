@@ -3,7 +3,7 @@
   "profile_format_version": 1,
   "profile_id": "noark5",
   "display_name": "Noark 5",
-  "status": "active_development_a25",
+  "status": "active_development_a26",
   "profile_root": "config/noark5",
   "supported_versions": [
     "3.1",
@@ -37,7 +37,8 @@
     "views_compositions": true,
     "reusable_view_sections": true,
     "audience_specific_views": true,
-    "materialized_presentation_profiles": true
+    "materialized_presentation_profiles": true,
+    "depot_validation_report": true
   },
   "definitions": {
     "tests": [
@@ -68,6 +69,9 @@
     ],
     "requirements": [
       "config/noark5/standards/requirements/index.json"
+    ],
+    "reports": [
+      "config/noark5/reports/depot_validation_report.json"
     ]
   },
   "documentation": [

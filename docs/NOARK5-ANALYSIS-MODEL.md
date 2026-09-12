@@ -249,3 +249,45 @@ Materialiseringen skjer etter at de kanoniske views er bygget. Den:
 Resultatene skrives under `noark5_views/<timestamp>/presentations/`.
 
 `final_report_candidate` er fortsatt bare et presentasjonsgrunnlag. Selve rapportgeneratoren utvikles senere.
+
+## a26 – depotvalideringsrapport
+
+Depotvalideringsrapporten bygges fra den materialiserte `depot`-presentasjonen fra a25. Rapportgeneratoren kjører ikke XML/XPath og etablerer ingen nye tellere.
+
+a26 produserer:
+- `depot_validation_report.json` – maskinlesbar rapportmodell;
+- `depot_validation_report.html` – menneskelesbar første rapportvisning.
+
+Rapporten inkluderer nøkkeltall, arkivdeloversikt, teknisk teststatus, standardverdievidens, sporbarhet og et eksplisitt vurderingsfelt.
+
+Depotets metodikk er:
+- depot validerer uttrekket og dokumenterer funn/avvik;
+- arkivskaper er ansvarlig for innholdet i uttrekket;
+- rapporten sendes tilbake til arkivskaper for lesing og aksept;
+- nytt uttrekk kreves primært ved alvorlige struktur- eller innholdsmangler;
+- øvrige avvik dokumenteres og vurderes.
+
+a26 setter derfor ikke automatisk faglig aksept. `assessment.status` starter som `requires_clarification` inntil depotets vurdering registreres.
+
+### a26 – rapportinnhold og sporbarhet
+
+Rapportmodellen er utvidet med:
+- eksplisitt reconciliation-oppsummering;
+- standardverdioppsummering;
+- automatisk identifiserte vurderingspunkter uten automatisk konklusjon;
+- mer komplett arkivdelstabell;
+- source-test/source-path for nøkkeltall og arkivdelfelt;
+- tydeligere skille mellom teknisk status og depotets faglige vurdering.
+
+`additional_observed_values` behandles som et vurderingspunkt, ikke automatisk som feil.
+
+### a26 – closeout før a26 final
+
+a26 gjør ingen nye faglige beregninger. Depotrapportmodellen fra a26 beholdes uendret.
+
+I tillegg er workflow-tooltipen gjort eksplisitt transient:
+- skjules ved mouse leave, button press, button release og widget-destroy;
+- skjules fortsatt før workflow-panelet bygges på nytt;
+- har en kort auto-hide som sikkerhetsnett dersom knappen flyttes eller erstattes mens musepekeren står over den.
+
+Dette retter GUI-feilen der blant annet `Flytt operasjonen ned` kunne bli liggende som et løst overlay over kjøreloggen.
