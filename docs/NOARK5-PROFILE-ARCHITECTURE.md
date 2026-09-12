@@ -82,3 +82,9 @@ a23 demonstrates the complete provenance path with selected official Noark 5 v5.
 The Noark 5 test catalogue declares `normal` and `regression` execution profiles. The normal profile excludes tests whose lifecycle role is `development_regression_reference`. Regression execution retains them for controlled historical comparison.
 
 Execution-profile semantics are definition-driven and do not hardcode U01/U02 identifiers in the generic engine.
+
+## Canonical views/compositions
+
+Noark 5-profilens view-lag oppdages gjennom `profile.json` og er definert under `config/noark5/views/`. View-laget er en konsument av kanoniske resultater, ikke en ny analysemotor.
+
+Rapportering i senere steg skal konsumere disse viewsene eller de samme kanoniske resultatene, og skal ikke duplisere XPath-/tellerlogikk.

@@ -3,7 +3,7 @@
   "profile_format_version": 1,
   "profile_id": "noark5",
   "display_name": "Noark 5",
-  "status": "active_development_a24",
+  "status": "active_development_a25",
   "profile_root": "config/noark5",
   "supported_versions": [
     "3.1",
@@ -31,7 +31,13 @@
     "standard_value_comparison": true,
     "legacy_regression_reference": true,
     "execution_profiles": true,
-    "explicit_regression_operation": true
+    "explicit_regression_operation": true,
+    "canonical_views": true,
+    "result_composition": true,
+    "views_compositions": true,
+    "reusable_view_sections": true,
+    "audience_specific_views": true,
+    "materialized_presentation_profiles": true
   },
   "definitions": {
     "tests": [
@@ -52,7 +58,7 @@
       "config/noark5/xml_schema_validation.json"
     ],
     "views": [
-      "config/noark5/report_views/u1_u2_views.json"
+      "config/noark5/views/canonical_views.json"
     ],
     "field_definitions": [
       "config/noark5/arkivstruktur_fields.json"
@@ -81,7 +87,8 @@
   },
   "future": {
     "view_model": "config/noark5/views/",
-    "external_creator_control": "separate comparison layer; not XPath test logic"
+    "external_creator_control": "separate comparison layer; not XPath test logic",
+    "report_generation": "a26 consumes canonical views/compositions; reports must not recalculate source data"
   },
   "specification_knowledge": {
     "coverage": "config/noark5/standards/specification_coverage.json",
@@ -94,5 +101,10 @@
       "requirements": "partial_verified_v5_started",
       "full_specification_coverage": false
     }
-  }
+  },
+  "presentation": {
+    "profiles": "config/noark5/views/presentation_profiles.json",
+    "rule": "Presentation profiles consume composed views and do not change canonical calculations."
+  },
+  "presentation_profiles": "config/noark5/views/presentation_profiles.json"
 }

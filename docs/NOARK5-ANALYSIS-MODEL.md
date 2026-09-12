@@ -184,3 +184,68 @@ Reell a24-regresjonskjøring verifiserte 113 av 113 maskinelle sammenligninger m
 U01/U02 beholdes derfor som historiske regresjonsreferanser, men er ikke del av ordinær Noark 5-kjøring. Normalprofilen har 57 katalogtester; regresjonsprofilen har 59.
 
 Regresjonsoperasjonen er en QA-/utviklingsoperasjon og ignorerer eventuelt kontrollpunkt etter operasjonen. Dette endrer ikke kontrollpunktmekanismen for andre operasjoner.
+
+## a25 – views/compositions
+
+Views er et eget lag over kanoniske testresultater. De skal ikke lese Noark XML direkte, kjøre XPath på nytt eller etablere alternative tellere.
+
+Første view-katalog ligger i `config/noark5/views/canonical_views.json` og bygger:
+
+- samlet oversikt for hele uttrekket;
+- oversikt per arkivdel;
+- validering/evidens med teststatus, reconciliation og standardverdikontroller.
+
+`Noark 5 views/compositions` bruker siste ordinære (`normal`) XPath-resultatsett og skriver egne JSON-visninger under `noark5_views/`. View-definisjonene inneholder kilde-test og kilde-felt for hvert presentert felt, slik at provenance tilbake til kanonisk analyse beholdes.
+
+Historiske U1/U2-navn brukes ikke som navn på nye views. U1/U2 finnes videre bare som legacy/regresjonsreferanse.
+
+## a25 – gjenbrukbare views/compositions
+
+Views er nå definert som komposisjoner av gjenbrukbare sections. Sections inneholder felt som peker til kanoniske testresultater med `source_test` og `source_path`.
+
+Komposisjonsmotoren:
+- kjører ikke XML/XPath;
+- utfører ikke nye faglige tellere;
+- kjenner ikke Noark-feltene hardkodet;
+- henter hele-uttrekk-verdier eller tilsvarende `_archive_parts`-verdier fra eksisterende kanoniske resultater;
+- rapporterer `source_missing`, `value_missing` eller `archive_part_missing` eksplisitt.
+
+Dette gjør samme sections gjenbrukbare i depotoversikt, arkivdeloversikt, valideringsvisning og senere rapporter uten å etablere parallelle beregningsmodeller.
+
+## a25 – presentasjon og målgrupper
+
+Komposisjonslaget skiller nå mellom selve data-/evidenskomposisjonen og hvordan samme view skal presenteres for ulike målgrupper.
+
+Tre målgrupper er definert:
+- `depot` – detaljert kontroll- og vurderingsgrunnlag;
+- `archive_creator` – lesbar oversikt som kan brukes i dialog og aksept;
+- `final_report` – kandidatgrunnlag til senere sluttrapport.
+
+Presentation metadata består av:
+- presentasjonsrekkefølge;
+- presentasjonsgrupper;
+- labels;
+- hvilke målgrupper et felt eller view er synlig for.
+
+Dette endrer ikke kildedata, tellere eller valideringsresultater. Presentasjonslaget filtrerer og organiserer bare allerede komponerte kanoniske resultater.
+
+`config/noark5/views/presentation_profiles.json` beskriver hvilke views som senere kan brukes for depotkontroll, arkivskaperoversikt og sluttrapportkandidat. Selve rapportgeneratoren utvikles senere.
+
+## a25 – materialiserte presentasjonsprofiler
+
+Views/compositions kan nå materialiseres til konkrete målgruppeutdata uten ny analyse:
+
+- `depot`
+- `archive_creator`
+- `final_report_candidate`
+
+Materialiseringen skjer etter at de kanoniske views er bygget. Den:
+- filtrerer views etter `include_views`;
+- filtrerer felt etter `visible_for`;
+- bevarer source-test/source-path og øvrig sporbarhet;
+- utfører ingen XPath, telling eller faglig beregning;
+- endrer ikke original-viewene.
+
+Resultatene skrives under `noark5_views/<timestamp>/presentations/`.
+
+`final_report_candidate` er fortsatt bare et presentasjonsgrunnlag. Selve rapportgeneratoren utvikles senere.

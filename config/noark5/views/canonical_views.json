@@ -1,0 +1,436 @@
+{
+  "view_catalog_format_version": 1,
+  "profile_id": "noark5",
+  "definition_id": "noark5.canonical.views.a25",
+  "input": {
+    "result_set": "normal_xpath_result_set",
+    "required_execution_profile": "normal",
+    "principle": "Views consume canonical test results and never recalculate source XML."
+  },
+  "views": [
+    {
+      "id": "whole_extraction_overview",
+      "label": "Samlet oversikt for hele uttrekket",
+      "scope": "whole_extraction",
+      "composition_ref": "whole_extraction_overview"
+    },
+    {
+      "id": "archive_part_overview",
+      "label": "Oversikt per arkivdel",
+      "scope": "archive_part",
+      "composition_ref": "archive_part_overview"
+    },
+    {
+      "id": "validation_evidence",
+      "label": "Validering og evidens",
+      "scope": "whole_extraction",
+      "composition_ref": "validation_evidence"
+    },
+    {
+      "id": "depot_control_summary",
+      "label": "Depotkontroll – nøkkeloversikt",
+      "scope": "whole_extraction",
+      "composition_ref": "depot_control_summary"
+    }
+  ],
+  "view_definition_format_version": 3,
+  "status": "implementation_qa_a25",
+  "principles": {
+    "canonical_results_only": true,
+    "no_xpath_in_views": true,
+    "no_duplicate_calculation_logic": true,
+    "view_sections_are_reusable": true,
+    "missing_values_are_explicit": true
+  },
+  "section_library": {
+    "structure_summary": {
+      "label": "Struktur",
+      "fields": [
+        {
+          "id": "archive_count",
+          "label": "Arkiv",
+          "source_test": "kdrs.c01",
+          "source_path": "archive_count",
+          "value_type": "integer",
+          "presentation_order": 10,
+          "visible_for": [
+            "depot",
+            "archive_creator",
+            "final_report"
+          ]
+        },
+        {
+          "id": "archive_creator_count",
+          "label": "Arkivskapere",
+          "source_test": "kdrs.c01",
+          "source_path": "archive_creator_count",
+          "value_type": "integer",
+          "presentation_order": 20,
+          "visible_for": [
+            "depot",
+            "archive_creator",
+            "final_report"
+          ]
+        },
+        {
+          "id": "archive_part_count",
+          "label": "Arkivdeler",
+          "source_test": "kdrs.c02",
+          "source_path": "archive_part_count",
+          "value_type": "integer",
+          "presentation_order": 30,
+          "visible_for": [
+            "depot",
+            "archive_creator",
+            "final_report"
+          ]
+        },
+        {
+          "id": "classification_system_count",
+          "label": "Klassifikasjonssystem",
+          "source_test": "kdrs.c05",
+          "source_path": "classification_system_count",
+          "value_type": "integer",
+          "presentation_order": 40,
+          "visible_for": [
+            "depot",
+            "archive_creator",
+            "final_report"
+          ]
+        },
+        {
+          "id": "class_count",
+          "label": "Klasser",
+          "source_test": "kdrs.c06",
+          "source_path": "class_count",
+          "value_type": "integer",
+          "presentation_order": 50,
+          "visible_for": [
+            "depot",
+            "archive_creator",
+            "final_report"
+          ]
+        }
+      ],
+      "presentation_group": "identity_and_structure"
+    },
+    "content_summary": {
+      "label": "Innhold",
+      "fields": [
+        {
+          "id": "folder_count",
+          "label": "Mapper",
+          "source_test": "kdrs.c13",
+          "source_path": "folder_count",
+          "value_type": "integer",
+          "presentation_order": 10,
+          "visible_for": [
+            "depot",
+            "archive_creator",
+            "final_report"
+          ]
+        },
+        {
+          "id": "registration_count",
+          "label": "Registreringer",
+          "source_test": "kdrs.c14",
+          "source_path": "registration_count",
+          "value_type": "integer",
+          "presentation_order": 20,
+          "visible_for": [
+            "depot",
+            "archive_creator",
+            "final_report"
+          ]
+        },
+        {
+          "id": "journalpost_count",
+          "label": "Journalposter",
+          "source_test": "kdrs.c15",
+          "source_path": "journalpost_count",
+          "value_type": "integer",
+          "presentation_order": 30,
+          "visible_for": [
+            "depot",
+            "archive_creator",
+            "final_report"
+          ]
+        },
+        {
+          "id": "document_description_count",
+          "label": "Dokumentbeskrivelser",
+          "source_test": "kdrs.c21",
+          "source_path": "document_description_count",
+          "value_type": "integer",
+          "presentation_order": 40,
+          "visible_for": [
+            "depot",
+            "archive_creator",
+            "final_report"
+          ]
+        },
+        {
+          "id": "document_object_count",
+          "label": "Dokumentobjekter",
+          "source_test": "kdrs.c24",
+          "source_path": "document_object_count",
+          "value_type": "integer",
+          "presentation_order": 50,
+          "visible_for": [
+            "depot",
+            "archive_creator",
+            "final_report"
+          ]
+        }
+      ],
+      "presentation_group": "content_volume"
+    },
+    "preservation_summary": {
+      "label": "Bevaring, skjerming og kassasjon",
+      "fields": [
+        {
+          "id": "screening_count",
+          "label": "Skjerming",
+          "source_test": "kdrs.f08",
+          "source_path": "screening_count",
+          "value_type": "integer",
+          "presentation_order": 10,
+          "visible_for": [
+            "depot",
+            "archive_creator",
+            "final_report"
+          ]
+        },
+        {
+          "id": "disposal_decision_count",
+          "label": "Kassasjonsvedtak",
+          "source_test": "kdrs.f10",
+          "source_path": "disposal_decision_count",
+          "value_type": "integer",
+          "presentation_order": 20,
+          "visible_for": [
+            "depot",
+            "archive_creator",
+            "final_report"
+          ]
+        },
+        {
+          "id": "performed_disposal_count",
+          "label": "Utført kassasjon",
+          "source_test": "kdrs.f11",
+          "source_path": "performed_disposal_count",
+          "value_type": "integer",
+          "presentation_order": 30,
+          "visible_for": [
+            "depot",
+            "archive_creator",
+            "final_report"
+          ]
+        },
+        {
+          "id": "deletion_count",
+          "label": "Sletting",
+          "source_test": "kdrs.f13",
+          "source_path": "deletion_count",
+          "value_type": "integer",
+          "presentation_order": 40,
+          "visible_for": [
+            "depot",
+            "archive_creator",
+            "final_report"
+          ]
+        }
+      ],
+      "presentation_group": "preservation_and_restrictions"
+    },
+    "format_summary": {
+      "label": "Dokumentformat",
+      "fields": [
+        {
+          "id": "variant_format_counts",
+          "label": "Variantformat",
+          "source_test": "kdrs.c24",
+          "source_path": "variant_format_counts",
+          "value_type": "distribution",
+          "presentation_order": 10,
+          "visible_for": [
+            "depot",
+            "archive_creator",
+            "final_report"
+          ]
+        },
+        {
+          "id": "format_counts",
+          "label": "Format",
+          "source_test": "kdrs.c24",
+          "source_path": "format_counts",
+          "value_type": "distribution",
+          "presentation_order": 20,
+          "visible_for": [
+            "depot",
+            "archive_creator",
+            "final_report"
+          ]
+        }
+      ],
+      "presentation_group": "technical_formats"
+    },
+    "validation_summary": {
+      "label": "Validering",
+      "fields": [
+        {
+          "id": "test_summary",
+          "label": "Teststatus",
+          "source_special": "index.summary",
+          "value_type": "object",
+          "presentation_order": 10,
+          "visible_for": [
+            "depot"
+          ]
+        },
+        {
+          "id": "reconciliation",
+          "label": "Reconciliation",
+          "source_special": "reconciliation",
+          "value_type": "object",
+          "presentation_order": 20,
+          "visible_for": [
+            "depot"
+          ]
+        },
+        {
+          "id": "standard_value_checks",
+          "label": "Standardverdier",
+          "source_special": "standard_values",
+          "value_type": "object",
+          "presentation_order": 30,
+          "visible_for": [
+            "depot"
+          ]
+        }
+      ],
+      "presentation_group": "validation_evidence"
+    }
+  },
+  "compositions": [
+    {
+      "id": "whole_extraction_overview",
+      "label": "Samlet oversikt for hele uttrekket",
+      "scope": "whole_extraction",
+      "sections": [
+        "structure_summary",
+        "content_summary",
+        "preservation_summary",
+        "format_summary"
+      ],
+      "audiences": [
+        "depot",
+        "archive_creator",
+        "final_report"
+      ],
+      "presentation_order": 10
+    },
+    {
+      "id": "archive_part_overview",
+      "label": "Oversikt per arkivdel",
+      "scope": "archive_part",
+      "entity": "archive_part",
+      "sections": [
+        "content_summary",
+        "preservation_summary",
+        "format_summary"
+      ],
+      "audiences": [
+        "depot",
+        "archive_creator",
+        "final_report"
+      ],
+      "presentation_order": 20
+    },
+    {
+      "id": "validation_evidence",
+      "label": "Validering og evidens",
+      "scope": "whole_extraction",
+      "sections": [
+        "validation_summary"
+      ],
+      "audiences": [
+        "depot"
+      ],
+      "presentation_order": 30
+    },
+    {
+      "id": "depot_control_summary",
+      "label": "Depotkontroll – nøkkeloversikt",
+      "scope": "whole_extraction",
+      "sections": [
+        "structure_summary",
+        "content_summary",
+        "validation_summary"
+      ],
+      "purpose": "Kortfattet kontrollgrunnlag for depotets videre vurdering. Ikke endelig rapport.",
+      "audiences": [
+        "depot"
+      ],
+      "presentation_order": 40
+    }
+  ],
+  "audiences": {
+    "depot": {
+      "label": "Depot",
+      "description": "Detaljert kontroll- og vurderingsgrunnlag for depot."
+    },
+    "archive_creator": {
+      "label": "Arkivskaper",
+      "description": "Lesbar oversikt over uttrekkets innhold og dokumenterte avvik."
+    },
+    "final_report": {
+      "label": "Sluttrapport",
+      "description": "Kandidater til senere rapportpresentasjon. Selve rapportgenereringen ligger utenfor a25."
+    }
+  },
+  "presentation_groups": {
+    "identity_and_structure": {
+      "label": "Identitet og struktur",
+      "order": 10,
+      "audiences": [
+        "depot",
+        "archive_creator",
+        "final_report"
+      ]
+    },
+    "content_volume": {
+      "label": "Innhold og omfang",
+      "order": 20,
+      "audiences": [
+        "depot",
+        "archive_creator",
+        "final_report"
+      ]
+    },
+    "preservation_and_restrictions": {
+      "label": "Bevaring, skjerming og kassasjon",
+      "order": 30,
+      "audiences": [
+        "depot",
+        "archive_creator",
+        "final_report"
+      ]
+    },
+    "technical_formats": {
+      "label": "Tekniske formater",
+      "order": 40,
+      "audiences": [
+        "depot",
+        "final_report"
+      ]
+    },
+    "validation_evidence": {
+      "label": "Validering og evidens",
+      "order": 50,
+      "audiences": [
+        "depot"
+      ]
+    }
+  }
+}

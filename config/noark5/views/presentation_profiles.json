@@ -1,0 +1,52 @@
+{
+  "presentation_profile_format_version": 2,
+  "profile_id": "noark5",
+  "source_view_definition": "config/noark5/views/canonical_views.json",
+  "principles": {
+    "presentation_does_not_recalculate": true,
+    "presentation_consumes_composed_views": true,
+    "audience_filtering_is_non_destructive": true,
+    "final_report_generation_is_future_work": true
+  },
+  "profiles": {
+    "depot": {
+      "label": "Depotkontroll",
+      "include_audience": "depot",
+      "include_views": [
+        "whole_extraction_overview",
+        "archive_part_overview",
+        "validation_evidence",
+        "depot_control_summary"
+      ]
+    },
+    "archive_creator": {
+      "label": "Arkivskaperoversikt",
+      "include_audience": "archive_creator",
+      "include_views": [
+        "whole_extraction_overview",
+        "archive_part_overview"
+      ]
+    },
+    "final_report_candidate": {
+      "label": "Sluttrapport – kandidatgrunnlag",
+      "include_audience": "final_report",
+      "include_views": [
+        "whole_extraction_overview",
+        "archive_part_overview"
+      ],
+      "note": "Dette er bare utvalg/presentasjonsgrunnlag. Endelig rapportformat utvikles senere."
+    }
+  },
+  "status": "implementation_qa_a25",
+  "materialization": {
+    "mode": "filter_composed_views",
+    "recalculate": false,
+    "rules": [
+      "Only already composed view data may be materialized.",
+      "View inclusion follows include_views.",
+      "Field inclusion follows visible_for for the selected audience.",
+      "Source provenance fields are preserved.",
+      "Missing or unavailable data is never silently replaced."
+    ]
+  }
+}
