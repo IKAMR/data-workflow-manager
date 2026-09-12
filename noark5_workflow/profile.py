@@ -5,6 +5,7 @@ from noark5_workflow.operations import (
     AnalyseNoark5U1Operation,
     DiasPackageOperation,
     MetadataInventoryOperation,
+    RunNoark5XpathRegressionOperation,
     RunNoark5XpathTestsOperation,
     ValidateXmlSchemaOperation,
 )
@@ -47,6 +48,7 @@ NOARK5_PROFILE = WorkflowProfile(
         AnalyseNoark5CoreOperation,
         AnalyseNoark5U1Operation,
         RunNoark5XpathTestsOperation,
+        RunNoark5XpathRegressionOperation,
         ValidateXmlSchemaOperation,
         DiasPackageOperation,
     ),

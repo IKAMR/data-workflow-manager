@@ -1,7 +1,7 @@
 {
-  "catalog_format_version": 9,
+  "catalog_format_version": 10,
   "catalog_id": "noark5-kdrs-query-2026-05-26",
-  "status": "implementation_qa_a23_3",
+  "status": "implementation_qa_a24",
   "source": {
     "repository": "IKAMR/KDRS_Query",
     "path": "doc/xml-queries_noark5_2026-05-26.txt",
@@ -3810,12 +3810,15 @@
         "kind": "u1_total",
         "metrics": []
       },
-      "status": "active",
+      "status": "regression_reference",
       "lifecycle": {
         "role": "development_regression_reference",
         "normal_execution_change_planned": "a24",
         "calculation_source_for_new_views": false,
-        "note": "Beholdes kjørbar i a22/a23 for regresjon. Individuelle analyser er kanonisk grunnlag."
+        "note": "Beholdes kjørbar i a22/a23 for regresjon. Individuelle analyser er kanonisk grunnlag.",
+        "normal_execution": false,
+        "regression_execution": true,
+        "normal_execution_change_applied": "a24"
       },
       "implementation_notes": [
         "a22: eksplisitt merket som utviklings-/regresjonsreferanse; kjøresemantikk endres først i a24."
@@ -3849,12 +3852,15 @@
         "kind": "u2_archive_parts",
         "metrics": []
       },
-      "status": "active",
+      "status": "regression_reference",
       "lifecycle": {
         "role": "development_regression_reference",
         "normal_execution_change_planned": "a24",
         "calculation_source_for_new_views": false,
-        "note": "Beholdes kjørbar i a22/a23 for regresjon. Individuelle analyser er kanonisk grunnlag."
+        "note": "Beholdes kjørbar i a22/a23 for regresjon. Individuelle analyser er kanonisk grunnlag.",
+        "normal_execution": false,
+        "regression_execution": true,
+        "normal_execution_change_applied": "a24"
       },
       "implementation_notes": [
         "a22: eksplisitt merket som utviklings-/regresjonsreferanse; kjøresemantikk endres først i a24."
@@ -4105,5 +4111,18 @@
       "U01/U02 beholdes som regresjonsgrunnlag i a22"
     ]
   },
-  "standard_values_registry": "../standards/noark5_standard_values.json"
+  "standard_values_registry": "../standards/noark5_standard_values.json",
+  "execution_profiles": {
+    "normal": {
+      "description": "Ordinær depotvalidering. Legacy-/regresjonsreferanser kjøres ikke.",
+      "exclude_lifecycle_roles": [
+        "development_regression_reference"
+      ]
+    },
+    "regression": {
+      "description": "Utviklings-/regresjonskjøring. Inkluderer legacy-referanser som U01/U02.",
+      "exclude_lifecycle_roles": []
+    }
+  },
+  "legacy_regression_contract": "../analysis/legacy_regression_contract.json"
 }

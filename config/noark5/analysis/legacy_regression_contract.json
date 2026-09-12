@@ -1,0 +1,332 @@
+{
+  "regression_contract_format_version": 2,
+  "profile_id": "noark5",
+  "purpose": "Preserve historical U01/U02 as explicit regression references while canonical individual analyses remain the production basis.",
+  "principles": {
+    "legacy_reference_not_normal_execution": true,
+    "legacy_reference_not_canonical_result_source": true,
+    "canonical_individual_results_are_authoritative_for_new_views": true,
+    "regression_must_not_duplicate_production_calculation_logic": true,
+    "historical_names_are_traceability_only": true
+  },
+  "execution_profiles": {
+    "normal": {
+      "expected_legacy_reference_execution": false
+    },
+    "regression": {
+      "expected_legacy_reference_execution": true,
+      "operation_id": "run_noark5_xpath_regression_2026",
+      "normal_depot_validation": false
+    }
+  },
+  "legacy_references": [
+    {
+      "test_id": "kdrs.u01",
+      "legacy_job_id": "U01",
+      "historical_scope": "whole_extraction",
+      "role": "development_regression_reference",
+      "canonical_coverage": "config/noark5/analysis/u1_u2_coverage_2026_05_26.json"
+    },
+    {
+      "test_id": "kdrs.u02",
+      "legacy_job_id": "U02",
+      "historical_scope": "archive_part",
+      "role": "development_regression_reference",
+      "canonical_coverage": "config/noark5/analysis/u1_u2_coverage_2026_05_26.json"
+    }
+  ],
+  "a24_plan": {
+    "a24": "Exclude legacy regression references from normal execution while retaining explicit regression execution.",
+    "next": "Add machine comparison between legacy reference outputs and canonical individual results before final legacy retirement.",
+    "a24": "Machine-compare selected historical U01/U02 values with canonical individual result values.",
+    "a24": "Expose the regression profile as an explicit QA/development operation in the Noark 5 profile.",
+    "a24": "Close out a24: regression operation bypasses checkpoints; U01/U02 remain legacy regression references only."
+  },
+  "whole_extraction_comparisons": [
+    {
+      "id": "archive_count",
+      "legacy_path": "archive.count",
+      "canonical_test": "kdrs.c01",
+      "canonical_path": "archive_count"
+    },
+    {
+      "id": "archive_creator_count",
+      "legacy_path": "archive.creator_count",
+      "canonical_test": "kdrs.c01",
+      "canonical_path": "archive_creator_count"
+    },
+    {
+      "id": "archive_part_count",
+      "legacy_path": "structure.archive_part_count",
+      "canonical_test": "kdrs.c02",
+      "canonical_path": "archive_part_count"
+    },
+    {
+      "id": "classification_system_count",
+      "legacy_path": "structure.classification_system_count",
+      "canonical_test": "kdrs.c05",
+      "canonical_path": "classification_system_count"
+    },
+    {
+      "id": "class_count",
+      "legacy_path": "structure.class_count",
+      "canonical_test": "kdrs.c06",
+      "canonical_path": "class_count"
+    },
+    {
+      "id": "folder_count",
+      "legacy_path": "folders.count",
+      "canonical_test": "kdrs.c13",
+      "canonical_path": "folder_count"
+    },
+    {
+      "id": "folder_status_counts",
+      "legacy_path": "folders.status_counts",
+      "canonical_test": "kdrs.c13",
+      "canonical_path": "status_counts"
+    },
+    {
+      "id": "registration_count",
+      "legacy_path": "registrations.count",
+      "canonical_test": "kdrs.c14",
+      "canonical_path": "registration_count"
+    },
+    {
+      "id": "journalpost_count",
+      "legacy_path": "registrations.journalposts.count",
+      "canonical_test": "kdrs.c15",
+      "canonical_path": "journalpost_count"
+    },
+    {
+      "id": "journalpost_type_counts",
+      "legacy_path": "registrations.journalposts.type_counts",
+      "canonical_test": "kdrs.c15",
+      "canonical_path": "journalpost_type_counts"
+    },
+    {
+      "id": "journal_status_counts",
+      "legacy_path": "registrations.journalposts.status_counts",
+      "canonical_test": "kdrs.c15",
+      "canonical_path": "journal_status_counts"
+    },
+    {
+      "id": "document_description_count",
+      "legacy_path": "documents.description_count",
+      "canonical_test": "kdrs.c21",
+      "canonical_path": "document_description_count"
+    },
+    {
+      "id": "document_relation_counts",
+      "legacy_path": "documents.relation_type_counts",
+      "canonical_test": "kdrs.c21",
+      "canonical_path": "relation_type_counts"
+    },
+    {
+      "id": "without_object_count",
+      "legacy_path": "documents.without_object",
+      "canonical_test": "kdrs.c22",
+      "canonical_path": "without_object_count"
+    },
+    {
+      "id": "document_status_counts",
+      "legacy_path": "documents.status.generic",
+      "canonical_test": "kdrs.c23",
+      "canonical_path": "status_counts"
+    },
+    {
+      "id": "document_object_count",
+      "legacy_path": "documents.object_count",
+      "canonical_test": "kdrs.c24",
+      "canonical_path": "document_object_count"
+    },
+    {
+      "id": "variant_format_counts",
+      "legacy_path": "documents.variant_format_counts",
+      "canonical_test": "kdrs.c24",
+      "canonical_path": "variant_format_counts"
+    },
+    {
+      "id": "correspondence_party_count",
+      "legacy_path": "relations.correspondence_party_count",
+      "canonical_test": "kdrs.f05",
+      "canonical_path": "correspondence_party_count"
+    },
+    {
+      "id": "writeoff_method_count",
+      "legacy_path": "relations.write_off.method_count",
+      "canonical_test": "kdrs.f06",
+      "canonical_path": "writeoff_method_count"
+    },
+    {
+      "id": "screening_count",
+      "legacy_path": "preservation.screening.count",
+      "canonical_test": "kdrs.f08",
+      "canonical_path": "screening_count"
+    },
+    {
+      "id": "disposal_count",
+      "legacy_path": "preservation.disposal_decision.count",
+      "canonical_test": "kdrs.f10",
+      "canonical_path": "disposal_decision_count"
+    },
+    {
+      "id": "performed_disposal_count",
+      "legacy_path": "preservation.performed_disposal_document_description",
+      "canonical_test": "kdrs.f11",
+      "canonical_path": "performed_disposal_count"
+    },
+    {
+      "id": "deletion_count",
+      "legacy_path": "preservation.deletion.count",
+      "canonical_test": "kdrs.f13",
+      "canonical_path": "deletion_count"
+    },
+    {
+      "id": "format_counts",
+      "legacy_path": "files.format_counts",
+      "canonical_test": "kdrs.c24",
+      "canonical_path": "format_counts"
+    },
+    {
+      "id": "conversion_count",
+      "legacy_path": "conversion.count",
+      "canonical_test": "kdrs.f12",
+      "canonical_path": "conversion_count"
+    },
+    {
+      "id": "conversion_from_format_counts",
+      "legacy_path": "conversion.from_format_counts",
+      "canonical_test": "kdrs.f12",
+      "canonical_path": "converted_from_format_counts"
+    },
+    {
+      "id": "conversion_to_format_counts",
+      "legacy_path": "conversion.to_format_counts",
+      "canonical_test": "kdrs.f12",
+      "canonical_path": "converted_to_format_counts"
+    },
+    {
+      "id": "conversion_tool_counts",
+      "legacy_path": "conversion.tool_counts",
+      "canonical_test": "kdrs.f12",
+      "canonical_path": "conversion_tool_counts"
+    }
+  ],
+  "archive_part_comparisons": [
+    {
+      "id": "folder_count",
+      "legacy_path": "folder_count",
+      "canonical_test": "kdrs.c02",
+      "canonical_path": "folder_count"
+    },
+    {
+      "id": "registration_count",
+      "legacy_path": "registration_count",
+      "canonical_test": "kdrs.c02",
+      "canonical_path": "registration_count"
+    },
+    {
+      "id": "document_description_count",
+      "legacy_path": "document_description_count",
+      "canonical_test": "kdrs.c02",
+      "canonical_path": "document_description_count"
+    },
+    {
+      "id": "document_object_count",
+      "legacy_path": "document_object_count",
+      "canonical_test": "kdrs.c24",
+      "canonical_path": "document_object_count"
+    },
+    {
+      "id": "folder_type_counts",
+      "legacy_path": "folder_type_counts",
+      "canonical_test": "kdrs.c13",
+      "canonical_path": "type_counts"
+    },
+    {
+      "id": "folder_status_counts",
+      "legacy_path": "folder_status_counts",
+      "canonical_test": "kdrs.c13",
+      "canonical_path": "status_counts"
+    },
+    {
+      "id": "journalpost_type_counts",
+      "legacy_path": "journalpost_type_counts",
+      "canonical_test": "kdrs.c15",
+      "canonical_path": "journalpost_type_counts"
+    },
+    {
+      "id": "journal_status_counts",
+      "legacy_path": "journal_status_counts",
+      "canonical_test": "kdrs.c15",
+      "canonical_path": "journal_status_counts"
+    },
+    {
+      "id": "document_status_counts",
+      "legacy_path": "document_status_counts",
+      "canonical_test": "kdrs.c23",
+      "canonical_path": "status_counts"
+    },
+    {
+      "id": "document_medium_counts",
+      "legacy_path": "document_medium_counts",
+      "canonical_test": "kdrs.c02",
+      "canonical_path": "document_medium_counts"
+    },
+    {
+      "id": "variant_format_counts",
+      "legacy_path": "variant_format_counts",
+      "canonical_test": "kdrs.c24",
+      "canonical_path": "variant_format_counts"
+    },
+    {
+      "id": "correspondence_party_count",
+      "legacy_path": "correspondence_party_count",
+      "canonical_test": "kdrs.f05",
+      "canonical_path": "correspondence_party_count"
+    },
+    {
+      "id": "writeoff_count",
+      "legacy_path": "writeoff_count",
+      "canonical_test": "kdrs.f06",
+      "canonical_path": "writeoff_method_count"
+    },
+    {
+      "id": "screening_count",
+      "legacy_path": "screening_count",
+      "canonical_test": "kdrs.f08",
+      "canonical_path": "screening_count"
+    },
+    {
+      "id": "disposal_count",
+      "legacy_path": "disposal_count",
+      "canonical_test": "kdrs.f10",
+      "canonical_path": "disposal_decision_count"
+    },
+    {
+      "id": "performed_disposal_count",
+      "legacy_path": "performed_disposal_count",
+      "canonical_test": "kdrs.f11",
+      "canonical_path": "performed_disposal_count"
+    },
+    {
+      "id": "deletion_count",
+      "legacy_path": "deletion_count",
+      "canonical_test": "kdrs.f13",
+      "canonical_path": "deletion_count"
+    }
+  ],
+  "validation_evidence": {
+    "reference_run": "v0.1.2-a24 real extraction regression run",
+    "catalog_tests": 59,
+    "ok": 54,
+    "legacy_disabled": 5,
+    "errors": 0,
+    "machine_regression_checks": 113,
+    "matches": 113,
+    "mismatches": 0,
+    "not_comparable": 0,
+    "assessment": "verified_on_reference_extraction"
+  },
+  "legacy_status": "reference_only_regression"
+}

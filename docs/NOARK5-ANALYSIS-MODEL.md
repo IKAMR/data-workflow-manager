@@ -140,3 +140,47 @@ All Noark 5-spesifikk kunnskap skal være gjenfinnbar fra `config/noark5/profile
 ## Normative knowledge is not identical to extract tests
 
 The profile knowledge base may contain official Noark requirements that are not directly testable from a static archive extract. Such requirements keep their provenance and validation relevance, but shall not be converted into XPath tests unless the needed evidence is present in the extract.
+
+## a24 – ordinær kjøring og legacy-regresjon
+
+Fra a24 skiller testkatalogen eksplisitt mellom kjøreprofiler:
+
+- `normal` – ordinær validering; historiske `development_regression_reference`-tester kjøres ikke.
+- `regression` – utviklings-/regresjonskjøring; legacy-referanser kan kjøres for sammenligning.
+
+Filtreringen skjer på generisk `lifecycle.role`, ikke på U01/U02-test-ID-er. U01/U02 beholdes dermed som sporbar historikk uten å være del av ordinær produksjonskjøring.
+
+Kanoniske individuelle analyser er grunnlaget for nye views og rapporter. Legacy-referansene skal aldri bli en parallell produksjonsberegning.
+
+## a24 – maskinell legacy-regresjon
+
+Ved `execution_profile = regression` kjøres de historiske regresjonsreferansene sammen med de kanoniske individuelle analysene. Etter kjøringen opprettes `legacy-regression-comparison.json`.
+
+Mapping mellom historisk resultatstruktur og kanoniske resultater ligger i `config/noark5/analysis/legacy_regression_contract.json`. Sammenligningskoden er generell og kjenner ikke de faglige feltene på forhånd.
+
+Resultatet skiller mellom:
+
+- `match`
+- `mismatch`
+- `not_comparable`
+
+Et mismatch er regresjonsevidens som må undersøkes. Det endrer ikke automatisk de kanoniske produksjonsresultatene.
+
+## a24 – eksplisitt regresjonsoperasjon
+
+Noark 5-profilen eksponerer nå to separate operasjoner:
+
+- `Noark 5 XPath-tester 2026` – ordinær `normal`-profil for depotvalidering.
+- `Noark 5 XPath-regresjon 2026` – eksplisitt utviklings-/QA-operasjon med `regression`-profil.
+
+Regresjonsoperasjonen ligger i kategorien `Systemspesifikt`, kjører alle katalogdefinisjonene inkludert historiske U01/U02, og skriver resultatene separat under `noark5_tests/xpath_regression/`.
+
+Når regresjonsprofilen fullføres opprettes `legacy-regression-comparison.json`. Denne operasjonen skal ikke brukes som ordinær depotvalidering.
+
+## a24 – closeout av U01/U02-migreringen
+
+Reell a24-regresjonskjøring verifiserte 113 av 113 maskinelle sammenligninger mellom historiske U01/U02-resultater og kanoniske individuelle analyser, uten mismatch eller `not_comparable`.
+
+U01/U02 beholdes derfor som historiske regresjonsreferanser, men er ikke del av ordinær Noark 5-kjøring. Normalprofilen har 57 katalogtester; regresjonsprofilen har 59.
+
+Regresjonsoperasjonen er en QA-/utviklingsoperasjon og ignorerer eventuelt kontrollpunkt etter operasjonen. Dette endrer ikke kontrollpunktmekanismen for andre operasjoner.

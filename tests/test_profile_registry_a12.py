@@ -50,6 +50,7 @@ class ProfileRegistryA12Tests(unittest.TestCase):
                 "analyse_noark5_core",
                 "analyse_noark5_u1",
                 "run_noark5_xpath_tests_2026",
+                "run_noark5_xpath_regression_2026",
                 "validate_xml_schema",
                 "dias_package",
             ],

@@ -39,7 +39,9 @@ class A225CoverageCloseoutTests(unittest.TestCase):
         for tid in ("kdrs.u01","kdrs.u02"):
             t=self.tests[tid]
             self.assertEqual(t["lifecycle"]["role"], "development_regression_reference")
-            self.assertEqual(t["status"], "active")
+            self.assertEqual(t["status"], "regression_reference")
+            self.assertFalse(t["lifecycle"]["normal_execution"])
+            self.assertTrue(t["lifecycle"]["regression_execution"])
             self.assertNotEqual(t["legacy"]["job_enabled"], 0)
 
 if __name__ == "__main__":

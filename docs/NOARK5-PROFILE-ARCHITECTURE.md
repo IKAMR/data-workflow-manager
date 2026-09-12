@@ -76,3 +76,9 @@ The historical KDRS Query material remains useful for regression and migration t
 ## a23 – first verified normative facts
 
 a23 demonstrates the complete provenance path with selected official Noark 5 v5.0 facts. The v5 metadata registry now contains a fully source-verified M001 `systemID` entry. The v5 requirement registry contains two explicitly verified functional requirements concerning creation and closure of classes. These are marked as not directly testable from a static extract because they describe system behaviour. a23 does not claim full transcription of the Noark 5 specification; `specification_coverage.json` remains authoritative for coverage.
+
+## Execution profiles
+
+The Noark 5 test catalogue declares `normal` and `regression` execution profiles. The normal profile excludes tests whose lifecycle role is `development_regression_reference`. Regression execution retains them for controlled historical comparison.
+
+Execution-profile semantics are definition-driven and do not hardcode U01/U02 identifiers in the generic engine.

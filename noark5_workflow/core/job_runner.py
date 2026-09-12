@@ -83,7 +83,8 @@ class JobRunner:
                 if not result.ok:
                     job.next_operation_index=zero_index; job.progress=zero_index/total; state_changed(); break
                 job.mark_operation_completed(zero_index); state_changed()
-                if job.has_checkpoint(op_id) and zero_index < total-1:
+                checkpoint_allowed = bool(getattr(operation, "allow_checkpoint", True))
+                if checkpoint_allowed and job.has_checkpoint(op_id) and zero_index < total-1:
                     job.status=JobStatus.WAITING; job.message=f"Venter ved kontrollpunkt etter {operation.definition.name}"; log(job.message); state_changed(); return JobRunOutcome(True,True)
             if all_ok:
                 job.status=JobStatus.OK; job.progress=1.0; job.next_operation_index=total; job.message="Workflow fullført"

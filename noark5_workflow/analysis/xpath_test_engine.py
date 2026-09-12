@@ -8,6 +8,8 @@ from pathlib import Path
 from time import perf_counter
 from typing import Any, Callable
 
+from .legacy_regression import build_legacy_regression_comparison
+
 from lxml import etree
 
 
@@ -529,12 +531,53 @@ def _event(event_type: str, test: dict[str, Any], current: int, total: int, **ex
     return event
 
 
+
+def _select_catalog_tests(
+    catalog: dict[str, Any],
+    *,
+    execution_profile: str,
+    include_disabled: bool,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    profiles = catalog.get("execution_profiles") or {}
+    profile = profiles.get(execution_profile)
+    if profile is None:
+        if profiles:
+            raise ValueError(f"Ukjent execution_profile: {execution_profile}")
+        profile = {}
+
+    excluded_roles = set(profile.get("exclude_lifecycle_roles") or [])
+    selected = []
+    excluded = []
+
+    for test in catalog["tests"]:
+        lifecycle_role = test.get("lifecycle", {}).get("role")
+        if lifecycle_role in excluded_roles:
+            excluded.append({
+                "test_id": test["test_id"],
+                "legacy_job_id": test.get("legacy", {}).get("job_id"),
+                "lifecycle_role": lifecycle_role,
+                "reason": "excluded_by_execution_profile",
+            })
+            continue
+        if not include_disabled and test["legacy"]["job_enabled"] == 0:
+            excluded.append({
+                "test_id": test["test_id"],
+                "legacy_job_id": test.get("legacy", {}).get("job_id"),
+                "lifecycle_role": lifecycle_role,
+                "reason": "disabled_by_legacy_source",
+            })
+            continue
+        selected.append(test)
+
+    return selected, excluded
+
 def run_catalog(
     catalog_path: str | Path,
     extraction_root: str | Path,
     output_dir: str | Path,
     *,
     include_disabled: bool = True,
+    execution_profile: str = "normal",
     progress_callback: TestProgressCallback | None = None,
 ) -> dict[str, Any]:
     catalog_path = Path(catalog_path)
@@ -549,7 +592,11 @@ def run_catalog(
     snapshot = output_dir / "definitions.json"
     snapshot.write_text(json.dumps(catalog, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
-    selected = [t for t in catalog["tests"] if include_disabled or t["legacy"]["job_enabled"] != 0]
+    selected, excluded = _select_catalog_tests(
+        catalog,
+        execution_profile=execution_profile,
+        include_disabled=include_disabled,
+    )
     total = len(selected)
     event_path = output_dir / "test-events.jsonl"
     event_path.write_text("", encoding="utf-8")
@@ -560,6 +607,8 @@ def run_catalog(
         "source_master": catalog["source"],
         "extraction_root": str(Path(extraction_root)),
         "test_events": event_path.name,
+        "execution_profile": execution_profile,
+        "excluded_tests": excluded,
         "tests": [],
     }
 
@@ -599,6 +648,19 @@ def run_catalog(
             })
 
     index["summary"] = {k: sum(1 for r in index["tests"] if r["status"] == k) for k in sorted({r["status"] for r in index["tests"]})}
+    if execution_profile == "regression":
+        contract_ref = catalog.get("legacy_regression_contract")
+        if contract_ref:
+            contract_path = (catalog_path.parent / contract_ref).resolve()
+            contract = load_catalog(contract_path)
+            comparison = build_legacy_regression_comparison(results_dir, contract)
+            comparison_file = output_dir / "legacy-regression-comparison.json"
+            comparison_file.write_text(json.dumps(comparison, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            index["legacy_regression_comparison"] = {
+                "file": comparison_file.name,
+                "summary": comparison["summary"],
+            }
+
     index["timing"] = {
         "total_test_duration_seconds": round(sum(float(r.get("duration_seconds") or 0) for r in index["tests"]), 6),
         "slowest_tests": sorted(
