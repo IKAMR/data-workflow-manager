@@ -1,0 +1,92 @@
+{
+  "$schema": "../profile.schema.json",
+  "profile_format_version": 1,
+  "profile_id": "noark5",
+  "display_name": "Noark 5",
+  "status": "active_development_a23_7",
+  "profile_root": "config/noark5",
+  "supported_versions": [
+    "3.1",
+    "4.0",
+    "5.0"
+  ],
+  "principles": {
+    "manifest_is_authoritative_entrypoint": true,
+    "profile_specific_knowledge_outside_generic_engine": true,
+    "source_provenance_required": true,
+    "observations_separate_from_assessment": true,
+    "generic_observed_values_preserved": true,
+    "version_specific_rules_must_be_explicit": true,
+    "do_not_assume_rules_across_versions": true
+  },
+  "sources": {
+    "registry": "config/noark5/standards/sources.json"
+  },
+  "capabilities": {
+    "schema_validation": true,
+    "xpath_analysis": true,
+    "whole_extraction_scope": true,
+    "archive_part_scope": true,
+    "reconciliation": true,
+    "standard_value_comparison": true,
+    "legacy_regression_reference": true
+  },
+  "definitions": {
+    "tests": [
+      "config/noark5/tests/xpath_catalog_2026_05_26.json"
+    ],
+    "analysis": [
+      "config/noark5/analysis/u1_total.json",
+      "config/noark5/analysis/u1_u2_core_arkiv_arkivdel.json",
+      "config/noark5/analysis/u1_u2_coverage_2026_05_26.json"
+    ],
+    "standards": [
+      "config/noark5/standards/noark5_standard_values.json",
+      "config/noark5/standards/specification_coverage.json",
+      "config/noark5/standards/provenance_contract.json"
+    ],
+    "schemas": [
+      "config/noark5/xml_schema_validation.json"
+    ],
+    "views": [
+      "config/noark5/report_views/u1_u2_views.json"
+    ],
+    "field_definitions": [
+      "config/noark5/arkivstruktur_fields.json"
+    ],
+    "metadata": [
+      "config/noark5/standards/metadata/index.json"
+    ],
+    "requirements": [
+      "config/noark5/standards/requirements/index.json"
+    ]
+  },
+  "documentation": [
+    "docs/NOARK5-PROFILE-ARCHITECTURE.md",
+    "docs/NOARK5-ANALYSIS-MODEL.md",
+    "docs/NOARK5-STANDARD-VALUES.md",
+    "docs/NOARK5-TERMINOLOGY-NOTE.md",
+    "docs/NOARK5-U1-U2-COVERAGE-MAPPING.md"
+  ],
+  "legacy_reference": {
+    "repository": "IKAMR/KDRS_Query",
+    "master_definition": "doc/xml-queries_noark5_2026-05-26.txt",
+    "terminology_note": "U1/U2 are local historical names, retained only for traceability/regression."
+  },
+  "future": {
+    "view_model": "config/noark5/views/",
+    "external_creator_control": "separate comparison layer; not XPath test logic"
+  },
+  "specification_knowledge": {
+    "coverage": "config/noark5/standards/specification_coverage.json",
+    "provenance_contract": "config/noark5/standards/provenance_contract.json",
+    "rule": "Official Noark knowledge is reusable only when discoverable from this manifest and traceable to the registered source.",
+    "maturity": {
+      "architecture": "established",
+      "standard_values": "partial_verified",
+      "metadata": "partial_verified",
+      "requirements": "partial_verified_v5_started",
+      "full_specification_coverage": false
+    }
+  }
+}

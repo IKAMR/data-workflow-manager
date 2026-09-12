@@ -1,0 +1,394 @@
+{
+  "registry_format_version": 2,
+  "registry_id": "noark5-standard-values",
+  "purpose": "Machine-readable Noark 5 standard value sets kept outside the generic engine. Observed values remain reported independently.",
+  "principles": {
+    "observed_values_preserved": true,
+    "nonstandard_observed_value_is_not_automatic_test_failure": true,
+    "version_specific_value_sets": true,
+    "engine_must_be_profile_agnostic": true,
+    "only_source_verified_version_sets_are_registered": true
+  },
+  "versions": {
+    "3.1": {
+      "source": {
+        "title": "Noark 5 versjon 3.1, Vedlegg nr. 1 Metadatakatalog",
+        "date": "2013-03-13",
+        "authority": "Riksarkivet",
+        "verification": "official_source_verified"
+      },
+      "value_sets": {
+        "M050_arkivstatus": {
+          "values": [
+            "Opprettet",
+            "Avsluttet"
+          ],
+          "value_set_role": "obligatory_values",
+          "metadata_id": "M050"
+        },
+        "M051_arkivdelstatus": {
+          "values": [
+            "Aktiv periode",
+            "Overlappingsperiode",
+            "Avsluttet periode",
+            "Uaktuelle mapper"
+          ],
+          "value_set_role": "obligatory_values",
+          "metadata_id": "M051"
+        },
+        "M052_saksstatus": {
+          "values": [
+            "Under behandling",
+            "Avsluttet",
+            "Utgår"
+          ],
+          "value_set_role": "obligatory_values",
+          "metadata_id": "M052"
+        },
+        "M054_dokumentstatus": {
+          "values": [
+            "Dokumentet er under redigering",
+            "Dokumentet er ferdigstilt"
+          ],
+          "value_set_role": "obligatory_values",
+          "metadata_id": "M054"
+        },
+        "M082_journalposttype": {
+          "values": [
+            "Inngående dokument",
+            "Utgående dokument",
+            "Organinternt dokument for oppfølging",
+            "Organinternt dokument uten oppfølging",
+            "Saksframlegg"
+          ],
+          "value_set_role": "obligatory_values",
+          "metadata_id": "M082"
+        },
+        "M217_tilknyttetRegistreringSom": {
+          "values": [
+            "Hoveddokument",
+            "Vedlegg"
+          ],
+          "value_set_role": "obligatory_values",
+          "metadata_id": "M217"
+        },
+        "M300_dokumentmedium": {
+          "values": [
+            "Fysisk arkiv",
+            "Elektronisk arkiv",
+            "Blandet fysisk og elektronisk arkiv"
+          ],
+          "value_set_role": "obligatory_values",
+          "metadata_id": "M300"
+        },
+        "M700_variantformat": {
+          "values": [
+            "Produksjonsformat",
+            "Arkivformat",
+            "Dokument hvor deler av innholdet er skjermet"
+          ],
+          "value_set_role": "obligatory_values",
+          "metadata_id": "M700"
+        },
+        "M053_journalstatus": {
+          "values": [
+            "Journalført",
+            "Ferdigstilt fra saksbehandler",
+            "Godkjent av leder",
+            "Ekspedert",
+            "Arkivert",
+            "Utgår"
+          ],
+          "value_set_role": "obligatory_values",
+          "metadata_id": "M053"
+        }
+      }
+    },
+    "4.0": {
+      "source": {
+        "title": "Noark 5 versjon 4.0, Vedlegg nr. 1 Metadatakatalog",
+        "date": "2016-12-01",
+        "authority": "Riksarkivet",
+        "verification": "official_source_verified"
+      },
+      "value_sets": {
+        "M050_arkivstatus": {
+          "values": [
+            "Opprettet",
+            "Avsluttet"
+          ],
+          "value_set_role": "obligatory_values",
+          "metadata_id": "M050"
+        },
+        "M051_arkivdelstatus": {
+          "values": [
+            "Aktiv periode",
+            "Overlappingsperiode",
+            "Avsluttet periode",
+            "Uaktuelle mapper"
+          ],
+          "value_set_role": "obligatory_values",
+          "metadata_id": "M051"
+        },
+        "M052_saksstatus": {
+          "values": [
+            "Under behandling",
+            "Avsluttet",
+            "Utgår"
+          ],
+          "value_set_role": "obligatory_values",
+          "metadata_id": "M052"
+        },
+        "M054_dokumentstatus": {
+          "values": [
+            "Dokumentet er under redigering",
+            "Dokumentet er ferdigstilt"
+          ],
+          "value_set_role": "obligatory_values",
+          "metadata_id": "M054"
+        },
+        "M082_journalposttype": {
+          "values": [
+            "Inngående dokument",
+            "Utgående dokument",
+            "Organinternt dokument for oppfølging",
+            "Organinternt dokument uten oppfølging",
+            "Saksframlegg"
+          ],
+          "value_set_role": "obligatory_values",
+          "metadata_id": "M082"
+        },
+        "M217_tilknyttetRegistreringSom": {
+          "values": [
+            "Hoveddokument",
+            "Vedlegg"
+          ],
+          "value_set_role": "obligatory_values",
+          "metadata_id": "M217"
+        },
+        "M300_dokumentmedium": {
+          "values": [
+            "Fysisk arkiv",
+            "Elektronisk arkiv",
+            "Blandet fysisk og elektronisk arkiv"
+          ],
+          "value_set_role": "obligatory_values",
+          "metadata_id": "M300"
+        },
+        "M700_variantformat": {
+          "values": [
+            "Produksjonsformat",
+            "Arkivformat",
+            "Dokument hvor deler av innholdet er skjermet"
+          ],
+          "value_set_role": "obligatory_values",
+          "metadata_id": "M700"
+        },
+        "M053_journalstatus": {
+          "values": [
+            "Journalført",
+            "Ferdigstilt fra saksbehandler",
+            "Godkjent av leder",
+            "Ekspedert",
+            "Arkivert",
+            "Utgår"
+          ],
+          "value_set_role": "obligatory_values",
+          "metadata_id": "M053"
+        }
+      }
+    },
+    "5.0": {
+      "source": {
+        "title": "Noark 5 versjon 5.0, Vedlegg nr. 1 Metadatakatalog",
+        "date": "2018-12-06",
+        "authority": "Riksarkivet",
+        "verification": "official_source_verified"
+      },
+      "value_sets": {
+        "M050_arkivstatus": {
+          "values": [
+            "Opprettet",
+            "Avsluttet"
+          ],
+          "value_set_role": "obligatory_values",
+          "metadata_id": "M050"
+        },
+        "M051_arkivdelstatus": {
+          "values": [
+            "Aktiv periode",
+            "Overlappingsperiode",
+            "Avsluttet periode",
+            "Uaktuelle mapper"
+          ],
+          "value_set_role": "obligatory_values",
+          "metadata_id": "M051"
+        },
+        "M052_saksstatus": {
+          "values": [
+            "Under behandling",
+            "Avsluttet",
+            "Utgår"
+          ],
+          "value_set_role": "obligatory_values",
+          "metadata_id": "M052"
+        },
+        "M054_dokumentstatus": {
+          "values": [
+            "Dokumentet er under redigering",
+            "Dokumentet er ferdigstilt"
+          ],
+          "value_set_role": "obligatory_values",
+          "metadata_id": "M054"
+        },
+        "M082_journalposttype": {
+          "values": [
+            "Inngående dokument",
+            "Utgående dokument",
+            "Organinternt dokument for oppfølging",
+            "Organinternt dokument uten oppfølging",
+            "Saksframlegg"
+          ],
+          "value_set_role": "obligatory_values",
+          "metadata_id": "M082"
+        },
+        "M217_tilknyttetRegistreringSom": {
+          "values": [
+            "Hoveddokument",
+            "Vedlegg"
+          ],
+          "value_set_role": "obligatory_values",
+          "metadata_id": "M217"
+        },
+        "M300_dokumentmedium": {
+          "values": [
+            "Fysisk arkiv",
+            "Elektronisk arkiv",
+            "Blandet fysisk og elektronisk arkiv"
+          ],
+          "value_set_role": "obligatory_values",
+          "metadata_id": "M300"
+        },
+        "M700_variantformat": {
+          "values": [
+            "Produksjonsformat",
+            "Arkivformat",
+            "Dokument hvor deler av innholdet er skjermet"
+          ],
+          "value_set_role": "obligatory_values",
+          "metadata_id": "M700"
+        },
+        "M053_journalstatus": {
+          "values": [
+            "Journalført",
+            "Ekspedert",
+            "Arkivert",
+            "Utgår"
+          ],
+          "value_set_role": "obligatory_values",
+          "metadata_id": "M053"
+        },
+        "M087_korrespondanseparttype": {
+          "metadata_id": "M087",
+          "value_set_role": "obligatory_values",
+          "values": [
+            "Avsender",
+            "Mottaker",
+            "Kopimottaker",
+            "Gruppemottaker",
+            "Intern avsender",
+            "Intern mottaker"
+          ]
+        },
+        "M089_slettingstype": {
+          "metadata_id": "M089",
+          "value_set_role": "obligatory_values",
+          "values": [
+            "Sletting av produksjonsformat",
+            "Sletting av tidligere versjon",
+            "Sletting av variant med sladdet informasjon"
+          ]
+        },
+        "M450_kassasjonsvedtak": {
+          "metadata_id": "M450",
+          "value_set_role": "obligatory_values",
+          "values": [
+            "Bevares",
+            "Kasseres",
+            "Vurderes senere"
+          ]
+        },
+        "M500_tilgangsrestriksjon": {
+          "metadata_id": "M500",
+          "value_set_role": "mixed_obligatory_and_optional_values",
+          "obligatory_values": [
+            "Unntatt offentlighet"
+          ],
+          "optional_values": [
+            "Personalsaker",
+            "Klientsaker"
+          ],
+          "values": [
+            "Unntatt offentlighet",
+            "Personalsaker",
+            "Klientsaker"
+          ]
+        },
+        "M502_skjermingMetadata": {
+          "metadata_id": "M502",
+          "value_set_role": "obligatory_values",
+          "values": [
+            "Skjerming klasseID",
+            "Skjerming tittel klasse",
+            "Skjerming tittel mappe - unntatt første linje",
+            "Skjerming tittel mappe - utvalgte ord",
+            "Skjerming navn part i sak",
+            "Skjerming tittel registrering - unntatt første linje",
+            "Skjerming tittel registrering - utvalgte ord",
+            "Skjerming navn avsender",
+            "Skjerming navn mottaker",
+            "Skjerming tittel dokumentbeskrivelse",
+            "Skjerming merknadstekst",
+            "Midlertidig skjerming"
+          ]
+        },
+        "M503_skjermingDokument": {
+          "metadata_id": "M503",
+          "value_set_role": "obligatory_values",
+          "values": [
+            "Skjerming av hele dokumentet",
+            "Skjerming av deler av dokumentet"
+          ]
+        },
+        "M506_gradering": {
+          "metadata_id": "M506",
+          "value_set_role": "obligatory_values",
+          "values": [
+            "Strengt hemmelig (sikkerhetsgrad)",
+            "Hemmelig (sikkerhetsgrad)",
+            "Konfidensielt (sikkerhetsgrad)",
+            "Begrenset (sikkerhetsgrad)",
+            "Fortrolig (beskyttelsesgrad)",
+            "Strengt fortrolig (beskyttelsesgrad)"
+          ]
+        },
+        "M508_elektroniskSignaturVerifisert": {
+          "metadata_id": "M508",
+          "value_set_role": "obligatory_values",
+          "values": [
+            "Signatur påført, ikke verifisert",
+            "Signatur påført og verifisert"
+          ]
+        },
+        "M056_presedensstatus": {
+          "metadata_id": "M056",
+          "value_set_role": "obligatory_values",
+          "values": [
+            "Gjeldende",
+            "Foreldet"
+          ]
+        }
+      }
+    }
+  }
+}

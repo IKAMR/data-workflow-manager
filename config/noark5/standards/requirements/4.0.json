@@ -1,0 +1,14 @@
+{
+  "requirements_registry_format_version": 1,
+  "profile_id": "noark5",
+  "noark_version": "4.0",
+  "status": "not_yet_populated",
+  "source_registry": "config/noark5/standards/sources.json",
+  "principles": {
+    "only_explicitly_verified_requirements_may_be_added": true,
+    "legacy_xpath_is_not_normative_authority": true,
+    "version_specific": true,
+    "requirement_provenance_required": true
+  },
+  "requirements": []
+}

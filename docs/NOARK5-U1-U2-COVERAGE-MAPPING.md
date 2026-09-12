@@ -43,3 +43,8 @@ Sammenligning mot arkivskapers produksjonsgrunnlag og avsluttede arkivdeler mode
 
 ## U01/U02-livssyklus
 I a22 er U01 og U02 eksplisitt merket `development_regression_reference` i katalogen. Dette endrer ikke kjøringen i a22; selve uttaket fra ordinær kjøring er planlagt til a24.
+
+
+## a23 – standardverdier flyttes ut av historisk U1/U2-språk
+
+Standardverdier behandles fra a23 som en egen Noark 5-spesifikasjonsreferanse og ikke som en egenskap ved U1/U2. Første maskinlesbare register ligger i `config/noark5/standards/noark5_standard_values.json`. U1/U2-navn brukes videre i denne filen bare fordi filen dokumenterer migrering og regresjonsdekning fra de historiske KDRS Query-definisjonene.

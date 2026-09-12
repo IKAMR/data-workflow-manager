@@ -1,0 +1,68 @@
+{
+  "specification_coverage_format_version": 1,
+  "profile_id": "noark5",
+  "status": "partial_verified_knowledge_base",
+  "profile_entrypoint": "config/noark5/profile.json",
+  "source_registry": "config/noark5/standards/sources.json",
+  "principles": {
+    "coverage_is_explicit": true,
+    "absence_means_not_yet_verified": true,
+    "legacy_tests_do_not_count_as_normative_coverage": true,
+    "version_specific_verification_required": true,
+    "no_cross_version_inference": true
+  },
+  "areas": {
+    "standard_values": {
+      "registry": "config/noark5/standards/noark5_standard_values.json",
+      "status": "partially_populated_verified"
+    },
+    "metadata": {
+      "registry": "config/noark5/standards/metadata/index.json",
+      "status": "partial_verified_with_selected_full_properties",
+      "verified_properties_now": [
+        "metadata_id",
+        "name_as_registered",
+        "source_id",
+        "standard_value_set_relationship",
+        "value_set_role_where_registered"
+      ],
+      "not_yet_claimed_generally": [
+        "datatype",
+        "cardinality",
+        "structural_placement",
+        "full_definition",
+        "all_version_differences"
+      ],
+      "verified_examples": [
+        {
+          "noark_version": "5.0",
+          "metadata_id": "M001",
+          "properties": [
+            "obligation",
+            "occurrence",
+            "definition",
+            "objects",
+            "source",
+            "inheritance",
+            "condition"
+          ]
+        }
+      ]
+    },
+    "requirements": {
+      "registry": "config/noark5/standards/requirements/index.json",
+      "status": "partial_verified_v5_started",
+      "note": "Normative requirements are added only after explicit review of the official Noark specification.",
+      "verified_requirement_count": {
+        "3.1": 0,
+        "4.0": 0,
+        "5.0": 2
+      },
+      "coverage_note": "Not complete. a23 proves the source-verification and provenance model with selected verified v5.0 requirements."
+    },
+    "legacy_regression": {
+      "registry": "config/noark5/analysis/u1_u2_coverage_2026_05_26.json",
+      "status": "separate_from_normative_specification_coverage"
+    }
+  }
+}

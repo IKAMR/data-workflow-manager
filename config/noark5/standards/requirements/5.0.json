@@ -1,0 +1,47 @@
+{
+  "requirements_registry_format_version": 1,
+  "profile_id": "noark5",
+  "noark_version": "5.0",
+  "status": "partial_verified_registry",
+  "source_registry": "config/noark5/standards/sources.json",
+  "principles": {
+    "only_explicitly_verified_requirements_may_be_added": true,
+    "legacy_xpath_is_not_normative_authority": true,
+    "version_specific": true,
+    "requirement_provenance_required": true
+  },
+  "requirements": [
+    {
+      "requirement_id": "noark5.v5.class.authorized_creation",
+      "id_role": "local_registry_id",
+      "noark_version": "5.0",
+      "source_id": "noark5-core-specifications",
+      "source_location": "Kapittel 2 Noark 5 datamodell, klassifikasjonssystem/klasse, side 25",
+      "verification_status": "verified",
+      "subject": "klasse",
+      "rule_type": "functional_requirement",
+      "normative_summary": "Autoriserte brukere skal kunne opprette nye klasser.",
+      "validation_relevance": "Primært system-/funksjonskrav; normalt ikke direkte etterprøvbart kun fra et avleveringsuttrekk.",
+      "extract_validation": {
+        "directly_testable_from_extract": false,
+        "reason": "Kravet gjelder løsningens funksjonalitet og autorisasjon."
+      }
+    },
+    {
+      "requirement_id": "noark5.v5.class.closure_prevents_new_folders",
+      "id_role": "local_registry_id",
+      "noark_version": "5.0",
+      "source_id": "noark5-core-specifications",
+      "source_location": "Kapittel 2 Noark 5 datamodell, klassifikasjonssystem/klasse, side 25",
+      "verification_status": "verified",
+      "subject": "klasse",
+      "rule_type": "functional_requirement",
+      "normative_summary": "Klasser skal kunne avsluttes slik at nye mapper ikke lenger kan knyttes til dem.",
+      "validation_relevance": "Delvis relevant som bakgrunn for validering; funksjonen kan ikke bevises fra et statisk uttrekk alene.",
+      "extract_validation": {
+        "directly_testable_from_extract": false,
+        "reason": "Et statisk uttrekk kan ikke bevise at løsningen hindret nye koblinger etter avslutning."
+      }
+    }
+  ]
+}

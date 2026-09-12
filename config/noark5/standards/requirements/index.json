@@ -1,0 +1,15 @@
+{
+  "requirements_index_format_version": 1,
+  "profile_id": "noark5",
+  "versions": {
+    "3.1": "config/noark5/standards/requirements/3.1.json",
+    "4.0": "config/noark5/standards/requirements/4.0.json",
+    "5.0": "config/noark5/standards/requirements/5.0.json"
+  },
+  "status": "partial_verified_registry_v5_started",
+  "version_status": {
+    "3.1": "not_yet_populated",
+    "4.0": "not_yet_populated",
+    "5.0": "partial_verified_registry"
+  }
+}

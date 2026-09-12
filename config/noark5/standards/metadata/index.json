@@ -1,0 +1,14 @@
+{
+  "metadata_index_format_version": 1,
+  "profile_id": "noark5",
+  "versions": {
+    "3.1": "config/noark5/standards/metadata/3.1.json",
+    "4.0": "config/noark5/standards/metadata/4.0.json",
+    "5.0": "config/noark5/standards/metadata/5.0.json"
+  },
+  "principles": {
+    "profile_manifest_entrypoint": "config/noark5/profile.json",
+    "authoritative_source_registry": "config/noark5/standards/sources.json",
+    "partial_registry_is_explicit": true
+  }
+}

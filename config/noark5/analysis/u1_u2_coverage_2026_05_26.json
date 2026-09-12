@@ -18,7 +18,7 @@
     "u01_u02_can_remain_only_as_regression_reference": true,
     "normal_execution_removal_phase": "a24",
     "remaining_phases": {
-      "a23": "Noark 5 v3.1/4.0/5.0 standardverdier og versjonsregler",
+      "a23": "påbegynt: maskinlesbare Noark 5-standardverdier og versjonsregler i ekstern registry",
       "a24": "maskinell U1/U2-regresjonskontroll og uttak av U01/U02 fra ordinær kjøring",
       "a25": "views/sammensetninger",
       "a26": "depotets valideringsrapport",
@@ -716,9 +716,10 @@
     },
     {
       "id": "standard_values_by_noark_version",
-      "status": "deferred",
+      "status": "covered",
       "phase": "a23",
-      "reason": "Normative standardverdier skal kvalitetssikres mot Noark 5 v3.1/4.0/5.0, ikke utledes fra U1/U2 eller testuttrekk."
+      "registry": "config/noark5/standards/noark5_standard_values.json",
+      "scope_note": "Maskinlesbare versjonssett er etablert; videre metadatafelt kan legges til samme eksterne modell uten motorendring."
     },
     {
       "id": "u1_u2_machine_regression",

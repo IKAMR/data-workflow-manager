@@ -114,3 +114,29 @@ Per-arkivdel-kontroller fortsetter å bruke samme individuelle test som totalen 
 a22 legger ikke til et nytt parallelt analyseprogram. Den formaliserer at rå datadekningen fra U1/U2 nå ligger i individuelle analyser. Dekningen dokumenteres maskinlesbart i `config/noark5/analysis/u1_u2_coverage_2026_05_26.json`.
 
 U01/U02 merkes som `development_regression_reference`, men kjøresemantikken endres først i a24. Gjenstående standardverdier per Noark-versjon er eksplisitt utsatt til a23 og regnes ikke som manglende rå datadekning i a22.
+
+
+## Terminologi og profilspesifikk konfigurasjon
+
+U1/U2 er lokale historiske betegnelser fra IKAMRs KDRS Query-definisjoner, ikke en generell Noark- eller KDRS-standard. Nye komponenter skal navngis etter faglig funksjon. Se `NOARK5-TERMINOLOGY-NOTE.md`.
+
+Noark 5-spesifikke standardverdier, metadata-ID-er og versjonsregler skal ligge i `config/noark5/` og ikke hardkodes i den generelle motoren. Motoren kan tilby generelle operasjoner som telling, gruppering, datointervall, rows, numerisk statistikk, reconciliation og sammenligning mot eksterne standardverdisett.
+
+## a23 – standardverdier og observerte verdier
+
+Fra a23 ligger maskinlesbare standardverdier under `config/noark5/standards/`. Observerte verdier beholdes uendret i de ordinære resultatfeltene. Standardverdikontrollen er et separat resultatlag som viser de observerte verdiene mot standardsett for v3.1, v4.0 og v5.0. En ekstra observert verdi gir status for videre vurdering, ikke automatisk teknisk feil.
+
+## Standardverdisammenligning – tomme verdier
+
+Ved sammenligning mot standardverdier skal motoren skille eksplisitt mellom at et felt ikke har observerte verdier og at alle observerte verdier finnes i standardsettet. Dette hindrer at fravær feilaktig presenteres som positivt samsvar.
+
+Dette endrer ikke prinsippet om at standardverdikontroll og generisk observerte verdier skal eksistere parallelt.
+
+## Profilmanifest og gjenfinning
+
+All Noark 5-spesifikk kunnskap skal være gjenfinnbar fra `config/noark5/profile.json`. Den generelle profilregelen er dokumentert i `docs/PROFILE-ARCHITECTURE.md`, og Noark 5-oppbygningen i `docs/NOARK5-PROFILE-ARCHITECTURE.md`.
+
+
+## Normative knowledge is not identical to extract tests
+
+The profile knowledge base may contain official Noark requirements that are not directly testable from a static archive extract. Such requirements keep their provenance and validation relevance, but shall not be converted into XPath tests unless the needed evidence is present in the extract.

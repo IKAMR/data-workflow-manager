@@ -318,6 +318,53 @@ def _metrics_with_archive_parts(tree, execution):
     return values
 
 
+def _standard_value_checks(values: dict[str, Any], checks: list[dict[str, Any]], registry: dict[str, Any] | None) -> dict[str, Any]:
+    if not checks or not registry:
+        return {}
+    out = {}
+    versions = registry.get("versions", {})
+    for check in checks:
+        metric_id = check["metric_id"]
+        observed = values.get(metric_id) or {}
+        if not isinstance(observed, dict):
+            observed = {}
+        version_results = {}
+        for version in check.get("versions", []):
+            value_set = versions.get(version, {}).get("value_sets", {}).get(check["value_set_id"])
+            if not value_set:
+                version_results[version] = {"status": "reference_missing"}
+                continue
+            standard_values = list(value_set.get("values", []))
+            standard_set = set(standard_values)
+            observed_standard = {v: observed.get(v, 0) for v in standard_values}
+            other_observed = {k: v for k, v in observed.items() if k not in standard_set}
+            observed_value_count = sum(int(v) for v in observed.values() if isinstance(v, (int, float)))
+            standard_observed_count = sum(int(v) for v in observed_standard.values() if isinstance(v, (int, float)))
+            additional_observed_count = sum(int(v) for v in other_observed.values() if isinstance(v, (int, float)))
+            if observed_value_count == 0:
+                status = "no_observed_values"
+            elif other_observed:
+                status = "additional_observed_values"
+            else:
+                status = "all_observed_values_standard"
+            version_results[version] = {
+                "status": status,
+                "observed_value_count": observed_value_count,
+                "standard_observed_count": standard_observed_count,
+                "additional_observed_count": additional_observed_count,
+                "standard_values": standard_values,
+                "standard_value_counts": observed_standard,
+                "additional_observed_values": other_observed,
+                "value_set_role": value_set.get("value_set_role"),
+            }
+        out[check["id"]] = {
+            "metric_id": metric_id,
+            "value_set_id": check["value_set_id"],
+            "versions": version_results,
+        }
+    return out
+
+
 def _cross_file_journal_date_comparison(test: dict[str, Any], extraction_root: Path) -> dict[str, Any]:
     ranges: dict[str, Any] = {}
     for source_id, source_spec in test["execution"]["sources"].items():
@@ -422,7 +469,7 @@ def _required_sources(test: dict[str, Any]) -> list[str]:
     return [test["source_xml"]]
 
 
-def run_test(test: dict[str, Any], extraction_root: str | Path) -> dict[str, Any]:
+def run_test(test: dict[str, Any], extraction_root: str | Path, standard_registry: dict[str, Any] | None = None) -> dict[str, Any]:
     extraction_root = Path(extraction_root)
     result = {
         "result_format_version": 2,
@@ -448,6 +495,9 @@ def run_test(test: dict[str, Any], extraction_root: str | Path) -> dict[str, Any
         tree = _normalise_tree(source)
         kind = test["execution"]["kind"]
         values = _metrics_with_archive_parts(tree, test["execution"]) if kind == "metrics" else _special(tree, test, source, extraction_root)
+        checks = test.get("standard_value_checks") or []
+        if checks:
+            values["_standard_values"] = _standard_value_checks(values, checks, standard_registry)
         result.update({"status": "ok", "source_path": str(source), "values": values})
     except Exception as exc:
         result.update({"status": "error", "source_path": str(source), "error": f"{type(exc).__name__}: {exc}"})
@@ -487,7 +537,12 @@ def run_catalog(
     include_disabled: bool = True,
     progress_callback: TestProgressCallback | None = None,
 ) -> dict[str, Any]:
+    catalog_path = Path(catalog_path)
     catalog = load_catalog(catalog_path)
+    standard_registry = None
+    standard_registry_ref = catalog.get("standard_values_registry")
+    if standard_registry_ref:
+        standard_registry = load_catalog((catalog_path.parent / standard_registry_ref).resolve())
     output_dir = Path(output_dir)
     results_dir = output_dir / "results"
     results_dir.mkdir(parents=True, exist_ok=True)
@@ -516,7 +571,7 @@ def run_catalog(
             if progress_callback:
                 progress_callback("started", current, total, test, "running", None)
 
-            result = run_test(test, extraction_root)
+            result = run_test(test, extraction_root, standard_registry=standard_registry)
             filename = test["test_id"].replace(".", "_") + ".json"
             (results_dir / filename).write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
             duration = result.get("timing", {}).get("duration_seconds")

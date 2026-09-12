@@ -1,0 +1,92 @@
+{
+  "source_registry_format_version": 1,
+  "profile_id": "noark5",
+  "principles": {
+    "authoritative_sources_preferred": true,
+    "source_specific_verification_required": true,
+    "do_not_infer_version_equivalence": true,
+    "legacy_sources_are_traceability_not_normative_authority": true
+  },
+  "sources": [
+    {
+      "source_id": "noark5-3.1-metadata-catalog",
+      "title": "Noark 5 versjon 3.1 – Vedlegg 1 Metadatakatalog",
+      "version": "3.1",
+      "authority": "Riksarkivet",
+      "role": [
+        "authoritative_metadata",
+        "authoritative_standard_values"
+      ],
+      "verification_status": "verified_for_registered_value_sets",
+      "used_by": [
+        "standards/noark5_standard_values.json"
+      ]
+    },
+    {
+      "source_id": "noark5-4.0-metadata-catalog",
+      "title": "Noark 5 versjon 4.0 – Vedlegg 1 Metadatakatalog",
+      "version": "4.0",
+      "authority": "Riksarkivet",
+      "role": [
+        "authoritative_metadata",
+        "authoritative_standard_values"
+      ],
+      "verification_status": "verified_for_registered_value_sets",
+      "used_by": [
+        "standards/noark5_standard_values.json"
+      ]
+    },
+    {
+      "source_id": "noark5-5.0-metadata-catalog",
+      "title": "Noark 5 versjon 5.0 – Vedlegg 1 Metadatakatalog",
+      "version": "5.0",
+      "authority": "Riksarkivet",
+      "role": [
+        "authoritative_metadata",
+        "authoritative_standard_values"
+      ],
+      "verification_status": "verified_for_registered_value_sets",
+      "used_by": [
+        "standards/noark5_standard_values.json"
+      ],
+      "source_locator_examples": [
+        "Vedlegg 1 Metadatakatalog, M001 systemID, side 4"
+      ]
+    },
+    {
+      "source_id": "noark5-core-specifications",
+      "title": "Noark 5 hovedspesifikasjoner og øvrige vedlegg",
+      "versions": [
+        "3.1",
+        "4.0",
+        "5.0"
+      ],
+      "authority": "Riksarkivet/Arkivverket",
+      "role": [
+        "authoritative_requirements",
+        "authoritative_structure"
+      ],
+      "verification_status": "progressive_review",
+      "note": "Krav og struktur registreres maskinlesbart etter eksplisitt kildeverifikasjon.",
+      "source_locator_examples": [
+        "Noark 5 v5.0, kapittel 2, klassifikasjonssystem/klasse, side 25"
+      ]
+    },
+    {
+      "source_id": "ikamar-kdrs-query-2026-05-26",
+      "title": "IKAMR/KDRS_Query – xml-queries_noark5_2026-05-26.txt",
+      "role": [
+        "legacy_reference",
+        "regression_reference",
+        "historical_test_source"
+      ],
+      "verification_status": "qa_against_noark_sources_in_progress",
+      "note": "KDRS Query og U1/U2-betegnelsene er lokale/historiske referanser og er ikke Noark- eller KDRS-standard."
+    }
+  ],
+  "review_method": {
+    "method": "progressive_explicit_source_verification",
+    "rule": "Only facts actually checked against the registered official source are promoted to machine-readable normative knowledge.",
+    "cross_version_rule": "No equivalence is assumed between Noark 5 versions."
+  }
+}

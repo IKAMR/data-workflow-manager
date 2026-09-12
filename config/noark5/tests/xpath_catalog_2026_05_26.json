@@ -1,7 +1,7 @@
 {
-  "catalog_format_version": 7,
+  "catalog_format_version": 9,
   "catalog_id": "noark5-kdrs-query-2026-05-26",
-  "status": "implementation_qa_a22",
+  "status": "implementation_qa_a23_3",
   "source": {
     "repository": "IKAMR/KDRS_Query",
     "path": "doc/xml-queries_noark5_2026-05-26.txt",
@@ -28,7 +28,8 @@
     "per_test_timing": true,
     "archive_part_metrics": true,
     "reconciliation": "whole_extraction_vs_archive_parts",
-    "u1_u2_role": "development_regression_reference_until_a24"
+    "u1_u2_role": "development_regression_reference_until_a24",
+    "standard_value_comparison": "external_registry_side_by_side_by_version"
   },
   "tests": [
     {
@@ -92,12 +93,29 @@
               "id": "string(arkivskaperID)",
               "description": "string(beskrivelse)"
             }
+          },
+          {
+            "id": "archive_status_counts",
+            "type": "group_text",
+            "select": "//arkiv/arkivstatus"
           }
         ]
       },
       "status": "active",
       "implementation_notes": [
         "a22: dekning av gjenværende U1/U2 identitets-/strukturdata uten å bruke U01/U02 som beregningskilde."
+      ],
+      "standard_value_checks": [
+        {
+          "id": "archive_status",
+          "metric_id": "archive_status_counts",
+          "value_set_id": "M050_arkivstatus",
+          "versions": [
+            "3.1",
+            "4.0",
+            "5.0"
+          ]
+        }
       ]
     },
     {
@@ -177,6 +195,11 @@
               "created_date": "string(opprettetDato)",
               "closed_date": "string(avsluttetDato)"
             }
+          },
+          {
+            "id": "archive_part_status_counts",
+            "type": "group_text",
+            "select": "//arkivdel/arkivdelstatus"
           }
         ],
         "archive_part_metrics": [
@@ -256,6 +279,28 @@
         "a22: samme faglige måling materialiseres per arkivdel og avstemmes mot total der summering er faglig relevant.",
         "a22: total og arkivdel-scope bruker samme testdefinisjon med reconciliation der metrikkene kan rekonstrueres.",
         "a22: dekning av gjenværende U1/U2 identitets-/strukturdata uten å bruke U01/U02 som beregningskilde."
+      ],
+      "standard_value_checks": [
+        {
+          "id": "archive_part_status",
+          "metric_id": "archive_part_status_counts",
+          "value_set_id": "M051_arkivdelstatus",
+          "versions": [
+            "3.1",
+            "4.0",
+            "5.0"
+          ]
+        },
+        {
+          "id": "document_medium",
+          "metric_id": "document_medium_counts",
+          "value_set_id": "M300_dokumentmedium",
+          "versions": [
+            "3.1",
+            "4.0",
+            "5.0"
+          ]
+        }
       ]
     },
     {
@@ -888,6 +933,18 @@
       "status": "active",
       "implementation_notes": [
         "a22: dekning av gjenværende U1/U2 identitets-/strukturdata uten å bruke U01/U02 som beregningskilde."
+      ],
+      "standard_value_checks": [
+        {
+          "id": "case_status",
+          "metric_id": "status_counts",
+          "value_set_id": "M052_saksstatus",
+          "versions": [
+            "3.1",
+            "4.0",
+            "5.0"
+          ]
+        }
       ]
     },
     {
@@ -1093,6 +1150,28 @@
       "status": "active",
       "implementation_notes": [
         "a22: dekning av gjenværende U1/U2 identitets-/strukturdata uten å bruke U01/U02 som beregningskilde."
+      ],
+      "standard_value_checks": [
+        {
+          "id": "journalpost_type",
+          "metric_id": "journalpost_type_counts",
+          "value_set_id": "M082_journalposttype",
+          "versions": [
+            "3.1",
+            "4.0",
+            "5.0"
+          ]
+        },
+        {
+          "id": "journal_status",
+          "metric_id": "journal_status_counts",
+          "value_set_id": "M053_journalstatus",
+          "versions": [
+            "3.1",
+            "4.0",
+            "5.0"
+          ]
+        }
       ]
     },
     {
@@ -1428,6 +1507,18 @@
       "implementation_notes": [
         "a22: Dokumentnummer og generisk dokumenttype fra U01 materialiseres i C21. Generisk fordeling beholdes uten å gjøre testuttrekkets verdier normative.",
         "a22: total og arkivdel-scope bruker samme testdefinisjon med reconciliation der metrikkene kan rekonstrueres."
+      ],
+      "standard_value_checks": [
+        {
+          "id": "document_relation",
+          "metric_id": "relation_type_counts",
+          "value_set_id": "M217_tilknyttetRegistreringSom",
+          "versions": [
+            "3.1",
+            "4.0",
+            "5.0"
+          ]
+        }
       ]
     },
     {
@@ -1564,6 +1655,18 @@
       "status": "active",
       "implementation_notes": [
         "a22: samme faglige måling materialiseres per arkivdel og avstemmes mot total der summering er faglig relevant."
+      ],
+      "standard_value_checks": [
+        {
+          "id": "document_status",
+          "metric_id": "status_counts",
+          "value_set_id": "M054_dokumentstatus",
+          "versions": [
+            "3.1",
+            "4.0",
+            "5.0"
+          ]
+        }
       ]
     },
     {
@@ -1896,6 +1999,18 @@
         "a22: Versjonsnummer, format, formatdetaljer og filstørrelsesstatistikk fra U01 materialiseres i C24.",
         "a22: samme faglige måling materialiseres per arkivdel og avstemmes mot total der summering er faglig relevant.",
         "a22: total og arkivdel-scope bruker samme testdefinisjon med reconciliation der metrikkene kan rekonstrueres."
+      ],
+      "standard_value_checks": [
+        {
+          "id": "variant_format",
+          "metric_id": "variant_format_counts",
+          "value_set_id": "M700_variantformat",
+          "versions": [
+            "3.1",
+            "4.0",
+            "5.0"
+          ]
+        }
       ]
     },
     {
@@ -2241,6 +2356,11 @@
             "type": "group_xpath",
             "select": "//korrespondansepart",
             "value": "name(..)"
+          },
+          {
+            "id": "correspondence_party_type_counts",
+            "type": "group_text",
+            "select": "//korrespondansepart/korrespondanseparttype"
           }
         ],
         "archive_part_metrics": [
@@ -2254,6 +2374,11 @@
             "type": "group_xpath",
             "select": ".//korrespondansepart",
             "value": "name(..)"
+          },
+          {
+            "id": "correspondence_party_type_counts",
+            "type": "group_text",
+            "select": ".//korrespondansepart/korrespondanseparttype"
           }
         ],
         "reconciliation": [
@@ -2268,12 +2393,27 @@
             "type": "counter_sum",
             "whole": "parent_type_counts",
             "parts": "parent_type_counts"
+          },
+          {
+            "id": "correspondence_party_type_counts",
+            "type": "counter_sum"
           }
         ]
       },
       "status": "active",
       "implementation_notes": [
-        "a22: samme faglige måling materialiseres per arkivdel og avstemmes mot total der summering er faglig relevant."
+        "a22: samme faglige måling materialiseres per arkivdel og avstemmes mot total der summering er faglig relevant.",
+        "a23: standardverdikontroll er ekstern og versjonsspesifikk; observerte verdier beholdes uendret og avvik er ikke automatisk testfeil."
+      ],
+      "standard_value_checks": [
+        {
+          "id": "correspondence_party_type",
+          "metric_id": "correspondence_party_type_counts",
+          "value_set_id": "M087_korrespondanseparttype",
+          "versions": [
+            "5.0"
+          ]
+        }
       ]
     },
     {
@@ -2482,6 +2622,21 @@
             "id": "dokumentbeskrivelse",
             "type": "xpath",
             "expression": "count(//dokumentbeskrivelse/skjerming)"
+          },
+          {
+            "id": "access_restriction_counts",
+            "type": "group_text",
+            "select": "//skjerming/tilgangsrestriksjon"
+          },
+          {
+            "id": "screening_metadata_counts",
+            "type": "group_text",
+            "select": "//skjerming/skjermingMetadata"
+          },
+          {
+            "id": "screening_document_counts",
+            "type": "group_text",
+            "select": "//skjerming/skjermingDokument"
           }
         ],
         "archive_part_metrics": [
@@ -2514,6 +2669,21 @@
             "id": "dokumentbeskrivelse",
             "type": "xpath",
             "expression": "count(.//dokumentbeskrivelse/skjerming)"
+          },
+          {
+            "id": "access_restriction_counts",
+            "type": "group_text",
+            "select": ".//skjerming/tilgangsrestriksjon"
+          },
+          {
+            "id": "screening_metadata_counts",
+            "type": "group_text",
+            "select": ".//skjerming/skjermingMetadata"
+          },
+          {
+            "id": "screening_document_counts",
+            "type": "group_text",
+            "select": ".//skjerming/skjermingDokument"
           }
         ],
         "reconciliation": [
@@ -2552,12 +2722,51 @@
             "type": "scalar_sum",
             "whole": "dokumentbeskrivelse",
             "parts": "dokumentbeskrivelse"
+          },
+          {
+            "id": "access_restriction_counts",
+            "type": "counter_sum"
+          },
+          {
+            "id": "screening_metadata_counts",
+            "type": "counter_sum"
+          },
+          {
+            "id": "screening_document_counts",
+            "type": "counter_sum"
           }
         ]
       },
       "status": "active",
       "implementation_notes": [
-        "a22: samme faglige måling materialiseres per arkivdel og avstemmes mot total der summering er faglig relevant."
+        "a22: samme faglige måling materialiseres per arkivdel og avstemmes mot total der summering er faglig relevant.",
+        "a23: standardverdikontroll er ekstern og versjonsspesifikk; observerte verdier beholdes uendret og avvik er ikke automatisk testfeil."
+      ],
+      "standard_value_checks": [
+        {
+          "id": "access_restriction",
+          "metric_id": "access_restriction_counts",
+          "value_set_id": "M500_tilgangsrestriksjon",
+          "versions": [
+            "5.0"
+          ]
+        },
+        {
+          "id": "screening_metadata",
+          "metric_id": "screening_metadata_counts",
+          "value_set_id": "M502_skjermingMetadata",
+          "versions": [
+            "5.0"
+          ]
+        },
+        {
+          "id": "screening_document",
+          "metric_id": "screening_document_counts",
+          "value_set_id": "M503_skjermingDokument",
+          "versions": [
+            "5.0"
+          ]
+        }
       ]
     },
     {
@@ -2604,10 +2813,28 @@
             "id": "v50_arkivdel",
             "type": "xpath",
             "expression": "count(//arkivdel/grad)"
+          },
+          {
+            "id": "grading_value_counts_v50",
+            "type": "group_text",
+            "select": "//grad/gradering"
           }
         ]
       },
-      "status": "active"
+      "status": "active",
+      "standard_value_checks": [
+        {
+          "id": "grading",
+          "metric_id": "grading_value_counts_v50",
+          "value_set_id": "M506_gradering",
+          "versions": [
+            "5.0"
+          ]
+        }
+      ],
+      "implementation_notes": [
+        "a23: standardverdikontroll er ekstern og versjonsspesifikk; observerte verdier beholdes uendret og avvik er ikke automatisk testfeil."
+      ]
     },
     {
       "test_id": "kdrs.f10",
@@ -2663,6 +2890,11 @@
             "id": "dokumentbeskrivelse",
             "type": "xpath",
             "expression": "count(//dokumentbeskrivelse/kassasjon)"
+          },
+          {
+            "id": "disposal_decision_value_counts",
+            "type": "group_text",
+            "select": "//kassasjon/kassasjonsvedtak"
           }
         ],
         "archive_part_metrics": [
@@ -2695,6 +2927,11 @@
             "id": "dokumentbeskrivelse",
             "type": "xpath",
             "expression": "count(.//dokumentbeskrivelse/kassasjon)"
+          },
+          {
+            "id": "disposal_decision_value_counts",
+            "type": "group_text",
+            "select": ".//kassasjon/kassasjonsvedtak"
           }
         ],
         "reconciliation": [
@@ -2733,12 +2970,27 @@
             "type": "scalar_sum",
             "whole": "dokumentbeskrivelse",
             "parts": "dokumentbeskrivelse"
+          },
+          {
+            "id": "disposal_decision_value_counts",
+            "type": "counter_sum"
           }
         ]
       },
       "status": "active",
       "implementation_notes": [
-        "a22: samme faglige måling materialiseres per arkivdel og avstemmes mot total der summering er faglig relevant."
+        "a22: samme faglige måling materialiseres per arkivdel og avstemmes mot total der summering er faglig relevant.",
+        "a23: standardverdikontroll er ekstern og versjonsspesifikk; observerte verdier beholdes uendret og avvik er ikke automatisk testfeil."
+      ],
+      "standard_value_checks": [
+        {
+          "id": "disposal_decision",
+          "metric_id": "disposal_decision_value_counts",
+          "value_set_id": "M450_kassasjonsvedtak",
+          "versions": [
+            "5.0"
+          ]
+        }
       ]
     },
     {
@@ -3076,7 +3328,18 @@
       "normalized_test_point": "N5.47",
       "implementation_notes": [
         "a21: legacy job_description/test_point er tomt; N5.47 er normalisert faglig kobling fra U1/2026-kilden. Legacy-feltet beholdes uendret.",
-        "a22: samme faglige måling materialiseres per arkivdel og avstemmes mot total der summering er faglig relevant."
+        "a22: samme faglige måling materialiseres per arkivdel og avstemmes mot total der summering er faglig relevant.",
+        "a23: standardverdikontroll er ekstern og versjonsspesifikk; observerte verdier beholdes uendret og avvik er ikke automatisk testfeil."
+      ],
+      "standard_value_checks": [
+        {
+          "id": "deletion_type",
+          "metric_id": "deletion_type_counts",
+          "value_set_id": "M089_slettingstype",
+          "versions": [
+            "5.0"
+          ]
+        }
       ]
     },
     {
@@ -3841,5 +4104,6 @@
       "Standardverdier per Noark-versjon kommer i egen definisjonsmodell senere",
       "U01/U02 beholdes som regresjonsgrunnlag i a22"
     ]
-  }
+  },
+  "standard_values_registry": "../standards/noark5_standard_values.json"
 }

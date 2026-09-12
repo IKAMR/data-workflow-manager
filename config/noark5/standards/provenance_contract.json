@@ -1,0 +1,32 @@
+{
+  "provenance_contract_format_version": 1,
+  "profile_id": "noark5",
+  "applies_to": [
+    "metadata",
+    "requirements",
+    "standard_values"
+  ],
+  "required_for_normative_fact": [
+    "source_id",
+    "noark_version",
+    "verification_status"
+  ],
+  "recommended_when_available": [
+    "source_location",
+    "source_section",
+    "source_page",
+    "source_quote_or_summary_reference"
+  ],
+  "verification_status_values": [
+    "verified",
+    "verified_for_registered_value_set",
+    "not_yet_verified",
+    "needs_review"
+  ],
+  "rules": [
+    "A normative fact must be traceable to a source in standards/sources.json.",
+    "A fact verified for one Noark version must not be copied to another version without verification.",
+    "Legacy KDRS Query definitions may document implementation history and regression but are not normative authority.",
+    "Missing information must remain missing or explicitly not_yet_verified; it must not be inferred silently."
+  ]
+}

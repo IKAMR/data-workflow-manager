@@ -1,0 +1,282 @@
+{
+  "metadata_registry_format_version": 1,
+  "profile_id": "noark5",
+  "noark_version": "5.0",
+  "source_id": "noark5-5.0-metadata-catalog",
+  "status": "partial_verified_registry_with_selected_full_metadata",
+  "principles": {
+    "only_verified_information_is_registered": true,
+    "missing_fields_are_not_inferred": true,
+    "version_specific": true
+  },
+  "metadata": [
+    {
+      "metadata_id": "M001",
+      "name": "systemID",
+      "noark_version": "5.0",
+      "source_id": "noark5-5.0-metadata-catalog",
+      "source_location": "Vedlegg 1 Metadatakatalog, M001 systemID, side 4",
+      "verification_status": "verified",
+      "normative_properties": {
+        "obligation": "mandatory",
+        "occurrence": "one",
+        "definition": "Globalt unik identifikasjon av arkivenheten (UID).",
+        "objects": [
+          "arkiv",
+          "arkivdel",
+          "klassifikasjonssystem",
+          "klasse",
+          "mappe",
+          "registrering",
+          "dokumentbeskrivelse",
+          "dokumentobjekt"
+        ],
+        "source": "Registreres automatisk av systemet",
+        "inheritance": "Nei",
+        "condition": "Skal ikke kunne endres"
+      },
+      "machine_readable_scope": [
+        "identity",
+        "obligation",
+        "occurrence",
+        "object_applicability",
+        "immutability"
+      ],
+      "notes": "Only explicitly source-verified properties are represented."
+    },
+    {
+      "metadata_id": "M050",
+      "name": "arkivstatus",
+      "source_id": "noark5-5.0-metadata-catalog",
+      "verification_status": "verified_for_registered_value_set",
+      "machine_readable_scope": [
+        "identity",
+        "standard_values"
+      ],
+      "standard_value_set_id": "M050_arkivstatus",
+      "value_set_role": "obligatory_values",
+      "notes": "Only already verified value-set information is represented. Datatype, occurrence and structural placement are not asserted until separately verified."
+    },
+    {
+      "metadata_id": "M051",
+      "name": "arkivdelstatus",
+      "source_id": "noark5-5.0-metadata-catalog",
+      "verification_status": "verified_for_registered_value_set",
+      "machine_readable_scope": [
+        "identity",
+        "standard_values"
+      ],
+      "standard_value_set_id": "M051_arkivdelstatus",
+      "value_set_role": "obligatory_values",
+      "notes": "Only already verified value-set information is represented. Datatype, occurrence and structural placement are not asserted until separately verified."
+    },
+    {
+      "metadata_id": "M052",
+      "name": "saksstatus",
+      "source_id": "noark5-5.0-metadata-catalog",
+      "verification_status": "verified_for_registered_value_set",
+      "machine_readable_scope": [
+        "identity",
+        "standard_values"
+      ],
+      "standard_value_set_id": "M052_saksstatus",
+      "value_set_role": "obligatory_values",
+      "notes": "Only already verified value-set information is represented. Datatype, occurrence and structural placement are not asserted until separately verified."
+    },
+    {
+      "metadata_id": "M053",
+      "name": "journalstatus",
+      "source_id": "noark5-5.0-metadata-catalog",
+      "verification_status": "verified_for_registered_value_set",
+      "machine_readable_scope": [
+        "identity",
+        "standard_values"
+      ],
+      "standard_value_set_id": "M053_journalstatus",
+      "value_set_role": "obligatory_values",
+      "notes": "Only already verified value-set information is represented. Datatype, occurrence and structural placement are not asserted until separately verified."
+    },
+    {
+      "metadata_id": "M054",
+      "name": "dokumentstatus",
+      "source_id": "noark5-5.0-metadata-catalog",
+      "verification_status": "verified_for_registered_value_set",
+      "machine_readable_scope": [
+        "identity",
+        "standard_values"
+      ],
+      "standard_value_set_id": "M054_dokumentstatus",
+      "value_set_role": "obligatory_values",
+      "notes": "Only already verified value-set information is represented. Datatype, occurrence and structural placement are not asserted until separately verified."
+    },
+    {
+      "metadata_id": "M056",
+      "name": "presedensstatus",
+      "source_id": "noark5-5.0-metadata-catalog",
+      "verification_status": "verified_for_registered_value_set",
+      "machine_readable_scope": [
+        "identity",
+        "standard_values"
+      ],
+      "standard_value_set_id": "M056_presedensstatus",
+      "value_set_role": "obligatory_values",
+      "notes": "Only already verified value-set information is represented. Datatype, occurrence and structural placement are not asserted until separately verified."
+    },
+    {
+      "metadata_id": "M082",
+      "name": "journalposttype",
+      "source_id": "noark5-5.0-metadata-catalog",
+      "verification_status": "verified_for_registered_value_set",
+      "machine_readable_scope": [
+        "identity",
+        "standard_values"
+      ],
+      "standard_value_set_id": "M082_journalposttype",
+      "value_set_role": "obligatory_values",
+      "notes": "Only already verified value-set information is represented. Datatype, occurrence and structural placement are not asserted until separately verified."
+    },
+    {
+      "metadata_id": "M087",
+      "name": "korrespondanseparttype",
+      "source_id": "noark5-5.0-metadata-catalog",
+      "verification_status": "verified_for_registered_value_set",
+      "machine_readable_scope": [
+        "identity",
+        "standard_values"
+      ],
+      "standard_value_set_id": "M087_korrespondanseparttype",
+      "value_set_role": "obligatory_values",
+      "notes": "Only already verified value-set information is represented. Datatype, occurrence and structural placement are not asserted until separately verified."
+    },
+    {
+      "metadata_id": "M089",
+      "name": "slettingstype",
+      "source_id": "noark5-5.0-metadata-catalog",
+      "verification_status": "verified_for_registered_value_set",
+      "machine_readable_scope": [
+        "identity",
+        "standard_values"
+      ],
+      "standard_value_set_id": "M089_slettingstype",
+      "value_set_role": "obligatory_values",
+      "notes": "Only already verified value-set information is represented. Datatype, occurrence and structural placement are not asserted until separately verified."
+    },
+    {
+      "metadata_id": "M217",
+      "name": "tilknyttetRegistreringSom",
+      "source_id": "noark5-5.0-metadata-catalog",
+      "verification_status": "verified_for_registered_value_set",
+      "machine_readable_scope": [
+        "identity",
+        "standard_values"
+      ],
+      "standard_value_set_id": "M217_tilknyttetRegistreringSom",
+      "value_set_role": "obligatory_values",
+      "notes": "Only already verified value-set information is represented. Datatype, occurrence and structural placement are not asserted until separately verified."
+    },
+    {
+      "metadata_id": "M300",
+      "name": "dokumentmedium",
+      "source_id": "noark5-5.0-metadata-catalog",
+      "verification_status": "verified_for_registered_value_set",
+      "machine_readable_scope": [
+        "identity",
+        "standard_values"
+      ],
+      "standard_value_set_id": "M300_dokumentmedium",
+      "value_set_role": "obligatory_values",
+      "notes": "Only already verified value-set information is represented. Datatype, occurrence and structural placement are not asserted until separately verified."
+    },
+    {
+      "metadata_id": "M450",
+      "name": "kassasjonsvedtak",
+      "source_id": "noark5-5.0-metadata-catalog",
+      "verification_status": "verified_for_registered_value_set",
+      "machine_readable_scope": [
+        "identity",
+        "standard_values"
+      ],
+      "standard_value_set_id": "M450_kassasjonsvedtak",
+      "value_set_role": "obligatory_values",
+      "notes": "Only already verified value-set information is represented. Datatype, occurrence and structural placement are not asserted until separately verified."
+    },
+    {
+      "metadata_id": "M500",
+      "name": "tilgangsrestriksjon",
+      "source_id": "noark5-5.0-metadata-catalog",
+      "verification_status": "verified_for_registered_value_set",
+      "machine_readable_scope": [
+        "identity",
+        "standard_values"
+      ],
+      "standard_value_set_id": "M500_tilgangsrestriksjon",
+      "value_set_role": "mixed_obligatory_and_optional_values",
+      "notes": "Only already verified value-set information is represented. Datatype, occurrence and structural placement are not asserted until separately verified."
+    },
+    {
+      "metadata_id": "M502",
+      "name": "skjermingMetadata",
+      "source_id": "noark5-5.0-metadata-catalog",
+      "verification_status": "verified_for_registered_value_set",
+      "machine_readable_scope": [
+        "identity",
+        "standard_values"
+      ],
+      "standard_value_set_id": "M502_skjermingMetadata",
+      "value_set_role": "obligatory_values",
+      "notes": "Only already verified value-set information is represented. Datatype, occurrence and structural placement are not asserted until separately verified."
+    },
+    {
+      "metadata_id": "M503",
+      "name": "skjermingDokument",
+      "source_id": "noark5-5.0-metadata-catalog",
+      "verification_status": "verified_for_registered_value_set",
+      "machine_readable_scope": [
+        "identity",
+        "standard_values"
+      ],
+      "standard_value_set_id": "M503_skjermingDokument",
+      "value_set_role": "obligatory_values",
+      "notes": "Only already verified value-set information is represented. Datatype, occurrence and structural placement are not asserted until separately verified."
+    },
+    {
+      "metadata_id": "M506",
+      "name": "gradering",
+      "source_id": "noark5-5.0-metadata-catalog",
+      "verification_status": "verified_for_registered_value_set",
+      "machine_readable_scope": [
+        "identity",
+        "standard_values"
+      ],
+      "standard_value_set_id": "M506_gradering",
+      "value_set_role": "obligatory_values",
+      "notes": "Only already verified value-set information is represented. Datatype, occurrence and structural placement are not asserted until separately verified."
+    },
+    {
+      "metadata_id": "M508",
+      "name": "elektroniskSignaturVerifisert",
+      "source_id": "noark5-5.0-metadata-catalog",
+      "verification_status": "verified_for_registered_value_set",
+      "machine_readable_scope": [
+        "identity",
+        "standard_values"
+      ],
+      "standard_value_set_id": "M508_elektroniskSignaturVerifisert",
+      "value_set_role": "obligatory_values",
+      "notes": "Only already verified value-set information is represented. Datatype, occurrence and structural placement are not asserted until separately verified."
+    },
+    {
+      "metadata_id": "M700",
+      "name": "variantformat",
+      "source_id": "noark5-5.0-metadata-catalog",
+      "verification_status": "verified_for_registered_value_set",
+      "machine_readable_scope": [
+        "identity",
+        "standard_values"
+      ],
+      "standard_value_set_id": "M700_variantformat",
+      "value_set_role": "obligatory_values",
+      "notes": "Only already verified value-set information is represented. Datatype, occurrence and structural placement are not asserted until separately verified."
+    }
+  ]
+}

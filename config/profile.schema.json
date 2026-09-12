@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:data-workflow-manager:profile-schema:1",
+  "title": "Data Workflow Manager profile manifest",
+  "type": "object",
+  "required": [
+    "profile_format_version",
+    "profile_id",
+    "display_name",
+    "status",
+    "profile_root",
+    "principles",
+    "sources",
+    "capabilities",
+    "definitions",
+    "documentation"
+  ],
+  "properties": {
+    "profile_format_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "profile_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "display_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string"
+    },
+    "profile_root": {
+      "type": "string"
+    },
+    "supported_versions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "principles": {
+      "type": "object"
+    },
+    "sources": {
+      "type": "object",
+      "required": [
+        "registry"
+      ],
+      "properties": {
+        "registry": {
+          "type": "string"
+        }
+      }
+    },
+    "capabilities": {
+      "type": "object"
+    },
+    "definitions": {
+      "type": "object",
+      "properties": {
+        "metadata": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "requirements": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "documentation": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "legacy_reference": {
+      "type": "object"
+    },
+    "future": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true
+}
