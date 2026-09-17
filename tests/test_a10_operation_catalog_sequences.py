@@ -32,17 +32,23 @@ class A10OperationCatalogAndSequenceTests(unittest.TestCase):
         for operation in registry.all():
             op_id = operation.definition.operation_id
             self.assertIn("noark5", operation_profiles(op_id), op_id)
-            self.assertTrue(belongs_to_profile(op_id, "noark5"), op_id)
+            # A registered operation may be deliberately hidden from the user
+            # catalogue while still belonging to the Noark 5 implementation.
+            if op_id == "analyse_noark5_core":
+                self.assertFalse(belongs_to_profile(op_id, "noark5"), op_id)
+            else:
+                self.assertTrue(belongs_to_profile(op_id, "noark5"), op_id)
             self.assertFalse(belongs_to_profile(op_id, "default"), op_id)
 
-    def test_catalog_uses_five_compact_display_categories(self):
+    def test_catalog_uses_compact_display_categories(self):
         metadata = load_operation_metadata()
         self.assertEqual(
             list(metadata["display_categories"]),
-            ["Kontroll", "Analyse", "Resultat", "Pakking", "Avansert"],
+            ["Kontroll", "Analyse", "Resultat", "Pakking", "Referanse", "Avansert"],
         )
         self.assertEqual(display_category("run_noark5_xpath_tests_2026"), "Kontroll")
         self.assertEqual(display_category("compose_noark5_views"), "Resultat")
+        self.assertEqual(display_category("analyse_noark5_u1"), "Referanse")
 
     def test_user_facing_names_hide_implementation_language(self):
         self.assertEqual(short_name("run_noark5_xpath_tests_2026"), "Noark 5-tester")

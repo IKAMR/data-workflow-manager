@@ -9,6 +9,7 @@ from app.operation_metadata import (
     display_category,
     display_category_color,
     display_category_names,
+    display_order,
     is_visible,
     maturity_label,
     short_name,
@@ -35,8 +36,6 @@ class OperationsPanel(ctk.CTkFrame):
         self.registry = registry
         self.on_add = on_add
         self.profile_id = profile_id
-        # Keep the registry category contract available for legacy/profile tests.
-        # Display categories are resolved separately from operation metadata below.
         categories = self.registry.categories()
         self.active_category = categories[0] if categories else ""
         self.tab_buttons: dict[str, ctk.CTkButton] = {}
@@ -100,13 +99,10 @@ class OperationsPanel(ctk.CTkFrame):
             self._show_no_operations()
 
     def set_profile(self, profile_id: str) -> None:
-        """Switch operation catalogue scope without rebuilding the application."""
         profile_id = str(profile_id).strip() or "default"
         if profile_id == self.profile_id:
             return
         self.profile_id = profile_id
-        # Keep the registry category contract available for legacy/profile tests.
-        # Display categories are resolved separately from operation metadata below.
         categories = self.registry.categories()
         self.active_category = categories[0] if categories else ""
         self._rebuild_tabs()
@@ -151,6 +147,12 @@ class OperationsPanel(ctk.CTkFrame):
             and display_category(op.definition.operation_id, op.definition.category) == category
             and is_visible(op.definition.operation_id, minimum)
         ]
+        operations.sort(
+            key=lambda op: (
+                display_order(op.definition.operation_id),
+                short_name(op.definition.operation_id, op.definition.name).casefold(),
+            )
+        )
         if not operations:
             ctk.CTkLabel(
                 self.cards,
@@ -184,7 +186,7 @@ class OperationsPanel(ctk.CTkFrame):
 
             op_id = operation.definition.operation_id
             label = (
-                f"{short_name(op_id, operation.definition.name)} · "
+                f"{index + 1}. {short_name(op_id, operation.definition.name)} · "
                 f"{maturity_label(operation.definition.operation_id)}"
             )
             ctk.CTkLabel(

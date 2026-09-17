@@ -82,10 +82,10 @@ class A10WindowGeometrySetupTests(unittest.TestCase):
         self.assertIn("main_window_width", text)
         self.assertIn("main_window_height", text)
 
-    def test_main_preserves_a19_runtime_boundary_and_uses_a20(self):
+    def test_main_uses_a21_on_top_of_a20_runtime_boundary(self):
         text = (ROOT / "main.py").read_text(encoding="utf-8")
-        self.assertIn("persistent_app_a19", text)
         self.assertIn("persistent_app_a20", text)
+        self.assertIn("persistent_app_a21", text)
 
 
 if __name__ == "__main__":

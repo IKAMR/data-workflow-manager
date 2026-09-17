@@ -1,8 +1,14 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from pathlib import Path
 
+from noark5_workflow.analysis.master_results import (
+    MasterResultError,
+    build_master_result_set,
+    load_master_result_set,
+)
 from noark5_workflow.analysis.xpath_test_engine import run_catalog
 from noark5_workflow.core.context import OperationContext
 from noark5_workflow.core.operation import BaseOperation, ExecutionTarget, OperationDefinition
@@ -65,6 +71,35 @@ class _BaseNoark5XpathTestsOperation(BaseOperation):
             progress_callback=on_test_progress,
         )
 
+        master_path = None
+        master_summary = None
+        if self.execution_profile == "normal":
+            try:
+                master_path = build_master_result_set(out)
+                master_document = load_master_result_set(master_path)
+                master_summary = master_document.get("summary") or {}
+                index["master_result_set"] = {
+                    "file": master_path.name,
+                    "model_id": master_document.get("model_id"),
+                    "role": master_document.get("role"),
+                    "summary": master_summary,
+                }
+                (out / "index.json").write_text(
+                    json.dumps(index, ensure_ascii=False, indent=2) + "\n",
+                    encoding="utf-8",
+                )
+            except MasterResultError as exc:
+                return OperationResult(
+                    False,
+                    f"Noark 5-testene ble kjørt, men masterresultatsettet kunne ikke materialiseres: {exc}",
+                    data={
+                        "result_index": index,
+                        "output_dir": str(out),
+                        "catalog": str(CATALOG_PATH),
+                        "execution_profile": self.execution_profile,
+                    },
+                )
+
         ctx.progress(1.0, f"{self.definition.name} fullført")
         s = index.get("summary", {})
         regression = index.get("legacy_regression_comparison")
@@ -77,17 +112,26 @@ class _BaseNoark5XpathTestsOperation(BaseOperation):
                 f"{rs.get('not_comparable', 0)} ikke sammenlignbare."
             )
 
+        master_text = ""
+        if master_path is not None and master_summary is not None:
+            master_text = (
+                " Masterresultater: "
+                f"{master_summary.get('available_master_results', 0)} tilgjengelige, "
+                f"{master_summary.get('unavailable_master_results', 0)} utilgjengelige."
+            )
+
         return OperationResult(
             True,
             f"Noark 5-testkatalog kjørt ({self.execution_profile}): "
             f"{s.get('ok', 0)} OK, {s.get('source_missing', 0)} mangler kildefil, "
             f"{s.get('disabled_by_legacy_source', 0)} legacy-deaktivert, "
-            f"{s.get('error', 0)} feil.{regression_text} Resultat: {out}",
+            f"{s.get('error', 0)} feil.{master_text}{regression_text} Resultat: {out}",
             data={
                 "result_index": index,
                 "output_dir": str(out),
                 "catalog": str(CATALOG_PATH),
                 "execution_profile": self.execution_profile,
+                "master_result_set": str(master_path) if master_path is not None else None,
             },
         )
 

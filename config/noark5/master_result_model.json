@@ -1,0 +1,102 @@
+{
+  "format_version": 1,
+  "model_id": "noark5.master-results.v1",
+  "profile_id": "noark5",
+  "master_role": "authoritative_internal_result",
+  "principles": {
+    "master_values": "individual_normal_test_results",
+    "projection": "master-results.json is an index over individual result JSON files and does not recalculate values",
+    "reference_sources_are_not_master": true,
+    "views_reports_and_reconciliation_use_master_results": true
+  },
+  "accepted_execution_profiles": [
+    "normal"
+  ],
+  "reference_sources": [
+    {
+      "source_id": "legacy_xpath_standard",
+      "label": "Historisk standard XPath-kjoring",
+      "role": "comparison_only"
+    },
+    {
+      "source_id": "legacy_u1",
+      "label": "U1 - samlet hele uttrekket",
+      "role": "comparison_only"
+    },
+    {
+      "source_id": "legacy_u2",
+      "label": "U2 - per arkivdel",
+      "role": "comparison_only"
+    },
+    {
+      "source_id": "arkade5",
+      "label": "Arkade 5",
+      "role": "external_evidence_comparison"
+    },
+    {
+      "source_id": "external",
+      "label": "Annen ekstern testkilde",
+      "role": "external_evidence_comparison"
+    }
+  ],
+  "entity_order": [
+    "archive",
+    "archive_creator",
+    "archive_part",
+    "classification_system",
+    "class",
+    "folder",
+    "registration",
+    "journal_post",
+    "document_description",
+    "document_object",
+    "party",
+    "comment",
+    "cross_reference",
+    "precedent",
+    "writeoff",
+    "document_flow",
+    "screening",
+    "classification",
+    "disposal",
+    "conversion",
+    "running_journal",
+    "public_journal",
+    "change_log",
+    "cross_cutting"
+  ],
+  "tag_to_entity": {
+    "archive": "archive",
+    "archive_creator": "archive_creator",
+    "archive_part": "archive_part",
+    "classification_system": "classification_system",
+    "class": "class",
+    "folder": "folder",
+    "registration": "registration",
+    "journalpost": "journal_post",
+    "journal_post": "journal_post",
+    "document_description": "document_description",
+    "document_object": "document_object",
+    "party": "party",
+    "correspondence_party": "party",
+    "comment": "comment",
+    "cross_reference": "cross_reference",
+    "precedent": "precedent",
+    "writeoff": "writeoff",
+    "document_flow": "document_flow",
+    "screening": "screening",
+    "classification": "classification",
+    "disposal": "disposal",
+    "conversion": "conversion",
+    "running_journal": "running_journal",
+    "public_journal": "public_journal",
+    "change_log": "change_log"
+  },
+  "non_entity_tags": [
+    "summary",
+    "qa",
+    "regression",
+    "legacy",
+    "reconciliation"
+  ]
+}

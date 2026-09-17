@@ -10,8 +10,13 @@ ROOT = Path(__file__).resolve().parents[1]
 class A18RuntimeBoundaryTests(unittest.TestCase):
     def test_current_runtime_preserves_a18(self):
         main = (ROOT / "main.py").read_text(encoding="utf-8")
-        self.assertIn("persistent_app_a19", main)
+        self.assertIn("persistent_app_a21", main)
+        a21 = (ROOT / "gui" / "persistent_app_a21.py").read_text(encoding="utf-8")
+        a20 = (ROOT / "gui" / "persistent_app_a20.py").read_text(encoding="utf-8")
         a19 = (ROOT / "gui" / "persistent_app_a19.py").read_text(encoding="utf-8")
+        self.assertIn("A20WorkflowApp", a21)
+        self.assertIn("A19WorkflowApp", a20)
+        a18 = (ROOT / "gui" / "persistent_app_a18.py").read_text(encoding="utf-8")
         self.assertIn("from .persistent_app_a18 import WorkflowApp as A18WorkflowApp", a19)
         self.assertIn("class WorkflowApp(A18WorkflowApp)", a19)
 

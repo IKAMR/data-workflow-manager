@@ -5,13 +5,11 @@
       "sequence_id": "noark5_standard",
       "name": "Noark 5 – standard",
       "profile_id": "noark5",
-      "description": "Foreslått standardløype for analyse, kontroll og depotrapport. Kan finjusteres før den gjøres til aktiv GUI-standard i a11.",
+      "description": "Standardløype der individuelle Noark 5-testresultater er master. Historisk U1/U2 og regresjonskjøring inngår ikke i ordinær kjøring.",
       "operation_ids": [
         "metadata_inventory",
         "validate_xml_schema",
         "analyse_arkivstruktur",
-        "analyse_noark5_core",
-        "analyse_noark5_u1",
         "run_noark5_xpath_tests_2026",
         "compose_noark5_views",
         "build_noark5_depot_report"
@@ -19,15 +17,13 @@
     },
     {
       "sequence_id": "noark5_analyse",
-      "name": "Noark 5 – analyse",
+      "name": "Noark 5 – grunnkontroll",
       "profile_id": "noark5",
-      "description": "Analyse og kontroll uten DIAS-pakking og uten utviklingsregresjon.",
+      "description": "Metadata, XML/XSD, struktur og individuelle Noark 5-tester. Resultatene fra de individuelle testene er master for videre sammenstilling.",
       "operation_ids": [
         "metadata_inventory",
         "validate_xml_schema",
         "analyse_arkivstruktur",
-        "analyse_noark5_core",
-        "analyse_noark5_u1",
         "run_noark5_xpath_tests_2026"
       ]
     }

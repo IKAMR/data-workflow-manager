@@ -1,5 +1,5 @@
 {
-  "format_version": 2,
+  "format_version": 3,
   "maturity_levels": {
     "alpha": 0,
     "beta": 1,
@@ -16,72 +16,116 @@
     }
   },
   "display_categories": {
-    "Kontroll": {"color": "#4f8ef7"},
-    "Analyse": {"color": "#f0c040"},
-    "Resultat": {"color": "#f97316"},
-    "Pakking": {"color": "#4f8ef7"},
-    "Avansert": {"color": "#a78bfa"}
+    "Kontroll": {
+      "color": "#4f8ef7"
+    },
+    "Analyse": {
+      "color": "#f0c040"
+    },
+    "Resultat": {
+      "color": "#f97316"
+    },
+    "Pakking": {
+      "color": "#4f8ef7"
+    },
+    "Referanse": {
+      "color": "#a78bfa"
+    },
+    "Avansert": {
+      "color": "#6b7280"
+    }
   },
   "operations": {
     "metadata_inventory": {
       "maturity": "alpha",
       "short_name": "Metadata",
       "display_category": "Analyse",
-      "profiles": ["noark5"]
+      "profiles": [
+        "noark5"
+      ],
+      "display_order": 1
     },
     "analyse_arkivstruktur": {
       "maturity": "alpha",
       "short_name": "Arkivstruktur",
       "display_category": "Analyse",
-      "profiles": ["noark5"]
+      "profiles": [
+        "noark5"
+      ],
+      "display_order": 2
     },
     "analyse_noark5_core": {
       "maturity": "alpha",
       "short_name": "Noark 5-analyse",
-      "display_category": "Analyse",
-      "profiles": ["noark5"]
+      "display_category": "Referanse",
+      "profiles": [
+        "noark5"
+      ],
+      "display_order": 99,
+      "catalog_visible": false
     },
     "analyse_noark5_u1": {
       "maturity": "alpha",
-      "short_name": "U1-analyse",
-      "display_category": "Analyse",
-      "profiles": ["noark5"]
+      "short_name": "U1",
+      "display_category": "Referanse",
+      "profiles": [
+        "noark5"
+      ],
+      "display_order": 1
     },
     "run_noark5_xpath_tests_2026": {
       "maturity": "alpha",
       "short_name": "Noark 5-tester",
       "display_category": "Kontroll",
-      "profiles": ["noark5"]
+      "profiles": [
+        "noark5"
+      ],
+      "display_order": 2
     },
     "run_noark5_xpath_regression_2026": {
       "maturity": "alpha",
       "short_name": "Testregresjon",
       "display_category": "Avansert",
-      "profiles": ["noark5"]
+      "profiles": [
+        "noark5"
+      ],
+      "display_order": 1
     },
     "validate_xml_schema": {
       "maturity": "alpha",
       "short_name": "XML/XSD",
       "display_category": "Kontroll",
-      "profiles": ["noark5"]
+      "profiles": [
+        "noark5"
+      ],
+      "display_order": 1
     },
     "compose_noark5_views": {
       "maturity": "alpha",
       "short_name": "Resultatvisninger",
       "display_category": "Resultat",
-      "profiles": ["noark5"]
+      "profiles": [
+        "noark5"
+      ],
+      "display_order": 1
     },
     "build_noark5_depot_report": {
       "maturity": "alpha",
       "short_name": "Depotrapport",
       "display_category": "Resultat",
-      "profiles": ["noark5"]
+      "profiles": [
+        "noark5"
+      ],
+      "display_order": 2
     },
     "dias_package": {
       "maturity": "stable",
       "short_name": "DIAS-pakking",
       "display_category": "Pakking",
-      "profiles": ["noark5"]
+      "profiles": [
+        "noark5"
+      ],
+      "display_order": 1
     }
   }
 }
