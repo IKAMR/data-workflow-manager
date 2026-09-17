@@ -1,0 +1,35 @@
+{
+  "format_version": 1,
+  "sequences": [
+    {
+      "sequence_id": "noark5_standard",
+      "name": "Noark 5 – standard",
+      "profile_id": "noark5",
+      "description": "Foreslått standardløype for analyse, kontroll og depotrapport. Kan finjusteres før den gjøres til aktiv GUI-standard i a11.",
+      "operation_ids": [
+        "metadata_inventory",
+        "validate_xml_schema",
+        "analyse_arkivstruktur",
+        "analyse_noark5_core",
+        "analyse_noark5_u1",
+        "run_noark5_xpath_tests_2026",
+        "compose_noark5_views",
+        "build_noark5_depot_report"
+      ]
+    },
+    {
+      "sequence_id": "noark5_analyse",
+      "name": "Noark 5 – analyse",
+      "profile_id": "noark5",
+      "description": "Analyse og kontroll uten DIAS-pakking og uten utviklingsregresjon.",
+      "operation_ids": [
+        "metadata_inventory",
+        "validate_xml_schema",
+        "analyse_arkivstruktur",
+        "analyse_noark5_core",
+        "analyse_noark5_u1",
+        "run_noark5_xpath_tests_2026"
+      ]
+    }
+  ]
+}

@@ -1,16 +1,87 @@
 {
-  "format_version": 1,
+  "format_version": 2,
   "maturity_levels": {
     "alpha": 0,
     "beta": 1,
     "stable": 2
   },
+  "profiles": {
+    "default": {
+      "name": "Default",
+      "description": "Formatnøytrale operasjoner. Ingen formatnøytrale operasjoner er registrert ennå."
+    },
+    "noark5": {
+      "name": "Noark 5",
+      "description": "Analyse, kontroll, resultatpresentasjon og pakking av Noark 5-uttrekk."
+    }
+  },
+  "display_categories": {
+    "Kontroll": {"color": "#4f8ef7"},
+    "Analyse": {"color": "#f0c040"},
+    "Resultat": {"color": "#f97316"},
+    "Pakking": {"color": "#4f8ef7"},
+    "Avansert": {"color": "#a78bfa"}
+  },
   "operations": {
+    "metadata_inventory": {
+      "maturity": "alpha",
+      "short_name": "Metadata",
+      "display_category": "Analyse",
+      "profiles": ["noark5"]
+    },
+    "analyse_arkivstruktur": {
+      "maturity": "alpha",
+      "short_name": "Arkivstruktur",
+      "display_category": "Analyse",
+      "profiles": ["noark5"]
+    },
     "analyse_noark5_core": {
-      "maturity": "alpha"
+      "maturity": "alpha",
+      "short_name": "Noark 5-analyse",
+      "display_category": "Analyse",
+      "profiles": ["noark5"]
+    },
+    "analyse_noark5_u1": {
+      "maturity": "alpha",
+      "short_name": "U1-analyse",
+      "display_category": "Analyse",
+      "profiles": ["noark5"]
+    },
+    "run_noark5_xpath_tests_2026": {
+      "maturity": "alpha",
+      "short_name": "Noark 5-tester",
+      "display_category": "Kontroll",
+      "profiles": ["noark5"]
+    },
+    "run_noark5_xpath_regression_2026": {
+      "maturity": "alpha",
+      "short_name": "Testregresjon",
+      "display_category": "Avansert",
+      "profiles": ["noark5"]
+    },
+    "validate_xml_schema": {
+      "maturity": "alpha",
+      "short_name": "XML/XSD",
+      "display_category": "Kontroll",
+      "profiles": ["noark5"]
+    },
+    "compose_noark5_views": {
+      "maturity": "alpha",
+      "short_name": "Resultatvisninger",
+      "display_category": "Resultat",
+      "profiles": ["noark5"]
+    },
+    "build_noark5_depot_report": {
+      "maturity": "alpha",
+      "short_name": "Depotrapport",
+      "display_category": "Resultat",
+      "profiles": ["noark5"]
     },
     "dias_package": {
-      "maturity": "stable"
+      "maturity": "stable",
+      "short_name": "DIAS-pakking",
+      "display_category": "Pakking",
+      "profiles": ["noark5"]
     }
   }
 }

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from functools import lru_cache
 from pathlib import Path
+from typing import Iterable
 
 _CONFIG_PATH = Path(__file__).resolve().parents[1] / "config" / "operations.json"
 
@@ -38,20 +39,27 @@ def load_operation_metadata() -> dict:
     try:
         data = json.loads(_CONFIG_PATH.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError, TypeError):
-        return {"operations": {}}
+        return {"profiles": {}, "display_categories": {}, "operations": {}}
     if not isinstance(data, dict):
-        return {"operations": {}}
+        return {"profiles": {}, "display_categories": {}, "operations": {}}
     operations = data.get("operations", {})
-    if not isinstance(operations, dict):
-        operations = {}
-    return {**data, "operations": operations}
+    profiles = data.get("profiles", {})
+    categories = data.get("display_categories", {})
+    return {
+        **data,
+        "operations": operations if isinstance(operations, dict) else {},
+        "profiles": profiles if isinstance(profiles, dict) else {},
+        "display_categories": categories if isinstance(categories, dict) else {},
+    }
+
+
+def _operation_metadata(operation_id: str) -> dict:
+    raw = load_operation_metadata().get("operations", {}).get(operation_id, {})
+    return raw if isinstance(raw, dict) else {}
 
 
 def maturity_name(operation_id: str) -> str:
-    operations = load_operation_metadata().get("operations", {})
-    raw = operations.get(operation_id, {})
-    if not isinstance(raw, dict):
-        raw = {}
+    raw = _operation_metadata(operation_id)
     maturity = str(raw.get("maturity", "alpha")).strip().lower()
     return maturity if maturity in MATURITY_LEVELS else "alpha"
 
@@ -87,3 +95,60 @@ def visibility_label(value: int | str) -> str:
 
 def visibility_value(label: str) -> int:
     return VISIBILITY_VALUES.get(str(label), 2)
+
+
+def short_name(operation_id: str, fallback: str = "") -> str:
+    """Short user-facing label for operation cards and sequence editors."""
+    value = str(_operation_metadata(operation_id).get("short_name", "")).strip()
+    return value or fallback or operation_id
+
+
+def display_category(operation_id: str, fallback: str = "") -> str:
+    """User-facing operation group independent of the executor definition."""
+    value = str(_operation_metadata(operation_id).get("display_category", "")).strip()
+    return value or fallback or "Annet"
+
+
+def operation_profiles(operation_id: str) -> tuple[str, ...]:
+    """Profiles in which an operation belongs in the operation catalogue."""
+    raw = _operation_metadata(operation_id).get("profiles", [])
+    if isinstance(raw, str):
+        raw = [raw]
+    if not isinstance(raw, list):
+        return ()
+    return tuple(str(item).strip() for item in raw if str(item).strip())
+
+
+def belongs_to_profile(operation_id: str, profile_id: str) -> bool:
+    profiles = operation_profiles(operation_id)
+    # Backwards compatibility for third-party/unlisted operations: if no
+    # catalogue scope is declared, keep the operation visible.
+    return not profiles or profile_id in profiles
+
+
+def profile_definitions() -> dict[str, dict]:
+    return dict(load_operation_metadata().get("profiles", {}))
+
+
+def display_category_names(operations: Iterable, profile_id: str) -> list[str]:
+    """Return configured categories in stable display order for a profile."""
+    present: set[str] = set()
+    for operation in operations:
+        op_id = operation.definition.operation_id
+        if not belongs_to_profile(op_id, profile_id):
+            continue
+        present.add(display_category(op_id, operation.definition.category))
+
+    configured = load_operation_metadata().get("display_categories", {})
+    ordered = [name for name in configured if name in present]
+    ordered.extend(sorted(present.difference(ordered)))
+    return ordered
+
+
+def display_category_color(category: str, fallback: str = "") -> str:
+    raw = load_operation_metadata().get("display_categories", {}).get(category, {})
+    if isinstance(raw, dict):
+        color = str(raw.get("color", "")).strip()
+        if color:
+            return color
+    return fallback

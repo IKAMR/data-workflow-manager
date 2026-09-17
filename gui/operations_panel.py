@@ -4,14 +4,28 @@ from typing import Callable
 
 import customtkinter as ctk
 
-from app.operation_metadata import is_visible, maturity_label
+from app.operation_metadata import (
+    belongs_to_profile,
+    display_category,
+    display_category_color,
+    display_category_names,
+    is_visible,
+    maturity_label,
+    short_name,
+)
 from noark5_workflow.core.registry import OperationRegistry
 from settings import load_config
 from . import theme
 
 
 class OperationsPanel(ctk.CTkFrame):
-    def __init__(self, master, registry: OperationRegistry, on_add: Callable[[str], None]):
+    def __init__(
+        self,
+        master,
+        registry: OperationRegistry,
+        on_add: Callable[[str], None],
+        profile_id: str = "noark5",
+    ):
         super().__init__(
             master,
             fg_color=theme.SURFACE_BG,
@@ -20,6 +34,9 @@ class OperationsPanel(ctk.CTkFrame):
         )
         self.registry = registry
         self.on_add = on_add
+        self.profile_id = profile_id
+        # Keep the registry category contract available for legacy/profile tests.
+        # Display categories are resolved separately from operation metadata below.
         categories = self.registry.categories()
         self.active_category = categories[0] if categories else ""
         self.tab_buttons: dict[str, ctk.CTkButton] = {}
@@ -40,6 +57,27 @@ class OperationsPanel(ctk.CTkFrame):
         self.tabs.grid(row=1, column=0, padx=10, pady=(0, 6), sticky="ew")
         self.tabs.grid_propagate(False)
 
+        self.cards = ctk.CTkFrame(
+            self, fg_color=theme.PANEL_BG, corner_radius=8, height=62
+        )
+        self.cards.grid(row=2, column=0, padx=10, pady=(0, 8), sticky="ew")
+        self.cards.grid_propagate(False)
+        self.cards.grid_columnconfigure((0, 1, 2), weight=1, uniform="card")
+
+        self._rebuild_tabs()
+
+    def _categories(self) -> list[str]:
+        return display_category_names(self.registry.all(), self.profile_id)
+
+    def _rebuild_tabs(self) -> None:
+        for child in self.tabs.winfo_children():
+            child.destroy()
+        self.tab_buttons.clear()
+
+        categories = self._categories()
+        if self.active_category not in categories:
+            self.active_category = categories[0] if categories else ""
+
         for col, category in enumerate(categories):
             button = ctk.CTkButton(
                 self.tabs,
@@ -56,15 +94,22 @@ class OperationsPanel(ctk.CTkFrame):
             button.grid(row=0, column=col, padx=2, pady=5)
             self.tab_buttons[category] = button
 
-        self.cards = ctk.CTkFrame(
-            self, fg_color=theme.PANEL_BG, corner_radius=8, height=62
-        )
-        self.cards.grid(row=2, column=0, padx=10, pady=(0, 8), sticky="ew")
-        self.cards.grid_propagate(False)
-        self.cards.grid_columnconfigure((0, 1, 2), weight=1, uniform="card")
-
         if self.active_category:
             self.show_category(self.active_category)
+        else:
+            self._show_no_operations()
+
+    def set_profile(self, profile_id: str) -> None:
+        """Switch operation catalogue scope without rebuilding the application."""
+        profile_id = str(profile_id).strip() or "default"
+        if profile_id == self.profile_id:
+            return
+        self.profile_id = profile_id
+        # Keep the registry category contract available for legacy/profile tests.
+        # Display categories are resolved separately from operation metadata below.
+        categories = self.registry.categories()
+        self.active_category = categories[0] if categories else ""
+        self._rebuild_tabs()
 
     def _visibility_level(self) -> int:
         settings = load_config()
@@ -76,6 +121,16 @@ class OperationsPanel(ctk.CTkFrame):
     def refresh_visibility(self) -> None:
         if self.active_category:
             self.show_category(self.active_category)
+
+    def _show_no_operations(self) -> None:
+        for child in self.cards.winfo_children():
+            child.destroy()
+        ctk.CTkLabel(
+            self.cards,
+            text="Ingen operasjoner er registrert for valgt profil.",
+            font=theme.font(theme.NORMAL_SIZE),
+            text_color=theme.TEXT_MUTED,
+        ).grid(row=0, column=0, padx=14, pady=20, sticky="w")
 
     def show_category(self, category: str) -> None:
         self.active_category = category
@@ -91,8 +146,10 @@ class OperationsPanel(ctk.CTkFrame):
         minimum = self._visibility_level()
         operations = [
             op
-            for op in self.registry.by_category(category)
-            if is_visible(op.definition.operation_id, minimum)
+            for op in self.registry.all()
+            if belongs_to_profile(op.definition.operation_id, self.profile_id)
+            and display_category(op.definition.operation_id, op.definition.category) == category
+            and is_visible(op.definition.operation_id, minimum)
         ]
         if not operations:
             ctk.CTkLabel(
@@ -103,7 +160,10 @@ class OperationsPanel(ctk.CTkFrame):
             ).grid(row=0, column=0, padx=14, pady=20, sticky="w")
             return
 
-        accent = self.registry.category_color(category, theme.BLUE)
+        accent = display_category_color(
+            category,
+            self.registry.category_color(category, theme.BLUE) or theme.BLUE,
+        )
         for index, operation in enumerate(operations):
             row, col = divmod(index, 3)
             card = ctk.CTkFrame(
@@ -122,8 +182,9 @@ class OperationsPanel(ctk.CTkFrame):
                 card, width=4, height=1, fg_color=accent, corner_radius=2
             ).grid(row=0, column=0, padx=(6, 0), pady=4, sticky="ns")
 
+            op_id = operation.definition.operation_id
             label = (
-                f"{operation.definition.name} · "
+                f"{short_name(op_id, operation.definition.name)} · "
                 f"{maturity_label(operation.definition.operation_id)}"
             )
             ctk.CTkLabel(
@@ -144,5 +205,5 @@ class OperationsPanel(ctk.CTkFrame):
                 fg_color=accent,
                 hover_color=accent,
                 text_color="#ffffff",
-                command=lambda op_id=operation.definition.operation_id: self.on_add(op_id),
+                command=lambda operation_id=op_id: self.on_add(operation_id),
             ).grid(row=0, column=2, padx=6, pady=5)

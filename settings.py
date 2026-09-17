@@ -21,6 +21,14 @@ DEFAULT_CONFIG = {
     "appearance_mode": "dark",
     "font_offset": 0,
 
+    # Main-window startup behaviour. Position and size are independent choices.
+    "restore_main_window_position": True,
+    "restore_main_window_size": True,
+    "main_window_x": None,
+    "main_window_y": None,
+    "main_window_width": None,
+    "main_window_height": None,
+
     # Keep the canonical application run log and, by default, mirror the same
     # log into each job's Arbeid – operasjoner/wf/logs directory.
     "copy_run_log_to_work_operations": True,
