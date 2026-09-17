@@ -143,8 +143,20 @@ class SourcePanel(ctk.CTkFrame):
             else:
                 self._set_text(f"Source valgt:\n{root}\n\nIngen profil valgt – formatspesifikk gjenkjenning kjøres ikke.")
             return
+
+        root_path=Path(root)
+        if not root_path.is_dir():
+            self.extraction=None
+            self._set_text(
+                "Uttrekksmappen er ikke tilgjengelig:\n"
+                f"{root}\n\n"
+                "Kontroller at ekstern disk, nettverksstasjon eller annen lagring er tilkoblet."
+            )
+            self.on_source_changed(None)
+            return
+
         try:
-            self.extraction=Noark5Extraction.detect(Path(root)); self._render_inventory(self.extraction)
+            self.extraction=Noark5Extraction.detect(root_path); self._render_inventory(self.extraction)
         except Exception as exc:
             self.extraction=None; self._set_text(f"FEIL: {exc}")
         self.on_source_changed(self.extraction)

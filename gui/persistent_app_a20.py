@@ -4,13 +4,18 @@ from settings import save_config
 
 from .persistent_app_a19 import WorkflowApp as A19WorkflowApp
 from .settings_dialog_a10 import SettingsDialog
-from .window_geometry import capture_normal_geometry, startup_geometry
+from .window_geometry import (
+    capture_normal_geometry,
+    should_restore_maximized,
+    startup_geometry,
+)
 
 
 class WorkflowApp(A19WorkflowApp):
-    """a10 runtime addition: safe and configurable main-window geometry restore."""
+    """a10 runtime addition: safe and configurable main-window restore."""
 
     def __init__(self) -> None:
+        self._last_main_window_maximized = False
         super().__init__()
         self._last_normal_window_geometry = capture_normal_geometry(self)
         self._restore_main_window_geometry()
@@ -20,6 +25,7 @@ class WorkflowApp(A19WorkflowApp):
 
         self.bind("<Configure>", self._remember_main_window_geometry, add="+")
         self.bind("<Destroy>", self._persist_main_window_geometry, add="+")
+        self.after_idle(self._restore_main_window_state)
 
     def _restore_main_window_geometry(self) -> None:
         geometry = startup_geometry(self.settings, self)
@@ -27,9 +33,34 @@ class WorkflowApp(A19WorkflowApp):
             self.geometry(geometry)
             self.update_idletasks()
 
+    def _restore_main_window_state(self) -> None:
+        """Restore maximized state after safe placement on the current desktop."""
+        if not should_restore_maximized(self.settings):
+            return
+        try:
+            # Tk's zoomed state maximizes to the *current* monitor and therefore
+            # adapts automatically when resolution or monitor size has changed.
+            self.state("zoomed")
+            self._last_main_window_maximized = True
+        except Exception:
+            # Some non-Windows Tk window managers expose maximization as an
+            # attribute rather than a state. Keep this best-effort and portable.
+            try:
+                self.attributes("-zoomed", True)
+                self._last_main_window_maximized = True
+            except Exception:
+                pass
+
     def _remember_main_window_geometry(self, event=None) -> None:
         if event is not None and event.widget is not self:
             return
+        try:
+            state = str(self.state())
+        except Exception:
+            state = ""
+        if state in {"normal", "zoomed"}:
+            self._last_main_window_maximized = state == "zoomed"
+
         geometry = capture_normal_geometry(self)
         if geometry is not None:
             self._last_normal_window_geometry = geometry
@@ -37,15 +68,21 @@ class WorkflowApp(A19WorkflowApp):
     def _persist_main_window_geometry(self, event=None) -> None:
         if event is not None and event.widget is not self:
             return
-        geometry = self._last_normal_window_geometry
-        if geometry is None:
-            return
+
         values = {
-            "main_window_x": geometry.x,
-            "main_window_y": geometry.y,
-            "main_window_width": geometry.width,
-            "main_window_height": geometry.height,
+            "main_window_maximized": bool(self._last_main_window_maximized),
         }
+        geometry = self._last_normal_window_geometry
+        if geometry is not None:
+            values.update(
+                {
+                    "main_window_x": geometry.x,
+                    "main_window_y": geometry.y,
+                    "main_window_width": geometry.width,
+                    "main_window_height": geometry.height,
+                }
+            )
+
         self.settings.update(values)
         save_config(values)
 

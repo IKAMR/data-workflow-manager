@@ -33,7 +33,7 @@ def _next_free_row(frame) -> int:
 
 
 class SettingsDialog(BaseSettingsDialog):
-    """a10 setup additions for independent main-window position and size restore."""
+    """a10 setup additions for independent main-window restore behaviour."""
 
     def __init__(self, master, settings: dict, on_save):
         super().__init__(master, settings, on_save)
@@ -43,6 +43,9 @@ class SettingsDialog(BaseSettingsDialog):
         )
         self.restore_size_var = ctk.BooleanVar(
             value=bool(self.settings.get("restore_main_window_size", True))
+        )
+        self.restore_maximized_var = ctk.BooleanVar(
+            value=bool(self.settings.get("restore_main_window_maximized", True))
         )
 
         body = _find_scrollable_frame(self)
@@ -98,14 +101,32 @@ class SettingsDialog(BaseSettingsDialog):
         )
         row += 1
 
+        ctk.CTkCheckBox(
+            body,
+            text="Start maksimert hvis vinduet ble avsluttet maksimert",
+            variable=self.restore_maximized_var,
+            font=theme.font(theme.NORMAL_SIZE),
+        ).grid(
+            row=row,
+            column=0,
+            columnspan=2,
+            padx=12,
+            pady=4,
+            sticky="w",
+        )
+        row += 1
+
         ctk.CTkLabel(
             body,
             text=(
-                "Lagret posisjon brukes bare når vinduet fortsatt er synlig "
-                "på dagens skjermoppsett."
+                "Lagret posisjon brukes bare når vinduet fortsatt er synlig på dagens "
+                "skjermoppsett. Maksimert tilstand tilpasses automatisk skjermen som "
+                "er tilgjengelig ved oppstart."
             ),
             font=theme.font(theme.SMALL_SIZE),
             text_color=theme.TEXT_MUTED,
+            wraplength=610,
+            justify="left",
         ).grid(
             row=row,
             column=0,
@@ -124,6 +145,9 @@ class SettingsDialog(BaseSettingsDialog):
             self.restore_size_var.set(
                 bool(settings.get("restore_main_window_size", True))
             )
+            self.restore_maximized_var.set(
+                bool(settings.get("restore_main_window_maximized", True))
+            )
 
     def _collect(self) -> dict:
         updated = super()._collect()
@@ -132,5 +156,8 @@ class SettingsDialog(BaseSettingsDialog):
         )
         updated["restore_main_window_size"] = bool(
             self.restore_size_var.get()
+        )
+        updated["restore_main_window_maximized"] = bool(
+            self.restore_maximized_var.get()
         )
         return updated

@@ -46,9 +46,20 @@ class JobRunner:
         op_ids=list(job.workflow_ids)
         if not op_ids:
             job.status=JobStatus.SKIPPED; job.message="Ingen operasjoner i workflow"; log("HOPPET OVER: Ingen operasjoner i workflow"); state_changed(); return JobRunOutcome(True,False)
-        start_index=job.next_operation_index if job.status == JobStatus.WAITING else 0
+
+        # READY + partial cursor is reserved for an append-only workflow
+        # extension: an earlier workflow completed successfully and new
+        # operations were appended after the completed prefix. This is not a
+        # checkpoint resume and must therefore not pass through continue_job().
+        # WAITING remains the explicit checkpoint-resume state.
+        failed_retry = (
+            job.status == JobStatus.FAILED
+            and 0 < int(job.next_operation_index or 0) < len(op_ids)
+            and str(job.message or "").startswith("Fortsettelse feilet - prøv igjen fra operasjon ")
+        )
+        start_index=job.next_operation_index if job.status in {JobStatus.WAITING, JobStatus.READY} or failed_retry else 0
         start_index=max(0,min(start_index,len(op_ids)))
-        if job.status in _TERMINAL_STATUSES:
+        if job.status in _TERMINAL_STATUSES and not failed_retry:
             start_index=0; job.next_operation_index=0; job.progress=0.0
         if start_index >= len(op_ids):
             start_index=0; job.next_operation_index=0; job.progress=0.0
@@ -89,11 +100,26 @@ class JobRunner:
             if all_ok:
                 job.status=JobStatus.OK; job.progress=1.0; job.next_operation_index=total; job.message="Workflow fullført"
             else:
-                job.status=JobStatus.FAILED; job.message="Workflow stoppet med feil"
+                job.status=JobStatus.FAILED
+                job.message=(
+                    f"Fortsettelse feilet - prøv igjen fra operasjon {job.next_operation_index + 1}"
+                    if resuming and 0 <= job.next_operation_index < total
+                    else "Workflow stoppet med feil"
+                )
             log(job.message); state_changed(); return JobRunOutcome(all_ok,True)
         except OutputLockedError as exc:
-            job.status=JobStatus.FAILED; job.message=str(exc); log(f"FEIL: {exc}"); state_changed(); return JobRunOutcome(False,False)
+            job.status=JobStatus.FAILED
+            job.message=(
+                f"Fortsettelse feilet - prøv igjen fra operasjon {start_index + 1}"
+                if resuming else str(exc)
+            )
+            log(f"FEIL: {exc}"); state_changed(); return JobRunOutcome(False,False)
         except Exception as exc:
-            job.status=JobStatus.FAILED; job.message=str(exc); log(f"FEIL: {exc}"); state_changed(); return JobRunOutcome(False,False)
+            job.status=JobStatus.FAILED
+            job.message=(
+                f"Fortsettelse feilet - prøv igjen fra operasjon {start_index + 1}"
+                if resuming else str(exc)
+            )
+            log(f"FEIL: {exc}"); state_changed(); return JobRunOutcome(False,False)
         finally:
             if output_lock is not None: output_lock.release()

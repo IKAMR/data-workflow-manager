@@ -119,6 +119,13 @@ def startup_geometry(settings: dict, window) -> str | None:
     return f"{width}x{height}+{x}+{y}"
 
 
+def should_restore_maximized(settings: dict) -> bool:
+    """Return whether startup should restore the previous maximized state."""
+    return bool(settings.get("restore_main_window_maximized", True)) and bool(
+        settings.get("main_window_maximized", False)
+    )
+
+
 def capture_normal_geometry(window) -> WindowGeometry | None:
     """Capture only normal/restorable geometry, never minimized/maximized state."""
     try:
