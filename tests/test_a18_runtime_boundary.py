@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import unittest
 
 from version import VERSION
@@ -7,9 +8,12 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class A18RuntimeBoundaryTests(unittest.TestCase):
-    def test_main_uses_current_a18_runtime(self):
+    def test_current_runtime_preserves_a18(self):
         main = (ROOT / "main.py").read_text(encoding="utf-8")
-        self.assertIn("persistent_app_a18", main)
+        self.assertIn("persistent_app_a19", main)
+        a19 = (ROOT / "gui" / "persistent_app_a19.py").read_text(encoding="utf-8")
+        self.assertIn("from .persistent_app_a18 import WorkflowApp as A18WorkflowApp", a19)
+        self.assertIn("class WorkflowApp(A18WorkflowApp)", a19)
 
     def test_a18_extends_a17_instead_of_replacing_it(self):
         a18 = (ROOT / "gui" / "persistent_app_a18.py").read_text(encoding="utf-8")
@@ -17,12 +21,10 @@ class A18RuntimeBoundaryTests(unittest.TestCase):
         self.assertIn("class WorkflowApp(A17WorkflowApp)", a18)
 
     def test_version_boundary_is_not_older_than_a18(self):
-        self.assertTrue(
-            VERSION.startswith("0.1.2-a"),
-            f"Uventet versjonsformat: {VERSION}",
-        )
-        alpha = VERSION.split("-a", 1)[1].split(".", 1)[0]
-        self.assertGreaterEqual(int(alpha), 18)
+        match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)-a(\d+)(?:\.\d+)?", VERSION)
+        self.assertIsNotNone(match, f"Uventet versjonsformat: {VERSION}")
+        major, minor, patch, alpha = map(int, match.groups())
+        self.assertGreaterEqual((major, minor, patch, alpha), (0, 1, 2, 18))
 
 
 if __name__ == "__main__":

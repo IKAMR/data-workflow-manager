@@ -7,8 +7,10 @@ ROOT = Path(__file__).resolve().parents[1]
 class RawResultsGuiA17Tests(unittest.TestCase):
     def test_current_runtime_preserves_a17_runtime(self):
         main = (ROOT / "main.py").read_text(encoding="utf-8")
+        a19 = (ROOT / "gui" / "persistent_app_a19.py").read_text(encoding="utf-8")
         a18 = (ROOT / "gui" / "persistent_app_a18.py").read_text(encoding="utf-8")
-        self.assertIn("persistent_app_a18", main)
+        self.assertIn("persistent_app_a19", main)
+        self.assertIn("A18WorkflowApp", a19)
         self.assertIn("A17WorkflowApp", a18)
 
     def test_path_is_job_work_operations_wf_results(self):
@@ -31,7 +33,6 @@ class RawResultsGuiA17Tests(unittest.TestCase):
 
     def test_runtime_exposes_results_button_without_replacing_a13(self):
         from gui.ui_contract_a17 import HEADER_ACTIONS, RESULTS_ACTION_LOCATION
-
         text = (ROOT / "gui" / "persistent_app_a17.py").read_text(encoding="utf-8")
         self.assertIn("class WorkflowApp(A13WorkflowApp)", text)
         self.assertNotIn("def _build_header", text)

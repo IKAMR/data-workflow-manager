@@ -43,13 +43,21 @@ class _Tooltip:
                 return
             x = self.widget.winfo_rootx() + self.widget.winfo_width() // 2
             y = self.widget.winfo_rooty() + self.widget.winfo_height() + 4
+            parent = self.widget.winfo_toplevel()
         except Exception:
             return
 
         self.window = tip = ctk.CTkToplevel(self.widget)
         tip.withdraw()
         tip.overrideredirect(True)
-        tip.attributes("-topmost", True)
+        # A tooltip must follow the application window, never the whole desktop.
+        # In particular, do not make it globally topmost: that can leave a stale
+        # tooltip above unrelated applications after Noark 5 Workflow Manager
+        # loses focus.
+        try:
+            tip.transient(parent)
+        except Exception:
+            pass
         ctk.CTkLabel(
             tip,
             text=self.text,
@@ -61,6 +69,13 @@ class _Tooltip:
         tip.update_idletasks()
         tip.geometry(f"+{x-tip.winfo_width()//2}+{y}")
         tip.deiconify()
+        try:
+            tip.lift(parent)
+        except Exception:
+            try:
+                tip.lift()
+            except Exception:
+                pass
 
         # A tooltip is transient UI. Auto-hide is a final safety net for cases
         # where the hovered workflow button is moved/rebuilt under the pointer.
