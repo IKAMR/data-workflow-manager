@@ -5,27 +5,14 @@ import weakref
 import customtkinter as ctk
 
 CATEGORIES = [
-    "Pipeline",
-    "Integritet",
-    "Sikkerhet",
-    "Innhold",
-    "Systemspesifikt",
-    "Kompatibilitet",
-    "Rapport",
-    "Metadata",
-    "SIP/AIC-Pakking",
+    "Pipeline", "Integritet", "Sikkerhet", "Innhold", "Systemspesifikt",
+    "Kompatibilitet", "Rapport", "Metadata", "SIP/AIC-Pakking",
 ]
 
 CATEGORY_COLORS = {
-    "Pipeline": "#4f8ef7",
-    "Integritet": "#4f8ef7",
-    "Sikkerhet": "#e05252",
-    "Innhold": "#f0c040",
-    "Systemspesifikt": "#4f8ef7",
-    "Kompatibilitet": "#4f8ef7",
-    "Rapport": "#f97316",
-    "Metadata": "#a78bfa",
-    "SIP/AIC-Pakking": "#4f8ef7",
+    "Pipeline": "#4f8ef7", "Integritet": "#4f8ef7", "Sikkerhet": "#e05252",
+    "Innhold": "#f0c040", "Systemspesifikt": "#4f8ef7", "Kompatibilitet": "#4f8ef7",
+    "Rapport": "#f97316", "Metadata": "#a78bfa", "SIP/AIC-Pakking": "#4f8ef7",
 }
 
 APP_BG = "#0d0f14"
@@ -36,8 +23,6 @@ DROPZONE_BG = "#1a2640"
 CARD_BG = "#191d28"
 CARD_BORDER = "#252b3a"
 TEXT = "#d4daf0"
-# Compatibility alias: some older/newer GUI widgets use the descriptive
-# TEXT_MAIN name. Keep one authoritative value and expose both names.
 TEXT_MAIN = TEXT
 TEXT_SUB = "#b7bcc8"
 TEXT_MUTED = "#8a95b0"
@@ -48,11 +33,23 @@ BUTTON_HOVER = "#252b3a"
 DANGER_BG = "#2a1515"
 DANGER_TEXT = "#e05252"
 
+# Tooltip palette is intentionally more prominent than ordinary surfaces.
+# Dark mode uses a slightly lighter card; light mode uses a slightly darker
+# neutral card.  Both keep high text contrast and a visible border.
+TOOLTIP_DARK_BG = "#2a3142"
+TOOLTIP_DARK_TEXT = "#f4f7ff"
+TOOLTIP_DARK_BORDER = "#526079"
+TOOLTIP_LIGHT_BG = "#d9dee8"
+TOOLTIP_LIGHT_TEXT = "#172033"
+TOOLTIP_LIGHT_BORDER = "#8b96a8"
+
 FONT_FAMILY = "Courier New"
 TITLE_SIZE = 13
 SECTION_SIZE = 10
 NORMAL_SIZE = 10
 SMALL_SIZE = 9
+# Tooltips are a distinct semantic role, but still follow the global A-/A+ offset.
+TOOLTIP_SIZE = 10
 FONT_MIN_SIZE = 10
 
 HEADER_HEIGHT = 48
@@ -110,6 +107,17 @@ def font(size: int, weight: str = "normal", family: str | None = None) -> ctk.CT
     )
     FontRegistry._fonts.append((weakref.ref(obj), int(size)))
     return obj
+
+
+def tooltip_colors() -> tuple[str, str, str]:
+    """Return background, text and border for the current appearance mode."""
+    try:
+        light = ctk.get_appearance_mode().lower() == "light"
+    except Exception:
+        light = False
+    if light:
+        return TOOLTIP_LIGHT_BG, TOOLTIP_LIGHT_TEXT, TOOLTIP_LIGHT_BORDER
+    return TOOLTIP_DARK_BG, TOOLTIP_DARK_TEXT, TOOLTIP_DARK_BORDER
 
 
 def apply_theme() -> None:

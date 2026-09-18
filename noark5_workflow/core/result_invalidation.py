@@ -28,6 +28,7 @@ class ResultInvalidationEvent:
     source_result_id: str
     stale_operation_id: str
     reason: str
+    event_type: str = "invalidated"
 
     def to_dict(self) -> dict:
         return {
@@ -39,6 +40,7 @@ class ResultInvalidationEvent:
             "source_result_id": self.source_result_id,
             "stale_operation_id": self.stale_operation_id,
             "reason": self.reason,
+            "event_type": self.event_type,
         }
 
     @classmethod
@@ -53,6 +55,7 @@ class ResultInvalidationEvent:
             source_result_id=str(data.get("source_result_id", "")),
             stale_operation_id=str(data.get("stale_operation_id", "")),
             reason=str(data.get("reason", "")),
+            event_type=str(data.get("event_type", "invalidated") or "invalidated"),
         )
 
 
@@ -92,6 +95,7 @@ class ResultInvalidationLedger:
         source_result_id: str,
         stale_operation_id: str,
         reason: str,
+        event_type: str = "invalidated",
         event_id: str | None = None,
         recorded_at: str | None = None,
     ) -> ResultInvalidationEvent:
@@ -103,6 +107,7 @@ class ResultInvalidationLedger:
             source_result_id=str(source_result_id or ""),
             stale_operation_id=str(stale_operation_id or ""),
             reason=str(reason or ""),
+            event_type=str(event_type or "invalidated"),
         )
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.path.open("a", encoding="utf-8", newline="\n") as handle:
@@ -150,3 +155,57 @@ def mark_downstream_stale(job, source_operation_id: str, source_result_id: str) 
             reason="Gjeldende upstream-resultat er endret; avledet resultat må regenereres",
         )
     return stale
+
+
+def current_stale_operation_ids(job) -> list[str]:
+    """Return currently stale operations from append-only freshness history.
+
+    Old a13.3 rows without event_type are treated as invalidations. A later
+    ``regenerated`` event for the same operation resolves that stale state
+    without deleting the original invalidation event.
+    """
+    path = invalidation_ledger_path_for_job(job)
+    if path is None or not path.is_file():
+        return []
+    latest: dict[str, ResultInvalidationEvent] = {}
+    for event in ResultInvalidationLedger(path).events():
+        if event.job_id and event.job_id != str(getattr(job, "job_id", "") or ""):
+            continue
+        latest[event.stale_operation_id] = event
+    workflow_ids = list(getattr(job, "workflow_ids", []) or [])
+    stale = {
+        operation_id
+        for operation_id, event in latest.items()
+        if event.event_type == "invalidated"
+    }
+    return [operation_id for operation_id in workflow_ids if operation_id in stale]
+
+
+def mark_regenerated(job, operation_id: str) -> ResultInvalidationEvent | None:
+    """Append a resolution event after successful regeneration.
+
+    The most recent invalidation metadata is carried forward so the audit trail
+    still identifies which authoritative upstream result made the derived
+    result stale. Existing invalidation rows and result files are never removed.
+    """
+    path = invalidation_ledger_path_for_job(job)
+    if path is None or not path.is_file():
+        return None
+    job_id = str(getattr(job, "job_id", "") or "")
+    latest = None
+    for event in ResultInvalidationLedger(path).events():
+        if event.stale_operation_id != operation_id:
+            continue
+        if event.job_id and event.job_id != job_id:
+            continue
+        latest = event
+    if latest is None or latest.event_type != "invalidated":
+        return None
+    return ResultInvalidationLedger(path).append(
+        job_id=job_id,
+        source_operation_id=latest.source_operation_id,
+        source_result_id=latest.source_result_id,
+        stale_operation_id=operation_id,
+        reason="Avledet resultat er regenerert fra gjeldende upstream-resultat",
+        event_type="regenerated",
+    )
