@@ -14,27 +14,20 @@ DEFAULT_CONFIG = {
     "setup_dir": "",
     "job_list_dir": "",
     "log_level": "INFO",
-    # Enabled output adapters. Runtime events themselves are format-neutral.
-    # Additional sinks such as CSV/JSON can be added without changing Core.
     "enabled_log_sinks": ["text_run_log", "premis"],
     "operation_visibility": 2,
     "appearance_mode": "dark",
     "font_offset": 0,
-
-    # Main-window startup behaviour. Position and size are independent choices.
     "restore_main_window_position": True,
     "restore_main_window_size": True,
+    "restore_main_window_maximized": True,
     "main_window_x": None,
     "main_window_y": None,
     "main_window_width": None,
     "main_window_height": None,
-
-    # Keep the canonical application run log and, by default, mirror the same
-    # log into each job's Arbeid – operasjoner/wf/logs directory.
+    "main_window_maximized": False,
     "copy_run_log_to_work_operations": True,
-
-    # Remembered folders / files.
-    "last_noark_source_dir": "",  # legacy Noark-specific key
+    "last_noark_source_dir": "",
     "last_source_extraction_dir": "",
     "recent_source_extraction_dirs": [],
     "recent_storage_role_paths": {},
@@ -48,10 +41,8 @@ DEFAULT_CONFIG = {
     "last_job_list_dir": "",
     "recent_job_list_dirs": [],
     "recent_job_list_files": [],
-
-    # PREMIS is one selectable provenance/log output. The internal workflow
-    # event/log model must remain usable independently of PREMIS so additional
-    # formats (for example CSV/JSON) can be added later.
+    "storage_layout_profile": "ikamr_standard",
+    "noark5_discovery_workflow": "noark5_standard",
     "enable_premis_provenance": True,
     "premis_output_dir": "",
     "premis_agent_identifier": "username",

@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "profiles": [
+    {
+      "id": "none",
+      "label": "Ingen automatisk utfylling",
+      "description": "Oppdag Source extraction, men fyll ikke andre mapper automatisk.",
+      "match": {}
+    },
+    {
+      "id": "ikamr_standard",
+      "label": "IKAMR standard",
+      "description": "AIC/jobbroten inneholder content, repository_operations og aip.",
+      "match": {
+        "extraction_relative_prefix": [
+          "content",
+          "sip",
+          "content"
+        ]
+      },
+      "roles": {
+        "source_root": "{package_root}",
+        "source_extraction": "{extraction_root}",
+        "work_root": "{package_root}",
+        "work_content": "{package_root}/content",
+        "work_operations": "{package_root}/repository_operations",
+        "archive_root": "{package_root}/aip"
+      }
+    }
+  ]
+}
