@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable
 
 from noark5_workflow.core.context import OperationContext
@@ -72,7 +73,20 @@ class JobRunner:
             operation.configure(params)
             log(f"DIAS-utdata synkronisert fra jobb: {job_output}")
 
+    def _ensure_source_available(self, job: Job) -> None:
+        source_root = job.active_extraction_root
+        if source_root is None or not Path(source_root).is_dir():
+            shown = str(source_root) if source_root is not None else "[ikke satt]"
+            raise JobContinueError(
+                "Uttrekksmappen er ikke tilgjengelig: "
+                f"{shown}. Kontroller at ekstern disk, nettverksstasjon "
+                "eller annen lagring er tilkoblet."
+            )
+
     def continue_job(self, job: Job, *, progress_cb=None, log_cb=None, cancelled_cb=None, state_cb=None) -> JobRunOutcome:
+        # Availability is a hard precondition for continuation. Check it before
+        # cursor/status validation and before run() can mutate execution state.
+        self._ensure_source_available(job)
         if job.status != JobStatus.WAITING:
             raise JobContinueError(f"Jobben kan ikke fortsettes fra status: {job.status.value}")
         total = len(job.workflow_ids)

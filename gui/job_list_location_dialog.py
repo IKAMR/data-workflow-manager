@@ -110,6 +110,12 @@ class JobListLocationDialog(ctk.CTkToplevel):
             return candidates[0]
         return None
 
+    @staticmethod
+    def _recent_label(index: int) -> str:
+        # Only one item can actually be "last used". Older entries are history;
+        # keeping the label column blank avoids repeating a false status.
+        return "Sist brukt" if index == 0 else ""
+
     def _build_open_rows(self) -> None:
         row = 0
         project_file = self._project_job_file()
@@ -121,15 +127,20 @@ class JobListLocationDialog(ctk.CTkToplevel):
         if project_file is not None:
             seen.add(project_file)
 
+        recent_index = 0
         for path in self._recent_files:
             if path in seen or not path.is_file():
                 continue
             seen.add(path)
-            self._add_file_row(row, "Sist brukt", path, removable=True)
+            self._add_file_row(
+                row,
+                self._recent_label(recent_index),
+                path,
+                removable=True,
+            )
+            recent_index += 1
             row += 1
 
-        # Default is still useful even when no known file is recorded there:
-        # it opens the normal file picker directly in the configured default.
         self._add_dir_row(
             row, "Standard", self._default_dir,
             button_text="Velg fil...", primary=(row == 0),
@@ -151,6 +162,7 @@ class JobListLocationDialog(ctk.CTkToplevel):
             choose=self._choose_dir,
         )
         next_row = 1
+        recent_index = 0
         if self._project_dir is not None and self._project_dir != self._default_dir:
             self._add_dir_row(
                 next_row, "Arbeid", self._project_dir,
@@ -161,9 +173,13 @@ class JobListLocationDialog(ctk.CTkToplevel):
             if path in {self._default_dir, self._project_dir}:
                 continue
             self._add_dir_row(
-                next_row, "Sist brukt", path,
-                button_text="Velg", choose=self._choose_dir,
+                next_row,
+                self._recent_label(recent_index),
+                path,
+                button_text="Velg",
+                choose=self._choose_dir,
             )
+            recent_index += 1
             next_row += 1
 
     def _add_file_row(

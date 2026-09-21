@@ -1,3 +1,4 @@
+import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -36,10 +37,17 @@ class JobContinueA11Tests(unittest.TestCase):
             source_factory=lambda source_root: SimpleNamespace(root=source_root),
         ), executor
 
+    def setUp(self):
+        self._temp = tempfile.TemporaryDirectory()
+        self.source_root = Path(self._temp.name)
+
+    def tearDown(self):
+        self._temp.cleanup()
+
     def test_continue_runs_from_next_operation_only(self):
         job = Job(
             job_id="JOB-001",
-            source_root=Path("source"),
+            source_root=self.source_root,
             workflow_ids=["one", "two", "three"],
             checkpoint_after=["one"],
             next_operation_index=1,
@@ -59,7 +67,7 @@ class JobContinueA11Tests(unittest.TestCase):
     def test_continue_rejects_job_that_is_not_waiting(self):
         job = Job(
             job_id="JOB-001",
-            source_root=Path("source"),
+            source_root=self.source_root,
             workflow_ids=["one", "two"],
             checkpoint_after=["one"],
             next_operation_index=1,
@@ -76,7 +84,7 @@ class JobContinueA11Tests(unittest.TestCase):
     def test_continue_rejects_invalid_waiting_cursor(self):
         job = Job(
             job_id="JOB-001",
-            source_root=Path("source"),
+            source_root=self.source_root,
             workflow_ids=["one", "two"],
             checkpoint_after=["one"],
             next_operation_index=0,
@@ -92,7 +100,7 @@ class JobContinueA11Tests(unittest.TestCase):
     def test_continue_rejects_waiting_state_not_backed_by_checkpoint(self):
         job = Job(
             job_id="JOB-001",
-            source_root=Path("source"),
+            source_root=self.source_root,
             workflow_ids=["one", "two"],
             next_operation_index=1,
             status=JobStatus.WAITING,
@@ -103,6 +111,29 @@ class JobContinueA11Tests(unittest.TestCase):
             runner.continue_job(job)
 
         self.assertEqual(executor.executed, [])
+
+    def test_continue_with_unavailable_source_preserves_waiting_state_and_cursor(self):
+        missing = self.source_root / "disconnected-drive"
+        job = Job(
+            job_id="JOB-001",
+            source_root=missing,
+            workflow_ids=["one", "two"],
+            checkpoint_after=["one"],
+            next_operation_index=1,
+            status=JobStatus.WAITING,
+            progress=0.5,
+            message="Venter ved kontrollpunkt etter one",
+        )
+        runner, executor = self._runner()
+
+        with self.assertRaisesRegex(JobContinueError, "Uttrekksmappen er ikke tilgjengelig"):
+            runner.continue_job(job)
+
+        self.assertEqual(executor.executed, [])
+        self.assertEqual(job.status, JobStatus.WAITING)
+        self.assertEqual(job.next_operation_index, 1)
+        self.assertEqual(job.progress, 0.5)
+        self.assertEqual(job.message, "Venter ved kontrollpunkt etter one")
 
 
 if __name__ == "__main__":

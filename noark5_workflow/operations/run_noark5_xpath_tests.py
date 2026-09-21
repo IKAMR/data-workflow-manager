@@ -9,7 +9,7 @@ from noark5_workflow.analysis.master_results import (
     build_master_result_set,
     load_master_result_set,
 )
-from noark5_workflow.analysis.xpath_test_engine import run_catalog
+from noark5_workflow.analysis.xpath_diagnostics import run_catalog_profiled
 from noark5_workflow.core.context import OperationContext
 from noark5_workflow.core.operation import BaseOperation, ExecutionTarget, OperationDefinition
 from noark5_workflow.core.result import OperationResult
@@ -62,7 +62,7 @@ class _BaseNoark5XpathTestsOperation(BaseOperation):
                     f"{job_id} | {point} | {status}{suffix}"
                 )
 
-        index = run_catalog(
+        index = run_catalog_profiled(
             CATALOG_PATH,
             ctx.extraction_root,
             out,
@@ -70,6 +70,38 @@ class _BaseNoark5XpathTestsOperation(BaseOperation):
             execution_profile=self.execution_profile,
             progress_callback=on_test_progress,
         )
+
+        perf_ref = index.get("performance_diagnostics") or {}
+        perf_summary = perf_ref.get("summary") or {}
+        if perf_ref:
+            ctx.log(
+                "XPATH PROFIL: "
+                f"tester={perf_summary.get('tests', 0)}, "
+                f"feil={perf_summary.get('errors', 0)}, "
+                f"total={perf_summary.get('total_test_duration_seconds', 0):.3f}s, "
+                f"tree={perf_summary.get('total_tree_preparation_seconds', 0):.3f}s, "
+                f"metrics={perf_summary.get('total_metric_evaluation_seconds', 0):.3f}s | "
+                f"{out / perf_ref.get('file', 'performance-diagnostics.json')}"
+            )
+
+            try:
+                perf_doc = json.loads(
+                    (out / perf_ref["file"]).read_text(encoding="utf-8")
+                )
+            except (OSError, KeyError, json.JSONDecodeError):
+                perf_doc = {}
+
+            for error in perf_doc.get("errors", []):
+                context = error.get("error_context") or {}
+                ctx.log(
+                    "XPATH FEILDETALJ: "
+                    f"{error.get('test_id')} | "
+                    f"{error.get('source_xml')} | "
+                    f"metric={context.get('metric_id') or '-'} | "
+                    f"type={context.get('metric_type') or context.get('special_handler') or '-'} | "
+                    f"expr={context.get('expression') or context.get('select') or '-'} | "
+                    f"{error.get('error')}"
+                )
 
         master_path = None
         master_summary = None
@@ -120,18 +152,30 @@ class _BaseNoark5XpathTestsOperation(BaseOperation):
                 f"{master_summary.get('unavailable_master_results', 0)} utilgjengelige."
             )
 
+        perf_text = ""
+        if perf_ref:
+            perf_text = (
+                " Profilering: "
+                f"{perf_summary.get('total_test_duration_seconds', 0):.1f}s testtid, "
+                f"{perf_summary.get('total_tree_preparation_seconds', 0):.1f}s tree-preparering, "
+                f"{perf_summary.get('total_metric_evaluation_seconds', 0):.1f}s metrics."
+            )
+
         return OperationResult(
             True,
             f"Noark 5-testkatalog kjørt ({self.execution_profile}): "
             f"{s.get('ok', 0)} OK, {s.get('source_missing', 0)} mangler kildefil, "
             f"{s.get('disabled_by_legacy_source', 0)} legacy-deaktivert, "
-            f"{s.get('error', 0)} feil.{master_text}{regression_text} Resultat: {out}",
+            f"{s.get('error', 0)} feil.{master_text}{regression_text}{perf_text} Resultat: {out}",
             data={
                 "result_index": index,
                 "output_dir": str(out),
                 "catalog": str(CATALOG_PATH),
                 "execution_profile": self.execution_profile,
                 "master_result_set": str(master_path) if master_path is not None else None,
+                "performance_diagnostics": (
+                    str(out / perf_ref["file"]) if perf_ref.get("file") else None
+                ),
             },
         )
 
@@ -155,7 +199,6 @@ class RunNoark5XpathTestsOperation(_BaseNoark5XpathTestsOperation):
 
 
 class RunNoark5XpathRegressionOperation(_BaseNoark5XpathTestsOperation):
-    # QA/regresjonskjøringen skal aldri stoppe workflow ved et kontrollpunkt.
     allow_checkpoint = False
 
     definition = OperationDefinition(

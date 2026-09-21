@@ -142,9 +142,6 @@ class _Tooltip:
             bottom = top + max(1, int(parent.winfo_height()))
             margin = 10
 
-            # A tooltip must fit as a complete readable box.  Native Tk gives
-            # reliable requested pixel sizes here; CTkToplevel could report a
-            # scaled size before mapping and caused text to be clipped at both ends.
             available_width = max(120, right - left - (margin * 2))
             self.label.configure(wraplength=max(120, available_width - 24))
             self.window.update_idletasks()
@@ -163,8 +160,6 @@ class _Tooltip:
             x = max(left + margin, min(x, right - width - margin))
             y = max(top + margin, min(y, bottom - height - margin))
 
-            # Set explicit size as well as position.  This avoids a second geometry
-            # negotiation shrinking the borderless tooltip after it has been placed.
             self.window.geometry(f"{width}x{height}+{x}+{y}")
         except Exception:
             pass
@@ -180,8 +175,6 @@ class _Tooltip:
         except Exception:
             return
 
-        # A new hover always replaces the previous one.  There can never be
-        # several independently mapped tooltip windows.
         self.widget = widget
         self._text = text
         if not self._ensure_window(parent):
@@ -206,8 +199,6 @@ class _Tooltip:
         self._position(event)
 
     def _hide_if_owner(self, widget) -> None:
-        # Ignore delayed Leave/Destroy events from a previously hovered widget.
-        # Only the widget that currently owns the shared tooltip may hide it.
         if widget is self.widget:
             self._hide()
 
@@ -249,10 +240,9 @@ class WorkflowPanel(ctk.CTkFrame):
         self.on_regenerate_stale: Callable[[], None] | None = None
         self.stale_ids_provider: Callable[[], set[str]] | None = None
         self.status_provider: Callable[[str], str] | None = None
+        self.status_detail_provider: Callable[[str], str] | None = None
         self.on_status_click: Callable[[str], None] | None = None
         self._tooltip = _Tooltip(self)
-        # Compatibility boundary for the established a11/a26 watchdog/tests:
-        # one shared manager replaces the previous list of per-widget windows.
         self._tooltips = [self._tooltip]
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
@@ -415,10 +405,19 @@ class WorkflowPanel(ctk.CTkFrame):
                 font=theme.font(theme.NORMAL_SIZE, "bold"),
             )
             status_icon.grid(row=0, column=0, padx=(7, 5), pady=5)
-            self._add_tooltip(status_icon,
-                f"{spec.label}: {spec.tooltip}"
-                + (" Klikk for resultatversjoner." if self.on_status_click is not None else ""),
+
+            detail = (
+                self.status_detail_provider(op_id)
+                if self.status_detail_provider is not None
+                else ""
             )
+            tooltip_text = f"{spec.label}: {spec.tooltip}"
+            if detail:
+                tooltip_text += "\n\n" + detail
+            if self.on_status_click is not None:
+                tooltip_text += " Klikk for resultatversjoner."
+            self._add_tooltip(status_icon, tooltip_text)
+
             if self.on_status_click is not None:
                 status_icon.configure(cursor="hand2")
                 status_icon.bind(

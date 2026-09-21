@@ -2,8 +2,13 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 
+from lxml import etree
+
 from noark5_workflow.analysis.arkivstruktur import analyse_arkivstruktur
-from noark5_workflow.analysis.defined_fields import extract_defined_fields
+from noark5_workflow.analysis.defined_fields import (
+    DefinedFieldExtractionError,
+    extract_defined_fields,
+)
 from noark5_workflow.core.context import OperationContext
 from noark5_workflow.core.operation import BaseOperation, ExecutionTarget, OperationDefinition
 from noark5_workflow.core.result import OperationResult
@@ -43,7 +48,38 @@ class AnalyseArkivstrukturOperation(BaseOperation):
             )
 
         ctx.progress(0.75, "Henter definerte Noark 5-felt")
-        defined_fields = extract_defined_fields(arkivstruktur)
+
+        defined_fields = {}
+        defined_fields_error = None
+        warnings = []
+
+        try:
+            defined_fields = extract_defined_fields(arkivstruktur)
+        except DefinedFieldExtractionError as exc:
+            # The streamed structural analysis above is still valid. Defined
+            # field extraction is enrichment and must not prevent the remaining
+            # validation workflow from running. Keep the failure explicit.
+            defined_fields_error = exc.as_dict()
+            warning = (
+                "Definert feltuttrekk kunne ikke fullføres. "
+                f"{exc}. Workflow fortsetter med strukturanalysen."
+            )
+            warnings.append(warning)
+            ctx.log(f"ADVARSEL: {warning}")
+        except (etree.XMLSyntaxError, OSError) as exc:
+            defined_fields_error = {
+                "error_type": type(exc).__name__,
+                "message": str(exc),
+                "phase": "defined_fields",
+            }
+            warning = (
+                "Definert feltuttrekk kunne ikke fullføres: "
+                f"{type(exc).__name__}: {exc}. "
+                "Workflow fortsetter med strukturanalysen."
+            )
+            warnings.append(warning)
+            ctx.log(f"ADVARSEL: {warning}")
+
         ctx.progress(1.0, "Analyse av arkivstruktur.xml fullført")
         key = analysis.key_counts
         message = (
@@ -56,8 +92,19 @@ class AnalyseArkivstrukturOperation(BaseOperation):
             f"{key['dokumentbeskrivelse']} dokumentbeskrivelser og "
             f"{key['dokumentobjekt']} dokumentobjekter."
         )
+        if defined_fields_error is not None:
+            message += " Definert feltuttrekk ga advarsel; se diagnosedata."
+
+        data = {
+            **analysis.as_dict(),
+            "defined_fields": defined_fields,
+        }
+        if defined_fields_error is not None:
+            data["defined_fields_error"] = defined_fields_error
+
         return OperationResult(
             True,
             message,
-            data={**analysis.as_dict(), "defined_fields": defined_fields},
+            data=data,
+            warnings=warnings,
         )
