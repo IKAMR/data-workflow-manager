@@ -26,10 +26,24 @@ class A18RuntimeBoundaryTests(unittest.TestCase):
         self.assertIn("class WorkflowApp(A17WorkflowApp)", a18)
 
     def test_version_boundary_is_not_older_than_a18(self):
-        match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)-a(\d+)(?:\.\d+)*", VERSION)
-        self.assertIsNotNone(match, f"Uventet versjonsformat: {VERSION}")
-        major, minor, patch, alpha = map(int, match.groups())
-        self.assertGreaterEqual((major, minor, patch, alpha), (0, 1, 2, 18))
+        alpha = re.fullmatch(
+            r"(\d+)\.(\d+)\.(\d+)-a(\d+)(?:\.\d+)*",
+            VERSION,
+        )
+        release = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", VERSION)
+
+        self.assertTrue(
+            alpha or release,
+            f"Uventet versjonsformat: {VERSION}",
+        )
+
+        if release:
+            major, minor, patch = map(int, release.groups())
+            self.assertGreaterEqual((major, minor, patch), (0, 1, 2))
+            return
+
+        major, minor, patch, alpha_no = map(int, alpha.groups())
+        self.assertGreaterEqual((major, minor, patch, alpha_no), (0, 1, 2, 18))
 
 
 if __name__ == "__main__":

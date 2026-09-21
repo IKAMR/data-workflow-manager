@@ -6,6 +6,36 @@ Nyeste ferdige versjon står øverst.
 
 Alpha-trinn som `a1`, `a2`, `a3` og midlertidige rettelser som `a3.1` dokumenteres ikke som egne permanente releasefiler. De er utviklingstrinn fram mot en ferdig versjon.
 
+## v0.1.3
+
+Robust flerjobbkjøring, sporbare resultater og forbedret validering av store Noark 5-uttrekk.
+
+Hovedendringer:
+
+- forbedret jobb- og batchhåndtering med gjenopptak etter lagringsfeil
+- selektiv gjenkjøring og versjonerte resultatsett
+- unike resultatmapper og `artifact_manifest.json` med `JOB`-/`RUN`-identitet
+- regel på jobblistenivå for egne Work-undermapper per jobb
+- kontroll av eksisterende resultater ved oppdagelse av jobber
+- Noark 5 XPath-resultater, views og depotrapporter holdes adskilt per jobb og kjøring
+- forbedret fremdriftsvisning for operasjoner og tester i jobblisten
+- streamingbasert XML/XSD-validering for svært store XML-filer
+- validering av `arkivstruktur.xml` over 4 GB praktisk verifisert
+- resultat- og ytelsesdiagnostikk med bedre sporbarhet
+
+## v0.1.2
+
+Noark 5-validering og rapportering basert på kanoniske analyser.
+
+Hovedendringer:
+
+- Noark 5 XPath-analyser med `lxml` og eksterne definisjoner
+- analyse av hele uttrekket og per arkivdel
+- standardverdikontroller og avstemming av resultater
+- U1/U2 beholdt som regresjonsgrunnlag
+- gjenbrukbare views for presentasjon av analyseresultater
+- depotvalideringsrapport med avvik, vurderingspunkter og sporbarhet
+
 ## v0.1.1
 
 Job/Batch og vedvarende jobblister.
