@@ -60,6 +60,18 @@ class XmlSchemaValidationA13Tests(unittest.TestCase):
         xml.write_text(xml_text, encoding="utf-8")
         return xml, xsd
 
+    def _ctx(self, root: Path, work_operations: Path):
+        source = Noark5Extraction.detect(root)
+        ctx = OperationContext(
+            extraction_root=root,
+            source=source,
+            work_operations=work_operations,
+            settings={"_current_run_id": "RUN-TEST-001"},
+        )
+        ctx.metadata["job_id"] = "JOB-001"
+        ctx.metadata["run_id"] = "RUN-TEST-001"
+        return ctx
+
     def test_lxml_accepts_valid_xml_against_xsd(self):
         with tempfile.TemporaryDirectory() as temp:
             xml, xsd = self._files(Path(temp), VALID_XML)
@@ -82,30 +94,21 @@ class XmlSchemaValidationA13Tests(unittest.TestCase):
             resolved = resolve_local_schema(xml, [xsd])
             self.assertEqual(resolved, xsd.resolve())
 
-    def test_operation_writes_json_report_to_work_operations(self):
+    def test_operation_writes_unique_json_report_to_work_operations(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "source"
             work_operations = Path(temp) / "work_operations"
             root.mkdir()
             work_operations.mkdir()
             self._files(root, VALID_XML)
-            source = Noark5Extraction.detect(root)
-            ctx = OperationContext(
-                extraction_root=root,
-                source=source,
-                work_operations=work_operations,
-            )
 
-            result = ValidateXmlSchemaOperation().run(ctx)
+            result = ValidateXmlSchemaOperation().run(self._ctx(root, work_operations))
 
             self.assertTrue(result.ok)
-            report = (
-                work_operations
-                / "noark5_tests"
-                / "schema"
-                / "xml-validation-arkivstruktur.json"
-            )
+            report = Path(result.data["report"])
             self.assertTrue(report.is_file())
+            self.assertIn("JOB-001__RUN-TEST-001", str(report.parent))
+            self.assertTrue((report.parent / "artifact_manifest.json").is_file())
             data = json.loads(report.read_text(encoding="utf-8"))
             self.assertTrue(data["valid"])
             self.assertEqual(data["validation_id"], "arkivstruktur-xsd")
@@ -117,22 +120,11 @@ class XmlSchemaValidationA13Tests(unittest.TestCase):
             root.mkdir()
             work_operations.mkdir()
             self._files(root, INVALID_XML)
-            source = Noark5Extraction.detect(root)
-            ctx = OperationContext(
-                extraction_root=root,
-                source=source,
-                work_operations=work_operations,
-            )
 
-            result = ValidateXmlSchemaOperation().run(ctx)
+            result = ValidateXmlSchemaOperation().run(self._ctx(root, work_operations))
 
             self.assertFalse(result.ok)
-            report = (
-                work_operations
-                / "noark5_tests"
-                / "schema"
-                / "xml-validation-arkivstruktur.json"
-            )
+            report = Path(result.data["report"])
             self.assertTrue(report.is_file())
             data = json.loads(report.read_text(encoding="utf-8"))
             self.assertFalse(data["valid"])

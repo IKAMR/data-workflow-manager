@@ -34,6 +34,14 @@ def _owner_snapshot(job) -> dict[str, str]:
     }
 
 
+def _effective_work_operations(job) -> str:
+    return str(
+        getattr(job, "_effective_work_operations", None)
+        or getattr(job, "work_operations", "")
+        or ""
+    )
+
+
 class RunOverviewLog:
     """Compatibility facade that emits canonical runtime events."""
 
@@ -53,8 +61,6 @@ class RunOverviewLog:
         self.run_id = f"RUN-{now.strftime('%Y%m%d-%H%M%S')}-{uuid4().hex[:8]}"
         event_store_path = run_log_dir(settings) / f"{self.run_id}.events.jsonl"
 
-        # Transient runtime context shared with JobRunner/OperationContext. These
-        # values are not portable setup data and must not be persisted by setup.
         settings["_current_run_id"] = self.run_id
         settings["_current_event_store_path"] = str(event_store_path)
 
@@ -113,7 +119,8 @@ class RunOverviewLog:
         source_extraction = str(getattr(job, "source_extraction", "") or "")
         active_source = str(getattr(job, "active_extraction_root", "") or source_root)
         work_root = str(getattr(job, "work_root", "") or "")
-        work_operations = str(getattr(job, "work_operations", "") or "")
+        work_operations_base = str(getattr(job, "work_operations", "") or "")
+        work_operations_effective = _effective_work_operations(job)
         archive_root = str(getattr(job, "archive_root", "") or "")
         output = archive_root or str(getattr(job, "output_root", "") or "")
         self._emit(WorkflowEvent.now(
@@ -127,7 +134,9 @@ class RunOverviewLog:
                 "source_root": source_root,
                 "source_extraction": source_extraction,
                 "work_root": work_root,
-                "work_operations": work_operations,
+                "work_operations": work_operations_effective,
+                "work_operations_base": work_operations_base,
+                "work_operations_effective": work_operations_effective,
                 "archive_root": archive_root,
                 "output": output,
                 "owner": _owner_snapshot(job),
@@ -137,6 +146,8 @@ class RunOverviewLog:
     def finish_job(self, job) -> None:
         archive_root = str(getattr(job, "archive_root", "") or "")
         output = archive_root or str(getattr(job, "output_root", "") or "")
+        work_operations_base = str(getattr(job, "work_operations", "") or "")
+        work_operations_effective = _effective_work_operations(job)
         self._emit(WorkflowEvent.now(
             "job.finished",
             run_id=self.run_id,
@@ -146,7 +157,9 @@ class RunOverviewLog:
             data={
                 "status": _status_text(job),
                 "work_root": str(getattr(job, "work_root", "") or ""),
-                "work_operations": str(getattr(job, "work_operations", "") or ""),
+                "work_operations": work_operations_effective,
+                "work_operations_base": work_operations_base,
+                "work_operations_effective": work_operations_effective,
                 "archive_root": archive_root,
                 "output": output,
             },

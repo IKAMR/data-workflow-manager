@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from noark5_workflow.analysis.xml_schema_validation import resolve_local_schema, validate_xml_against_xsd, write_validation_report
+from noark5_workflow.core.artifact_identity import artifact_run_dir, write_artifact_manifest
 from noark5_workflow.core.context import OperationContext
 from noark5_workflow.core.operation import BaseOperation, ExecutionTarget, OperationDefinition
 from noark5_workflow.core.result import OperationResult
@@ -18,8 +19,6 @@ class ValidateXmlSchemaOperation(BaseOperation):
         execution_target=ExecutionTarget.EITHER, category="Integritet",
     )
 
-    # a17: both PASS and FAIL are raw observations. A later assessment decides
-    # whether a finding is accepted, rejected as a test defect or superseded.
     raw_result_record = True
 
     def raw_result_identity(self, result: OperationResult, ctx: OperationContext) -> dict[str, str]:
@@ -50,12 +49,26 @@ class ValidateXmlSchemaOperation(BaseOperation):
         schema_path=resolve_local_schema(xml_path,extraction.xsd_files,item.get("schema",{}).get("preferred_names",[]))
         if schema_path is None:
             return OperationResult(False,"Kunne ikke avgjøre hvilken lokal XSD som hører til arkivstruktur.xml.",data={"available_xsds":[str(p) for p in extraction.xsd_files]})
+        out = artifact_run_dir(
+            ctx,
+            "noark5_tests",
+            "schema",
+            operation_id=self.definition.operation_id,
+        )
+        write_artifact_manifest(
+            ctx,
+            out,
+            operation_id=self.definition.operation_id,
+            definition_id=str(definition.get("definition_id", "")),
+            definition_version=str(definition.get("format_version", "")),
+        )
         ctx.progress(0.25,f"XSD: {schema_path.name}"); result=validate_xml_against_xsd(xml_path,schema_path)
-        report_path=Path(ctx.work_operations) / "noark5_tests" / "schema" / item["output"]
+        report_path=out / item["output"]
         write_validation_report(result,report_path,validation_id=item["id"]); ctx.progress(1.0,"XML/XSD-validering fullført")
         data={
             **result.as_dict(),
             "report":str(report_path),
+            "artifact_manifest":str(out / "artifact_manifest.json"),
             "definition_id": str(definition.get("definition_id", "")),
             "definition_version": str(definition.get("format_version", "")),
             "validation_id": str(item.get("id", "")),

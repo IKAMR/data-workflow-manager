@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
 from pathlib import Path
 
 from noark5_workflow.analysis.view_composer import write_composed_views
 from noark5_workflow.analysis.presentation_materializer import write_materialized_profiles
+from noark5_workflow.core.artifact_identity import (
+    artifact_belongs_to_context,
+    artifact_run_dir,
+    write_artifact_manifest,
+)
 from noark5_workflow.core.context import OperationContext
 from noark5_workflow.core.operation import BaseOperation, ExecutionTarget, OperationDefinition
 from noark5_workflow.core.result import OperationResult
@@ -20,7 +24,7 @@ PRESENTATION_DEFINITION_PATH = (
 )
 
 
-def _latest_normal_result_set(work_operations: Path) -> Path | None:
+def _latest_normal_result_set(work_operations: Path, ctx: OperationContext | None = None) -> Path | None:
     root = work_operations / "noark5_tests" / "xpath"
     if not root.is_dir():
         return None
@@ -28,6 +32,8 @@ def _latest_normal_result_set(work_operations: Path) -> Path | None:
     candidates = []
     for path in root.iterdir():
         if not path.is_dir() or not (path / "index.json").is_file():
+            continue
+        if ctx is not None and not artifact_belongs_to_context(path, ctx):
             continue
         try:
             index = json.loads((path / "index.json").read_text(encoding="utf-8"))
@@ -59,24 +65,33 @@ class ComposeNoark5ViewsOperation(BaseOperation):
             return False, f"View-definisjonen mangler: {DEFINITION_PATH}"
         if not PRESENTATION_DEFINITION_PATH.is_file():
             return False, f"Presentasjonsdefinisjonen mangler: {PRESENTATION_DEFINITION_PATH}"
-        result_set = _latest_normal_result_set(Path(ctx.work_operations))
+        result_set = _latest_normal_result_set(Path(ctx.work_operations), ctx)
         if result_set is None:
             return False, (
-                "Ingen ordinær Noark 5 XPath-kjøring finnes. "
+                "Ingen ordinær Noark 5 XPath-kjøring finnes for denne jobben/kilden. "
                 "Kjør Noark 5 XPath-tester 2026 først."
             )
         return True, ""
 
     def run(self, ctx: OperationContext) -> OperationResult:
-        result_set = _latest_normal_result_set(Path(ctx.work_operations))
+        result_set = _latest_normal_result_set(Path(ctx.work_operations), ctx)
         if result_set is None:
             return OperationResult(
                 False,
-                "Ingen ordinær Noark 5 XPath-kjøring finnes.",
+                "Ingen ordinær Noark 5 XPath-kjøring finnes for denne jobben/kilden.",
             )
 
-        stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        out = Path(ctx.work_operations) / "noark5_views" / stamp
+        out = artifact_run_dir(
+            ctx,
+            "noark5_views",
+            operation_id=self.definition.operation_id,
+        )
+        write_artifact_manifest(
+            ctx,
+            out,
+            operation_id=self.definition.operation_id,
+            definition_id="noark5-canonical-views",
+        )
         ctx.progress(0.10, "Leser kanoniske Noark 5-resultater")
         index = write_composed_views(result_set, DEFINITION_PATH, out)
 
@@ -101,6 +116,7 @@ class ComposeNoark5ViewsOperation(BaseOperation):
             f"{len(presentation_index['profiles'])} presentasjonsprofiler. Resultat: {out}",
             data={
                 "output_dir": str(out),
+                "artifact_manifest": str(out / "artifact_manifest.json"),
                 "source_result_set": str(result_set),
                 "view_index": index,
                 "presentation_index": presentation_index,

@@ -8,14 +8,19 @@ from typing import Any
 from .job import Job, JobBatch, JobStatus
 
 FILE_TYPE="noark5-workflow-manager-job-list"
-FORMAT_VERSION=3
-SUPPORTED_FORMAT_VERSIONS={1,2,3}
+FORMAT_VERSION=4
+SUPPORTED_FORMAT_VERSIONS={1,2,3,4}
 FILE_EXTENSION=".n5jobs"
 class JobListFormatError(ValueError): pass
 
 @dataclass(frozen=True)
 class LoadedJobList:
-    batch: JobBatch; active_job_id: str|None; created_at: str; modified_at: str; app_version: str
+    batch: JobBatch
+    active_job_id: str|None
+    created_at: str
+    modified_at: str
+    app_version: str
+    output_subfolder_rule: str = ""
 
 def _now_iso()->str: return datetime.now(timezone.utc).isoformat(timespec="seconds")
 def _json_value(value:Any)->Any:
@@ -90,6 +95,7 @@ def save_job_list(path:Path,batch:JobBatch,*,active_job_id:str|None=None,app_ver
     path.parent.mkdir(parents=True,exist_ok=True); now=_now_iso()
     payload={"file_type":FILE_TYPE,"format_version":FORMAT_VERSION,"app_version":app_version,
         "created_at":_existing_created_at(path) or now,"modified_at":now,"active_job_id":active_job_id,
+        "output_subfolder_rule":str(getattr(batch,"output_subfolder_rule","") or ""),
         "jobs":[_job_to_dict(job) for job in batch.jobs()]}
     temp_path=path.with_name(path.name+".tmp")
     try:
@@ -115,8 +121,10 @@ def load_job_list(path:Path)->LoadedJobList:
     for raw in raw_jobs:
         if not isinstance(raw,dict): raise JobListFormatError("Ugyldig jobb i jobs-listen")
         batch.add(_job_from_dict(raw,format_version=int(version)))
+    rule=str(data.get("output_subfolder_rule","") or "") if int(version)>=4 else ""
+    batch.output_subfolder_rule=rule
     active=data.get("active_job_id")
     if active is not None:
         active=str(active)
         if batch.get(active) is None: active=None
-    return LoadedJobList(batch=batch,active_job_id=active,created_at=str(data.get("created_at","")),modified_at=str(data.get("modified_at","")),app_version=str(data.get("app_version","")))
+    return LoadedJobList(batch=batch,active_job_id=active,created_at=str(data.get("created_at","")),modified_at=str(data.get("modified_at","")),app_version=str(data.get("app_version","")),output_subfolder_rule=rule)

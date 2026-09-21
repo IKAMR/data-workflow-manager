@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
 from pathlib import Path
 
 from noark5_workflow.analysis.master_results import (
@@ -10,6 +9,7 @@ from noark5_workflow.analysis.master_results import (
     load_master_result_set,
 )
 from noark5_workflow.analysis.xpath_diagnostics import run_catalog_profiled
+from noark5_workflow.core.artifact_identity import artifact_run_dir, write_artifact_manifest
 from noark5_workflow.core.context import OperationContext
 from noark5_workflow.core.operation import BaseOperation, ExecutionTarget, OperationDefinition
 from noark5_workflow.core.result import OperationResult
@@ -37,8 +37,19 @@ class _BaseNoark5XpathTestsOperation(BaseOperation):
         return True, ""
 
     def _run_profile(self, ctx: OperationContext) -> OperationResult:
-        stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        out = Path(ctx.work_operations) / "noark5_tests" / self.output_subdir / stamp
+        out = artifact_run_dir(
+            ctx,
+            "noark5_tests",
+            self.output_subdir,
+            operation_id=self.definition.operation_id,
+        )
+        write_artifact_manifest(
+            ctx,
+            out,
+            operation_id=self.definition.operation_id,
+            definition_id="noark5-kdrs-query-2026-05-26",
+            definition_version="5",
+        )
 
         ctx.progress(0.02, f"Starter {self.definition.name}")
 
@@ -127,6 +138,7 @@ class _BaseNoark5XpathTestsOperation(BaseOperation):
                     data={
                         "result_index": index,
                         "output_dir": str(out),
+                        "artifact_manifest": str(out / "artifact_manifest.json"),
                         "catalog": str(CATALOG_PATH),
                         "execution_profile": self.execution_profile,
                     },
@@ -170,6 +182,7 @@ class _BaseNoark5XpathTestsOperation(BaseOperation):
             data={
                 "result_index": index,
                 "output_dir": str(out),
+                "artifact_manifest": str(out / "artifact_manifest.json"),
                 "catalog": str(CATALOG_PATH),
                 "execution_profile": self.execution_profile,
                 "master_result_set": str(master_path) if master_path is not None else None,
