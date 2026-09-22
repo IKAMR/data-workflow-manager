@@ -1,0 +1,1451 @@
+{
+  "catalog_format_version": 1,
+  "catalog_id": "arkade5-noark5-tests-v2.13.0",
+  "title": "Arkade 5 Noark 5-testkatalog",
+  "language": "nb-NO",
+  "arkade_version": "2.13.0",
+  "source": {
+    "repository": "IKAMR/arkade5",
+    "branch": "master",
+    "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+    "commit_message": "Merge pull request #192 from nasjonalarkivet/release/v2.13.0 - Finish release",
+    "factory": "src/Arkivverket.Arkade.Core/Base/Noark5/Noark5TestFactory.cs",
+    "provider": "src/Arkivverket.Arkade.Core/Testing/Noark5/Noark5TestProvider.cs",
+    "display_names": "src/Arkivverket.Arkade.Core/Resources/ArkadeTestDisplayNames.nb-NO.resx",
+    "verification_date": "2026-09-23"
+  },
+  "principles": {
+    "source_code_is_authoritative": true,
+    "shared_test_number_does_not_prove_semantic_equivalence": true,
+    "catalog_describes_arkade_not_dwm_implementation": true,
+    "future_dwm_mapping_is_separate": true
+  },
+  "summary": {
+    "implemented_test_count": 54,
+    "types": {
+      "StructureControl": 3,
+      "ContentAnalysis": 42,
+      "StructureAnalysis": 1,
+      "ContentControl": 8
+    },
+    "implemented_ids": [
+      "N5.01",
+      "N5.02",
+      "N5.03",
+      "N5.04",
+      "N5.05",
+      "N5.06",
+      "N5.07",
+      "N5.08",
+      "N5.09",
+      "N5.10",
+      "N5.11",
+      "N5.12",
+      "N5.13",
+      "N5.14",
+      "N5.15",
+      "N5.16",
+      "N5.17",
+      "N5.18",
+      "N5.19",
+      "N5.20",
+      "N5.21",
+      "N5.22",
+      "N5.23",
+      "N5.24",
+      "N5.25",
+      "N5.26",
+      "N5.27",
+      "N5.28",
+      "N5.29",
+      "N5.30",
+      "N5.32",
+      "N5.33",
+      "N5.34",
+      "N5.35",
+      "N5.36",
+      "N5.37",
+      "N5.38",
+      "N5.39",
+      "N5.40",
+      "N5.41",
+      "N5.42",
+      "N5.43",
+      "N5.44",
+      "N5.45",
+      "N5.46",
+      "N5.47",
+      "N5.48",
+      "N5.51",
+      "N5.59",
+      "N5.60",
+      "N5.61",
+      "N5.62",
+      "N5.63",
+      "N5.64"
+    ],
+    "not_implemented_ids_in_01_64": [
+      "N5.31",
+      "N5.49",
+      "N5.50",
+      "N5.52",
+      "N5.53",
+      "N5.54",
+      "N5.55",
+      "N5.56",
+      "N5.57",
+      "N5.58"
+    ]
+  },
+  "tests": [
+    {
+      "arkade_test_id": "N5.01",
+      "name_nb": "Kontroll av eksistens for XML-filene",
+      "arkade_type": "StructureControl",
+      "sources": [
+        "arkivuttrekk.xml/ADDML",
+        "uttrekkets dokumenterte XML-enheter"
+      ],
+      "scope": [
+        "whole_extraction"
+      ],
+      "logic_summary_nb": "Går gjennom XML-enheter som uttrekket dokumenterer og kontrollerer at hver dokumentert XML-fil og tilhørende hovedfil faktisk finnes i uttrekkets innhold.",
+      "relevant_fields": [],
+      "notes_nb": [
+        "Manglende dokumentert XML-fil gir Error."
+      ],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/Structure/N5_01_ValidateStructureFileExists.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.02",
+      "name_nb": "Validering av sjekksummer",
+      "arkade_type": "StructureControl",
+      "sources": [
+        "arkivuttrekk.xml/ADDML",
+        "dokumenterte XML-filer",
+        "dokumenterte XSD-filer"
+      ],
+      "scope": [
+        "whole_extraction"
+      ],
+      "logic_summary_nb": "Leser fil- og schema-properties fra ADDML, krever checksum-property og checksum-algoritme, beregner sjekksum for faktisk fil og sammenligner med dokumentert verdi.",
+      "relevant_fields": [
+        "file/name",
+        "file/checksum/value",
+        "file/checksum/algorithm"
+      ],
+      "notes_nb": [
+        "Implementasjonen aksepterer SHA-256/SHA256.",
+        "Manglende checksum, algoritme, fil eller mismatch gir Error.",
+        "Samme schemafil valideres ikke flere ganger."
+      ],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/Structure/N5_02_ValidateAddmlDataobjectsChecksums.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.03",
+      "name_nb": "Validering av XML i henhold til skjema",
+      "arkade_type": "StructureControl",
+      "sources": [
+        "alle ArchiveXmlUnit-enheter",
+        "tilknyttede XSD-skjemaer"
+      ],
+      "scope": [
+        "whole_extraction"
+      ],
+      "logic_summary_nb": "Validerer hver XML-enhet i uttrekket mot skjemaene Arkade har knyttet til enheten. Valideringsfeil rapporteres med fil og XML-linjer.",
+      "relevant_fields": [],
+      "notes_nb": [
+        "Bruk av Arkades innebygde fallback-skjema rapporteres som Error i dagens kode.",
+        "arkivuttrekk.xml rapporteres med dette navnet selv om intern ADDML-filrepresentasjon brukes."
+      ],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/Structure/N5_03_ValidateXmlWithSchema.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.04",
+      "name_nb": "Antall arkiv",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml"
+      ],
+      "scope": [
+        "whole_extraction"
+      ],
+      "logic_summary_nb": "Teller arkiv-elementer i arkivstrukturen og rapporterer samlet antall, med analyse av arkivnivå/hierarki.",
+      "relevant_fields": [
+        "arkiv"
+      ],
+      "notes_nb": [],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_04_NumberOfArchives.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.05",
+      "name_nb": "Antall arkivdeler",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive"
+      ],
+      "logic_summary_nb": "Teller arkivdel-elementer og knytter resultatet til overordnet arkiv der dette er tilgjengelig.",
+      "relevant_fields": [
+        "arkiv/systemID",
+        "arkivdel"
+      ],
+      "notes_nb": [],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_05_NumberOfArchiveParts.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.06",
+      "name_nb": "Status på arkivdeler",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part"
+      ],
+      "logic_summary_nb": "Grupperer og teller arkivdeler etter arkivdelstatus, med arkivdelens systemID og tittel som resultatkontekst.",
+      "relevant_fields": [
+        "arkivdel/systemID",
+        "arkivdel/tittel",
+        "arkivdel/arkivdelstatus"
+      ],
+      "notes_nb": [],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_06_StatusOfArchiveParts.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.07",
+      "name_nb": "Antall klassifikasjonssystem",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part"
+      ],
+      "logic_summary_nb": "Teller klassifikasjonssystemer under arkivdel og rapporterer per arkivdel når relevant.",
+      "relevant_fields": [
+        "arkivdel/systemID",
+        "arkivdel/tittel",
+        "klassifikasjonssystem"
+      ],
+      "notes_nb": [],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_07_NumberOfClassificationSystems.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.08",
+      "name_nb": "Antall klasser",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part",
+        "classification_system"
+      ],
+      "logic_summary_nb": "Teller klasser og organiserer resultatet etter arkivdel og klassifikasjonssystem. Leser strukturelle nivåer mens klassehierarkiet prosesseres.",
+      "relevant_fields": [
+        "arkivdel/systemID",
+        "arkivdel/tittel",
+        "klassifikasjonssystem/systemID",
+        "klasse"
+      ],
+      "notes_nb": [],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_08_NumberOfClasses.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.09",
+      "name_nb": "Antall klasser i det primære klassifikasjonssystemet uten underklasser, mapper eller registreringer",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part",
+        "classification_system"
+      ],
+      "logic_summary_nb": "Finner tomme klasser i klassifikasjonssystem som Arkade identifiserer som primært gjennom faktisk bruk. En klasse er tellbar når den ikke har underklasse, mappe eller registrering.",
+      "relevant_fields": [
+        "klassifikasjonssystem/systemID",
+        "klasse",
+        "mappe",
+        "registrering"
+      ],
+      "notes_nb": [
+        "Avgrensningen til primært klassifikasjonssystem er vesentlig ved sammenligning med andre tellere."
+      ],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_09_NumberOfClassesInMainClassificationSystemWithoutSubClassesFoldersOrRegistrations.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.10",
+      "name_nb": "Antall mapper",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml",
+        "arkivuttrekk.xml/ADDML"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part"
+      ],
+      "logic_summary_nb": "Teller mapper, inkludert mappetyper, og sammenholder faktisk antall med dokumentert mappeantall når dette finnes i uttrekksdokumentasjonen.",
+      "relevant_fields": [
+        "mappe",
+        "mappe/@type",
+        "arkivdel/systemID",
+        "arkivdel/tittel"
+      ],
+      "notes_nb": [
+        "Analyse kan produsere Error når dokumentert og faktisk antall ikke samsvarer."
+      ],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_10_NumberOfFolders.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.11",
+      "name_nb": "Antall mapper for hvert år",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part"
+      ],
+      "logic_summary_nb": "Grupperer mapper etter år fra opprettetDato. Ugyldige XML-datoer håndteres eksplisitt av datoparsingen.",
+      "relevant_fields": [
+        "mappe/opprettetDato",
+        "arkivdel/systemID",
+        "arkivdel/tittel"
+      ],
+      "notes_nb": [],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_11_NumberOfFoldersPerYear.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.12",
+      "name_nb": "Klasser med både underklasse(r) og mappe(r)",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part"
+      ],
+      "logic_summary_nb": "Finner klasser som samtidig inneholder underklasse og mappe, og rapporterer identiteten til berørte klasser.",
+      "relevant_fields": [
+        "klasse/systemID",
+        "klasse/klasse",
+        "klasse/mappe",
+        "arkivdel/systemID",
+        "arkivdel/tittel"
+      ],
+      "notes_nb": [],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_12_ControlNoSuperclassesHasFolders.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.13",
+      "name_nb": "Antall mapper for hver klasse",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part",
+        "class"
+      ],
+      "logic_summary_nb": "Teller mapper som ligger direkte under hver klasse og rapporterer per klasse med klasseidentitet.",
+      "relevant_fields": [
+        "klasse/systemID",
+        "klasse/mappe",
+        "arkivdel/systemID",
+        "arkivdel/tittel"
+      ],
+      "notes_nb": [],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_13_NumberOfFoldersPerClass.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.14",
+      "name_nb": "Antall mapper uten registreringer eller undermapper",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part"
+      ],
+      "logic_summary_nb": "Finner mapper som verken inneholder registreringer eller undermapper. Mappe med status «utgår» tas ikke med. Berørte mapper rapporteres med identitet og XML-linje.",
+      "relevant_fields": [
+        "mappe/systemID",
+        "mappe/mappeID",
+        "mappe/offentligTittel",
+        "mappe/saksstatus"
+      ],
+      "notes_nb": [
+        "Status «utgår» er et eksplisitt unntak."
+      ],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_14_NumberOfFoldersWithoutRegistrationsOrSubfolders.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.15",
+      "name_nb": "Antall av ulike saksmappestatuser",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part"
+      ],
+      "logic_summary_nb": "Grupperer saksmappestatus og teller forekomster per arkivdel. Kontrollen bruker Arkades mappestatusmodell og kan rapportere avvik for manglende/ugyldig status.",
+      "relevant_fields": [
+        "mappe/saksstatus",
+        "arkivdel/systemID",
+        "arkivdel/tittel"
+      ],
+      "notes_nb": [],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_15_NumberOfEachCaseFolderStatus.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.16",
+      "name_nb": "Antall registreringer",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml",
+        "arkivuttrekk.xml/ADDML"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part"
+      ],
+      "logic_summary_nb": "Teller registreringer og registreringstyper og sammenholder faktisk antall med dokumentert registreringsantall når tilgjengelig.",
+      "relevant_fields": [
+        "registrering",
+        "registrering/@type",
+        "arkivdel/systemID",
+        "arkivdel/tittel"
+      ],
+      "notes_nb": [
+        "Analyse kan produsere Error ved avvik mellom dokumentert og faktisk antall."
+      ],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_16_NumberOfRegistrations.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.17",
+      "name_nb": "Antall av ulike journalposttyper",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part"
+      ],
+      "logic_summary_nb": "Identifiserer journalpost-registreringer og grupperer dem etter journalposttype. Tom journalposttype rapporteres som Error med XML-lokasjon.",
+      "relevant_fields": [
+        "registrering/@type",
+        "registrering/systemID",
+        "registrering/journalposttype"
+      ],
+      "notes_nb": [],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_17_NumberOfEachJournalPostType.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.18",
+      "name_nb": "Antall registreringer for hvert år",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part"
+      ],
+      "logic_summary_nb": "Grupperer registreringer etter år fra opprettetDato og bruker eksplisitt XML-datoparsing.",
+      "relevant_fields": [
+        "registrering/opprettetDato",
+        "arkivdel/systemID",
+        "arkivdel/tittel"
+      ],
+      "notes_nb": [],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_18_NumberOfRegistrationsPerYear.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.19",
+      "name_nb": "Klasser med både underklasse(r) og registrering(er)",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part"
+      ],
+      "logic_summary_nb": "Finner klasser som samtidig inneholder underklasse og registrering direkte under klassen.",
+      "relevant_fields": [
+        "klasse/systemID",
+        "klasse/klasse",
+        "klasse/registrering"
+      ],
+      "notes_nb": [],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_19_ControlNoSuperclassesHasRegistrations.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.20",
+      "name_nb": "Antall registreringer for hver klasse (ikke medregnet registreringer under mappe)",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part",
+        "class"
+      ],
+      "logic_summary_nb": "Teller registreringer som ligger direkte under klasse. Registreringer under mapper medregnes ikke.",
+      "relevant_fields": [
+        "klasse/systemID",
+        "klasse/registrering",
+        "arkivdel/systemID",
+        "arkivdel/tittel"
+      ],
+      "notes_nb": [],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_20_NumberOfRegistrationsPerClass.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.21",
+      "name_nb": "Antall registreringer uten dokumentbeskrivelse",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part"
+      ],
+      "logic_summary_nb": "Finner registreringer uten dokumentbeskrivelse og rapporterer berørte registreringer. Registrering/mappe med status «utgår» filtreres gjennom Arkades statusmodell.",
+      "relevant_fields": [
+        "registrering/systemID",
+        "registrering/registreringsID",
+        "dokumentbeskrivelse",
+        "mappe/status",
+        "registrering/status"
+      ],
+      "notes_nb": [
+        "«utgår»-unntaket er viktig ved sammenligning med en rå XPath-telling."
+      ],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_21_NumberOfRegistrationsWithoutDocumentDescription.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.22",
+      "name_nb": "Antall av ulike journalstatuser",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part"
+      ],
+      "logic_summary_nb": "Grupperer journalposter etter journalstatus og rapporterer manglende/tom status etter Arkades kontrollregler.",
+      "relevant_fields": [
+        "registrering/journalstatus",
+        "arkivdel/systemID",
+        "arkivdel/tittel"
+      ],
+      "notes_nb": [],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_22_NumberOfEachJournalStatus.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.23",
+      "name_nb": "Antall dokumentbeskrivelser",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part"
+      ],
+      "logic_summary_nb": "Teller dokumentbeskrivelser totalt og per arkivdel.",
+      "relevant_fields": [
+        "dokumentbeskrivelse",
+        "arkivdel/systemID",
+        "arkivdel/tittel"
+      ],
+      "notes_nb": [],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_23_NumberOfDocumentDescriptions.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.24",
+      "name_nb": "Antall dokumentbeskrivelser uten dokumentobjekt",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part"
+      ],
+      "logic_summary_nb": "Finner dokumentbeskrivelser uten dokumentobjekt, men anvender Arkades faglige unntak for «utgår» og fysiske dokumentmedier. Fysiske dokumentbeskrivelser uten objekt rapporteres separat.",
+      "relevant_fields": [
+        "dokumentbeskrivelse/systemID",
+        "dokumentbeskrivelse/dokumentnummer",
+        "dokumentbeskrivelse/dokumentmedium",
+        "dokumentobjekt",
+        "mappe/status",
+        "registrering/status"
+      ],
+      "notes_nb": [
+        "Dokumentmedium «fysisk medium» og «fysisk arkiv» behandles separat og teller ikke som ordinært manglende dokumentobjekt.",
+        "Mappe/registrering med status «utgår» filtreres ut."
+      ],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_24_NumberOfDocumentDescriptionsWithoutDocumentObject.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.25",
+      "name_nb": "Antall av ulike dokumentstatuser",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part"
+      ],
+      "logic_summary_nb": "Grupperer dokumentbeskrivelser etter dokumentstatus og rapporterer manglende/tomme verdier etter Arkades regler.",
+      "relevant_fields": [
+        "dokumentbeskrivelse/dokumentstatus",
+        "arkivdel/systemID",
+        "arkivdel/tittel"
+      ],
+      "notes_nb": [],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_25_NumberOfEachDocumentStatus.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.26",
+      "name_nb": "Antall dokumentobjekter",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part"
+      ],
+      "logic_summary_nb": "Teller dokumentobjekter totalt og per arkivdel.",
+      "relevant_fields": [
+        "dokumentobjekt",
+        "arkivdel/systemID",
+        "arkivdel/tittel"
+      ],
+      "notes_nb": [],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_26_NumberOfDocumentObjects.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.27",
+      "name_nb": "Opprettelsesdatoer for første og siste registrering",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part"
+      ],
+      "logic_summary_nb": "Leser registrering/opprettetDato, validerer datoformat, teller ugyldige datoer og rapporterer første og siste gyldige opprettelsesdato per arkivdel.",
+      "relevant_fields": [
+        "registrering/opprettetDato",
+        "arkivdel/systemID",
+        "arkivdel/tittel"
+      ],
+      "notes_nb": [
+        "Ugyldige datoer gir Error med XML-linjer.",
+        "Datakilden er registrering/opprettetDato, ikke dokumentbeskrivelse/opprettetDato."
+      ],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_27_FirstAndLastRegistrationCreationDates.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.28",
+      "name_nb": "Validering av antall dokumentfiler",
+      "arkade_type": "StructureAnalysis",
+      "sources": [
+        "arkivuttrekk.xml/ADDML",
+        "dokumentmappe"
+      ],
+      "scope": [
+        "whole_extraction"
+      ],
+      "logic_summary_nb": "Teller faktiske dokumentfiler, leser dokumentert antallDokumentfiler fra ADDML og sammenligner verdiene.",
+      "relevant_fields": [
+        "antallDokumentfiler"
+      ],
+      "notes_nb": [
+        "Manglende dokumentmappe, null faktiske filer, manglende dokumentasjon eller mismatch kan gi Error."
+      ],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/Structure/N5_28_ValidateNumberOfDocumentfiles.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.29",
+      "name_nb": "Antall av ulike dokumentformater",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part",
+        "document_format"
+      ],
+      "logic_summary_nb": "Grupperer dokumentobjekter etter format og sammenligner deklarert format med filendelsen i referanseDokumentfil. Mismatch rapporteres som Error.",
+      "relevant_fields": [
+        "dokumentobjekt/format",
+        "dokumentobjekt/referanseDokumentfil"
+      ],
+      "notes_nb": [
+        "Sammenligningen bruker filendelsen i referansen; dette er ikke full innholdsvalidering av filformat."
+      ],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_29_NumberOfEachDocumentFormat.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.30",
+      "name_nb": "Dokumentfilers sjekksummer",
+      "arkade_type": "ContentControl",
+      "sources": [
+        "arkivstruktur.xml",
+        "dokumentfiler"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part",
+        "document_object"
+      ],
+      "logic_summary_nb": "For hvert dokumentobjekt leses filreferanse, sjekksum og sjekksumAlgoritme; Arkade beregner sjekksum for den faktiske dokumentfilen og sammenligner med deklarert verdi.",
+      "relevant_fields": [
+        "dokumentobjekt/referanseDokumentfil",
+        "dokumentobjekt/sjekksum",
+        "dokumentobjekt/sjekksumAlgoritme",
+        "dokumentbeskrivelse/systemID"
+      ],
+      "notes_nb": [],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_30_DocumentFilesChecksumControl.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.32",
+      "name_nb": "Refererte dokumenters eksistens",
+      "arkade_type": "ContentControl",
+      "sources": [
+        "arkivstruktur.xml",
+        "dokumentfiler"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part"
+      ],
+      "logic_summary_nb": "Kontrollerer at hver referanseDokumentfil peker på en dokumentfil som faktisk finnes i uttrekket.",
+      "relevant_fields": [
+        "referanseDokumentfil",
+        "arkivdel/systemID",
+        "arkivdel/tittel"
+      ],
+      "notes_nb": [],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_32_ControlDocumentFilesExists.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.33",
+      "name_nb": "Dokumentfiler som mangler referanse",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml",
+        "dokumentfiler"
+      ],
+      "scope": [
+        "whole_extraction"
+      ],
+      "logic_summary_nb": "Sammenligner faktiske dokumentfiler med referanseDokumentfil-verdiene i dokumentobjekter og identifiserer filer som ikke er referert.",
+      "relevant_fields": [
+        "dokumentobjekt/referanseDokumentfil"
+      ],
+      "notes_nb": [],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_33_DocumentfilesReferenceControl.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.34",
+      "name_nb": "Dokumentfiler med referanse fra mer enn ett dokumentobjekt",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part"
+      ],
+      "logic_summary_nb": "Grupperer referanseDokumentfil og identifiserer dokumentfiler som er referert fra flere dokumentobjekter.",
+      "relevant_fields": [
+        "dokumentobjekt/referanseDokumentfil",
+        "arkivdel/systemID",
+        "arkivdel/tittel"
+      ],
+      "notes_nb": [],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_34_NumberOfMultiReferencedDocumentFiles.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.35",
+      "name_nb": "Antall saksparter",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part"
+      ],
+      "logic_summary_nb": "Teller saksparter/parter. Implementasjonen håndterer både eldre sakspart-element og Noark 5.0 part-element og fordeler tilknytning etter relevant forelder.",
+      "relevant_fields": [
+        "sakspart",
+        "part",
+        "arkivdel/systemID",
+        "arkivdel/tittel"
+      ],
+      "notes_nb": [
+        "Arkade har separat visningsnavn «Antall parter» for v5.0."
+      ],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_35_NumberOfCaseParts.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.36",
+      "name_nb": "Antall merknader",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part"
+      ],
+      "logic_summary_nb": "Teller merknader og grupperer dem etter hvilken Noark-entitet de er knyttet til.",
+      "relevant_fields": [
+        "merknad",
+        "arkivdel/systemID",
+        "arkivdel/tittel"
+      ],
+      "notes_nb": [],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_36_NumberOfComments.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.37",
+      "name_nb": "Antall kryssreferanser",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part"
+      ],
+      "logic_summary_nb": "Teller kryssreferanser etter referansetype, blant annet referanseTilKlasse, referanseTilMappe og referanseTilRegistrering.",
+      "relevant_fields": [
+        "referanseTilKlasse",
+        "referanseTilMappe",
+        "referanseTilRegistrering"
+      ],
+      "notes_nb": [],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_37_NumberOfCrossReferences.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.38",
+      "name_nb": "Antall presedenser",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part"
+      ],
+      "logic_summary_nb": "Teller presedens under mappe og journalpost-registrering ved hjelp av Arkades typeidentifikasjon.",
+      "relevant_fields": [
+        "mappe/presedens",
+        "registrering/presedens",
+        "registrering/@type",
+        "mappe/@type"
+      ],
+      "notes_nb": [],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_38_NumberOfPrecedents.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.39",
+      "name_nb": "Antall korrespondanseparter",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part"
+      ],
+      "logic_summary_nb": "Teller korrespondanseparter og grupperer etter type/tilknytning i strukturen.",
+      "relevant_fields": [
+        "korrespondansepart",
+        "arkivdel/systemID",
+        "arkivdel/tittel"
+      ],
+      "notes_nb": [],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_39_NumberOfCorrespondenceParts.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.40",
+      "name_nb": "Antall avskrivninger",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part"
+      ],
+      "logic_summary_nb": "Teller avskrivninger og grupperer etter avskrivningsmåte, inkludert referanser som inngår i avskrivningen.",
+      "relevant_fields": [
+        "avskrivning/avskrivningsmaate"
+      ],
+      "notes_nb": [],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_40_NumberOfDepreciations.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.41",
+      "name_nb": "Antall dokumentflyter",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part"
+      ],
+      "logic_summary_nb": "Teller dokumentflyt-elementer og deres tilknytning, inkludert journalpostidentifikasjon der relevant.",
+      "relevant_fields": [
+        "dokumentflyt",
+        "registrering/@type",
+        "arkivdel/systemID",
+        "arkivdel/tittel"
+      ],
+      "notes_nb": [],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_41_NumberOfDocumentFlows.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.42",
+      "name_nb": "Antall skjerminger",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml",
+        "arkivuttrekk.xml/ADDML"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part"
+      ],
+      "logic_summary_nb": "Teller skjerming per elementtype og sammenholder faktisk forekomst med uttrekksdokumentasjonens inneholderSkjermetInformasjon.",
+      "relevant_fields": [
+        "skjerming",
+        "inneholderSkjermetInformasjon",
+        "arkivdel/systemID",
+        "arkivdel/tittel"
+      ],
+      "notes_nb": [
+        "Dokumentasjon=true uten funn og dokumentasjon=false med funn behandles som avvik/Error."
+      ],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_42_NumberOfRestrictions.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.43",
+      "name_nb": "Antall graderinger",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part"
+      ],
+      "logic_summary_nb": "Teller gradering-elementer med versjonstilpasset håndtering av Noark-strukturen.",
+      "relevant_fields": [
+        "gradering",
+        "arkivdel/systemID",
+        "arkivdel/tittel"
+      ],
+      "notes_nb": [],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_43_NumberOfClassifications.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.44",
+      "name_nb": "Antall kassasjonsvedtak",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml",
+        "arkivuttrekk.xml/ADDML"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part"
+      ],
+      "logic_summary_nb": "Teller kassasjon/kassasjonsvedtak per elementtype og sammenholder forekomst med inneholderDokumenterSomSkalKasseres i uttrekksdokumentasjonen.",
+      "relevant_fields": [
+        "kassasjon",
+        "inneholderDokumenterSomSkalKasseres",
+        "arkivdel/systemID",
+        "arkivdel/tittel"
+      ],
+      "notes_nb": [
+        "Dokumentert forekomst og faktisk forekomst krysskontrolleres begge veier."
+      ],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_44_NumberOfDisposalResolutions.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.45",
+      "name_nb": "Antall utførte kassasjoner",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml",
+        "arkivuttrekk.xml/ADDML"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part"
+      ],
+      "logic_summary_nb": "Teller utfoertKassasjon (i implementasjonen eksplisitt under arkivdel og dokumentbeskrivelse) og sammenholder med omfatterDokumenterSomErKassert.",
+      "relevant_fields": [
+        "utfoertKassasjon",
+        "omfatterDokumenterSomErKassert",
+        "arkivdel/systemID",
+        "arkivdel/tittel"
+      ],
+      "notes_nb": [],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_45_NumberOfDisposalsExecuted.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.46",
+      "name_nb": "Antall konverterte dokumenter",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part"
+      ],
+      "logic_summary_nb": "Teller konvertering under dokumentobjekt og rapporterer konverteringsforekomster per arkivdel.",
+      "relevant_fields": [
+        "dokumentobjekt/konvertering",
+        "arkivdel/systemID",
+        "arkivdel/tittel"
+      ],
+      "notes_nb": [],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_46_NumberOfConversions.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.47",
+      "name_nb": "Systemidentifikasjoner",
+      "arkade_type": "ContentControl",
+      "sources": [
+        "arkivstruktur.xml"
+      ],
+      "scope": [
+        "whole_extraction"
+      ],
+      "logic_summary_nb": "Samler systemID-verdier og kontrollerer global unikhet. Duplikater rapporteres med XML-linjenumre.",
+      "relevant_fields": [
+        "systemID"
+      ],
+      "notes_nb": [
+        "Dette er en referanse-/integritetskontroll, ikke bare en telling."
+      ],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_47_SystemIdUniqueControl.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.48",
+      "name_nb": "Arkivdelreferanser",
+      "arkade_type": "ContentControl",
+      "sources": [
+        "arkivstruktur.xml"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part"
+      ],
+      "logic_summary_nb": "Samler arkivdelers systemID og kontrollerer at referanseArkivdel peker på en eksisterende arkivdel.",
+      "relevant_fields": [
+        "arkivdel/systemID",
+        "referanseArkivdel",
+        "arkivdel/tittel"
+      ],
+      "notes_nb": [],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_48_ArchivepartReferenceControl.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.51",
+      "name_nb": "Klassereferanser",
+      "arkade_type": "ContentControl",
+      "sources": [
+        "arkivstruktur.xml"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part"
+      ],
+      "logic_summary_nb": "Kontrollerer at referanseSekundaerKlassifikasjon kan kobles til systemID-er i arkivstrukturen i henhold til Arkades klassereferansemodell.",
+      "relevant_fields": [
+        "systemID",
+        "referanseSekundaerKlassifikasjon",
+        "arkivdel/tittel"
+      ],
+      "notes_nb": [],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_51_ClassReferenceControl.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.59",
+      "name_nb": "Antall journalposter",
+      "arkade_type": "ContentControl",
+      "sources": [
+        "arkivstruktur.xml",
+        "offentligJournal.xml",
+        "loependeJournal.xml"
+      ],
+      "scope": [
+        "whole_extraction"
+      ],
+      "logic_summary_nb": "Teller journalposter i arkivstrukturen og leser journalpostantall fra offentlig og løpende journal. Offentlig og løpende journal skal samsvare; ved skarpt periodeskille sammenlignes også arkivstrukturens antall.",
+      "relevant_fields": [
+        "registrering/@type",
+        "offentligJournal",
+        "loependeJournal"
+      ],
+      "notes_nb": [
+        "Bruker Arkades PeriodSeparationIsSharp-regel."
+      ],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_59_NumberOfJournalPosts.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.60",
+      "name_nb": "Start- og sluttdatoer",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml",
+        "offentligJournal.xml",
+        "loependeJournal.xml"
+      ],
+      "scope": [
+        "whole_extraction"
+      ],
+      "logic_summary_nb": "Beregner start-/sluttdato for journalposter og sammenligner datoavgrensning mellom journalfilene og arkivstrukturen etter Arkades periodeskille-regler.",
+      "relevant_fields": [
+        "registrering/journaldato"
+      ],
+      "notes_nb": [
+        "Arkivstrukturens datofelt er registrering/journaldato.",
+        "Bruker PeriodSeparationIsSharp og XML-datovalidering."
+      ],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_60_ArchiveStartAndEndDateControl.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.61",
+      "name_nb": "Antall loggførte endringer",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "endringslogg.xml"
+      ],
+      "scope": [
+        "whole_extraction"
+      ],
+      "logic_summary_nb": "Leser endringslogg.xml og rapporterer antall loggførte endringer.",
+      "relevant_fields": [
+        "endringslogg"
+      ],
+      "notes_nb": [],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_61_NumberOfChangesLogged.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.62",
+      "name_nb": "Endringslogg-referanser til arkivstrukturen",
+      "arkade_type": "ContentControl",
+      "sources": [
+        "arkivstruktur.xml",
+        "endringslogg.xml"
+      ],
+      "scope": [
+        "whole_extraction"
+      ],
+      "logic_summary_nb": "Kontrollerer systemID-referanser fra endringslogg mot systemID-er som finnes i arkivstrukturen.",
+      "relevant_fields": [
+        "systemID"
+      ],
+      "notes_nb": [],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_62_ChangeLogArchiveReferenceControl.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.63",
+      "name_nb": "Elementer som mangler innhold",
+      "arkade_type": "ContentControl",
+      "sources": [
+        "arkivstruktur.xml"
+      ],
+      "scope": [
+        "whole_extraction"
+      ],
+      "logic_summary_nb": "Kontrollerer elementer for manglende/tomt innhold og rapporterer funn med XML-kontekst; systemID brukes som identitetskontekst der tilgjengelig.",
+      "relevant_fields": [
+        "systemID"
+      ],
+      "notes_nb": [
+        "Kontrollen er bredere enn en test av at elementet eksisterer; den ser etter elementer uten reelt innhold."
+      ],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_63_ControlElementsHasContent.cs"
+      }
+    },
+    {
+      "arkade_test_id": "N5.64",
+      "name_nb": "Antall tomme dokumentfiler",
+      "arkade_type": "ContentAnalysis",
+      "sources": [
+        "arkivstruktur.xml",
+        "dokumentfiler"
+      ],
+      "scope": [
+        "whole_extraction",
+        "archive_part"
+      ],
+      "logic_summary_nb": "Følger dokumentreferanser fra arkivstrukturen til faktiske dokumentfiler og teller refererte filer med filstørrelse 0. Bruker mappe-/registreringsstatus i rapporteringshierarkiet.",
+      "relevant_fields": [
+        "referanseDokumentfil",
+        "dokumentbeskrivelse/systemID",
+        "dokumentbeskrivelse/dokumentnummer",
+        "registrering/registreringsID"
+      ],
+      "notes_nb": [
+        "Urefererte filer håndteres av N5.33 og er ikke formålet med N5.64."
+      ],
+      "source_provenance": {
+        "repository": "IKAMR/arkade5",
+        "commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+        "path": "src/Arkivverket.Arkade.Core/Testing/Noark5/N5_64_NumberOfEmptyDocumentFiles.cs"
+      }
+    }
+  ]
+}

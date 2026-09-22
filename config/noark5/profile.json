@@ -44,6 +44,9 @@
     "tests": [
       "config/noark5/tests/xpath_catalog_2026_05_26.json"
     ],
+    "external_tests": [
+      "config/noark5/external/arkade5_test_catalog.json"
+    ],
     "analysis": [
       "config/noark5/analysis/u1_total.json",
       "config/noark5/analysis/u1_u2_core_arkiv_arkivdel.json",
@@ -79,7 +82,8 @@
     "docs/NOARK5-ANALYSIS-MODEL.md",
     "docs/NOARK5-STANDARD-VALUES.md",
     "docs/NOARK5-TERMINOLOGY-NOTE.md",
-    "docs/NOARK5-U1-U2-COVERAGE-MAPPING.md"
+    "docs/NOARK5-U1-U2-COVERAGE-MAPPING.md",
+    "docs/ARKADE5-NOARK5-TESTS.md"
   ],
   "legacy_reference": {
     "repository": "IKAMR/KDRS_Query",
