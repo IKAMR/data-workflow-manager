@@ -1,0 +1,571 @@
+{
+  "mapping_format_version": 1,
+  "mapping_id": "dwm-arkade5-noark5-v2.13.0",
+  "dwm_version": "0.1.5-a2",
+  "arkade_version": "2.13.0",
+  "arkade_source_commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+  "principles": {
+    "same_number_is_not_equivalence": true,
+    "namespaces_are_explicit": true,
+    "raw_arkade_evidence_must_be_preserved": true,
+    "runtime_import_mapping_remains_separate": true
+  },
+  "relation_types": {
+    "equivalent": "Dokumentert samme kontrollsemantikk for den koblede delen.",
+    "partial": "Overlapp, men viktig semantikk/scope/unntak er forskjellig eller mangler.",
+    "complementary": "Kontrollene dekker samme område og utfyller hverandre; ingen skal erstatte den andre.",
+    "arkade_only": "Ingen tilsvarende DWM-test er dokumentert.",
+    "dwm_only": "DWM/KDRS-kontroll uten direkte Arkade-test."
+  },
+  "summary": {
+    "equivalent": 1,
+    "partial": 21,
+    "complementary": 19,
+    "arkade_only": 13,
+    "arkade_test_count": 54,
+    "dwm_only_count": 14
+  },
+  "arkade_to_dwm": [
+    {
+      "arkade_test_id": "N5.01",
+      "relation": "arkade_only",
+      "dwm_test_ids": [],
+      "coverage": "arkade_only",
+      "note_nb": "DWM har ingen tilsvarende kontroll av at alle dokumenterte XML-enheter faktisk finnes."
+    },
+    {
+      "arkade_test_id": "N5.02",
+      "relation": "arkade_only",
+      "dwm_test_ids": [],
+      "coverage": "arkade_only",
+      "note_nb": "DWM har ingen tilsvarende ADDML-basert sjekksumkontroll av XML/XSD."
+    },
+    {
+      "arkade_test_id": "N5.03",
+      "relation": "partial",
+      "dwm_test_ids": [],
+      "coverage": "partial",
+      "note_nb": "DWM har XML-skjema-validering, men dagens operasjon og Arkades ArchiveXmlUnit/fallback-semantikk er ikke identiske."
+    },
+    {
+      "arkade_test_id": "N5.04",
+      "relation": "partial",
+      "dwm_test_ids": [
+        "kdrs.c01"
+      ],
+      "coverage": "partial",
+      "note_nb": "Begge teller arkiv; Arkade analyserer også arkivnivå/hierarki."
+    },
+    {
+      "arkade_test_id": "N5.05",
+      "relation": "partial",
+      "dwm_test_ids": [
+        "kdrs.c02"
+      ],
+      "coverage": "partial",
+      "note_nb": "Begge teller arkivdeler; Arkade knytter resultat til overordnet arkiv."
+    },
+    {
+      "arkade_test_id": "N5.06",
+      "relation": "complementary",
+      "dwm_test_ids": [
+        "kdrs.c02",
+        "kdrs.c03"
+      ],
+      "coverage": "complementary",
+      "note_nb": "DWM har arkivdelstatus og bredere lokal rapportering; Arkade gir egen statusanalyse."
+    },
+    {
+      "arkade_test_id": "N5.07",
+      "relation": "complementary",
+      "dwm_test_ids": [
+        "kdrs.c05",
+        "kdrs.c05_01_r3"
+      ],
+      "coverage": "complementary",
+      "note_nb": "Samme hovedtema; DWM har både total og per-arkivdel analyse."
+    },
+    {
+      "arkade_test_id": "N5.08",
+      "relation": "partial",
+      "dwm_test_ids": [
+        "kdrs.c06"
+      ],
+      "coverage": "partial",
+      "note_nb": "Begge teller klasser, men Arkade organiserer etter arkivdel/klassifikasjonssystem og nivå."
+    },
+    {
+      "arkade_test_id": "N5.09",
+      "relation": "partial",
+      "dwm_test_ids": [
+        "kdrs.c07"
+      ],
+      "coverage": "partial",
+      "note_nb": "Arkade avgrenser eksplisitt til primært klassifikasjonssystem."
+    },
+    {
+      "arkade_test_id": "N5.10",
+      "relation": "partial",
+      "dwm_test_ids": [
+        "kdrs.c08"
+      ],
+      "coverage": "partial",
+      "note_nb": "Begge teller mapper; Arkade sammenholder også med dokumentert antall i ADDML."
+    },
+    {
+      "arkade_test_id": "N5.11",
+      "relation": "complementary",
+      "dwm_test_ids": [
+        "kdrs.c09",
+        "kdrs.c09_r4"
+      ],
+      "coverage": "complementary",
+      "note_nb": "DWM dekker årstelling og har egen per-arkivdel variant."
+    },
+    {
+      "arkade_test_id": "N5.12",
+      "relation": "complementary",
+      "dwm_test_ids": [
+        "kdrs.c10",
+        "kdrs.c10_r5"
+      ],
+      "coverage": "complementary",
+      "note_nb": "Samme strukturelle konflikt; DWM har også per-arkivdel variant."
+    },
+    {
+      "arkade_test_id": "N5.13",
+      "relation": "partial",
+      "dwm_test_ids": [
+        "kdrs.c11"
+      ],
+      "coverage": "partial",
+      "note_nb": "Begge rapporterer mapper per klasse; detalj-/kontekstformat er ikke dokumentert som identisk."
+    },
+    {
+      "arkade_test_id": "N5.14",
+      "relation": "partial",
+      "dwm_test_ids": [
+        "kdrs.c12"
+      ],
+      "coverage": "partial",
+      "note_nb": "Arkade har eksplisitt unntak for status «utgår» og rikere identitets-/linjekontekst."
+    },
+    {
+      "arkade_test_id": "N5.15",
+      "relation": "complementary",
+      "dwm_test_ids": [
+        "kdrs.c13",
+        "kdrs.c13_01"
+      ],
+      "coverage": "complementary",
+      "note_nb": "DWM dekker status/type og per arkivdel; Arkade har egen statusmodell og avvikslogikk."
+    },
+    {
+      "arkade_test_id": "N5.16",
+      "relation": "partial",
+      "dwm_test_ids": [
+        "kdrs.c14"
+      ],
+      "coverage": "partial",
+      "note_nb": "Begge teller registreringer; Arkade sammenholder også med dokumentert antall i ADDML."
+    },
+    {
+      "arkade_test_id": "N5.17",
+      "relation": "partial",
+      "dwm_test_ids": [
+        "kdrs.c15",
+        "kdrs.c15_01"
+      ],
+      "coverage": "partial",
+      "note_nb": "Begge analyserer journalposttype; DWM har tillegg om hoveddokument og per arkivdel."
+    },
+    {
+      "arkade_test_id": "N5.18",
+      "relation": "complementary",
+      "dwm_test_ids": [
+        "kdrs.c16",
+        "kdrs.c16_r6",
+        "kdrs.c16_01_r7"
+      ],
+      "coverage": "complementary",
+      "note_nb": "Arkade bruker opprettetDato; DWM har både opprettetDato- og journaldato-varianter."
+    },
+    {
+      "arkade_test_id": "N5.19",
+      "relation": "equivalent",
+      "dwm_test_ids": [
+        "kdrs.c17"
+      ],
+      "coverage": "equivalent",
+      "note_nb": "Samme dokumenterte strukturavvik: klasse med både underklasse og direkte registrering."
+    },
+    {
+      "arkade_test_id": "N5.20",
+      "relation": "complementary",
+      "dwm_test_ids": [
+        "kdrs.c18"
+      ],
+      "coverage": "complementary",
+      "note_nb": "Samme direkte registreringer per klasse; DWM rapporterer også per arkivdel."
+    },
+    {
+      "arkade_test_id": "N5.21",
+      "relation": "partial",
+      "dwm_test_ids": [
+        "kdrs.c19"
+      ],
+      "coverage": "partial",
+      "note_nb": "Arkade har statusbasert «utgår»-unntak som må bevares ved sammenligning."
+    },
+    {
+      "arkade_test_id": "N5.22",
+      "relation": "partial",
+      "dwm_test_ids": [
+        "kdrs.c20"
+      ],
+      "coverage": "partial",
+      "note_nb": "Samme hovedtema, men Arkades kontrollregler for manglende/tom journalstatus er ikke identiske med rå DWM-telling."
+    },
+    {
+      "arkade_test_id": "N5.23",
+      "relation": "complementary",
+      "dwm_test_ids": [
+        "kdrs.c21"
+      ],
+      "coverage": "complementary",
+      "note_nb": "Begge teller dokumentbeskrivelser; DWM bruker tellingen videre i egne visninger."
+    },
+    {
+      "arkade_test_id": "N5.24",
+      "relation": "partial",
+      "dwm_test_ids": [
+        "kdrs.c22"
+      ],
+      "coverage": "partial",
+      "note_nb": "Arkade har eksplisitte unntak for «utgår» og fysisk medium/fysisk arkiv."
+    },
+    {
+      "arkade_test_id": "N5.25",
+      "relation": "partial",
+      "dwm_test_ids": [
+        "kdrs.c23"
+      ],
+      "coverage": "partial",
+      "note_nb": "Begge grupperer dokumentstatus; detaljert kontrollsemantikk er ikke dokumentert som identisk."
+    },
+    {
+      "arkade_test_id": "N5.26",
+      "relation": "complementary",
+      "dwm_test_ids": [
+        "kdrs.c24"
+      ],
+      "coverage": "complementary",
+      "note_nb": "Begge teller dokumentobjekter; DWM har i tillegg generisk variantformatrapportering."
+    },
+    {
+      "arkade_test_id": "N5.27",
+      "relation": "partial",
+      "dwm_test_ids": [
+        "kdrs.c25"
+      ],
+      "coverage": "partial",
+      "note_nb": "Arkade bruker første/siste registrerings opprettelsesdato; DWM legacy-testen har annen datakilde/semantikk."
+    },
+    {
+      "arkade_test_id": "N5.28",
+      "relation": "arkade_only",
+      "dwm_test_ids": [],
+      "coverage": "arkade_only",
+      "note_nb": "Arkade sammenholder faktisk antall dokumentfiler med dokumentert antall; DWM mangler tilsvarende kontroll."
+    },
+    {
+      "arkade_test_id": "N5.29",
+      "relation": "partial",
+      "dwm_test_ids": [],
+      "coverage": "partial",
+      "note_nb": "DWM har dokumentformatdata i øvrig analyse/rapportering, men ingen dokumentert semantisk ekvivalent Arkade N5.29-test."
+    },
+    {
+      "arkade_test_id": "N5.30",
+      "relation": "arkade_only",
+      "dwm_test_ids": [],
+      "coverage": "arkade_only",
+      "note_nb": "Arkade beregner og validerer sjekksum for faktiske dokumentfiler."
+    },
+    {
+      "arkade_test_id": "N5.32",
+      "relation": "arkade_only",
+      "dwm_test_ids": [],
+      "coverage": "arkade_only",
+      "note_nb": "Arkade kontrollerer at refererte dokumentfiler faktisk finnes."
+    },
+    {
+      "arkade_test_id": "N5.33",
+      "relation": "arkade_only",
+      "dwm_test_ids": [],
+      "coverage": "arkade_only",
+      "note_nb": "Arkade finner faktiske dokumentfiler som mangler referanse."
+    },
+    {
+      "arkade_test_id": "N5.34",
+      "relation": "arkade_only",
+      "dwm_test_ids": [],
+      "coverage": "arkade_only",
+      "note_nb": "Arkade finner dokumentfiler referert fra mer enn ett dokumentobjekt."
+    },
+    {
+      "arkade_test_id": "N5.35",
+      "relation": "complementary",
+      "dwm_test_ids": [
+        "kdrs.f01"
+      ],
+      "coverage": "complementary",
+      "note_nb": "Begge analyserer sakspart/part; DWM grupperer også per type."
+    },
+    {
+      "arkade_test_id": "N5.36",
+      "relation": "complementary",
+      "dwm_test_ids": [
+        "kdrs.f02"
+      ],
+      "coverage": "complementary",
+      "note_nb": "Begge analyserer merknader; DWM grupperer per type/tilknytning."
+    },
+    {
+      "arkade_test_id": "N5.37",
+      "relation": "complementary",
+      "dwm_test_ids": [
+        "kdrs.f03"
+      ],
+      "coverage": "complementary",
+      "note_nb": "Begge analyserer kryssreferanser; DWM grupperer per type/tilknytning."
+    },
+    {
+      "arkade_test_id": "N5.38",
+      "relation": "complementary",
+      "dwm_test_ids": [
+        "kdrs.f04"
+      ],
+      "coverage": "complementary",
+      "note_nb": "Begge analyserer presedenser; DWM grupperer per type/tilknytning."
+    },
+    {
+      "arkade_test_id": "N5.39",
+      "relation": "complementary",
+      "dwm_test_ids": [
+        "kdrs.f05"
+      ],
+      "coverage": "complementary",
+      "note_nb": "Begge analyserer korrespondanseparter; DWM beholder egne fordelinger."
+    },
+    {
+      "arkade_test_id": "N5.40",
+      "relation": "complementary",
+      "dwm_test_ids": [
+        "kdrs.f06"
+      ],
+      "coverage": "complementary",
+      "note_nb": "Begge analyserer avskrivninger; DWM har generisk/metodeorientert rapportering."
+    },
+    {
+      "arkade_test_id": "N5.41",
+      "relation": "complementary",
+      "dwm_test_ids": [
+        "kdrs.f07"
+      ],
+      "coverage": "complementary",
+      "note_nb": "Begge teller dokumentflyter; DWM har generisk lokal rapportering."
+    },
+    {
+      "arkade_test_id": "N5.42",
+      "relation": "partial",
+      "dwm_test_ids": [
+        "kdrs.f08"
+      ],
+      "coverage": "partial",
+      "note_nb": "Begge analyserer skjerming; Arkade sammenholder også forventet/dokumentert forekomst."
+    },
+    {
+      "arkade_test_id": "N5.43",
+      "relation": "complementary",
+      "dwm_test_ids": [
+        "kdrs.f09"
+      ],
+      "coverage": "complementary",
+      "note_nb": "Begge analyserer graderinger; DWM beholder egen fordeling."
+    },
+    {
+      "arkade_test_id": "N5.44",
+      "relation": "partial",
+      "dwm_test_ids": [
+        "kdrs.f10"
+      ],
+      "coverage": "partial",
+      "note_nb": "Begge analyserer kassasjonsvedtak; Arkade sammenholder forventet/dokumentert forekomst."
+    },
+    {
+      "arkade_test_id": "N5.45",
+      "relation": "partial",
+      "dwm_test_ids": [
+        "kdrs.f11"
+      ],
+      "coverage": "partial",
+      "note_nb": "Begge analyserer utførte kassasjoner; Arkade sammenholder forventet/dokumentert forekomst."
+    },
+    {
+      "arkade_test_id": "N5.46",
+      "relation": "complementary",
+      "dwm_test_ids": [
+        "kdrs.f12"
+      ],
+      "coverage": "complementary",
+      "note_nb": "Begge analyserer konverterte dokumenter; DWM beholder egen fordeling."
+    },
+    {
+      "arkade_test_id": "N5.47",
+      "relation": "arkade_only",
+      "dwm_test_ids": [],
+      "coverage": "arkade_only",
+      "note_nb": "Arkade kontrollerer unikhet for systemID og rapporterer duplikater med XML-linjer."
+    },
+    {
+      "arkade_test_id": "N5.48",
+      "relation": "arkade_only",
+      "dwm_test_ids": [],
+      "coverage": "arkade_only",
+      "note_nb": "Arkade validerer referanseArkivdel mot eksisterende arkivdeler."
+    },
+    {
+      "arkade_test_id": "N5.51",
+      "relation": "arkade_only",
+      "dwm_test_ids": [],
+      "coverage": "arkade_only",
+      "note_nb": "Arkade validerer referanseSekundaerKlassifikasjon mot eksisterende klasser."
+    },
+    {
+      "arkade_test_id": "N5.59",
+      "relation": "partial",
+      "dwm_test_ids": [
+        "kdrs.i01",
+        "kdrs.h01",
+        "kdrs.h05"
+      ],
+      "coverage": "partial",
+      "note_nb": "Arkade sammenligner journalpostantall på tvers av arkivstruktur, løpende journal og offentlig journal; DWM har separate kilder/tellinger."
+    },
+    {
+      "arkade_test_id": "N5.60",
+      "relation": "partial",
+      "dwm_test_ids": [
+        "kdrs.i02",
+        "kdrs.h03",
+        "kdrs.h07"
+      ],
+      "coverage": "partial",
+      "note_nb": "Begge arbeider på tvers av journalfilene, men Arkades periodeskille og dato-logikk må bevares som egen semantikk."
+    },
+    {
+      "arkade_test_id": "N5.61",
+      "relation": "complementary",
+      "dwm_test_ids": [
+        "kdrs.j01"
+      ],
+      "coverage": "complementary",
+      "note_nb": "Begge teller endringer; DWM har også dato-/årsfordeling."
+    },
+    {
+      "arkade_test_id": "N5.62",
+      "relation": "arkade_only",
+      "dwm_test_ids": [],
+      "coverage": "arkade_only",
+      "note_nb": "Arkade validerer systemID-referanser fra endringslogg mot arkivstrukturen."
+    },
+    {
+      "arkade_test_id": "N5.63",
+      "relation": "arkade_only",
+      "dwm_test_ids": [],
+      "coverage": "arkade_only",
+      "note_nb": "Arkade finner elementer som finnes, men har tomt/whitespace-innhold, med kontekst."
+    },
+    {
+      "arkade_test_id": "N5.64",
+      "relation": "arkade_only",
+      "dwm_test_ids": [],
+      "coverage": "arkade_only",
+      "note_nb": "Arkade kontrollerer faktisk filstørrelse på refererte dokumentfiler; XML-metadata er ikke ekvivalent."
+    }
+  ],
+  "dwm_only": [
+    {
+      "dwm_test_id": "kdrs.c11_01",
+      "legacy_namespace_id": "KDRS N5.13.01",
+      "note_nb": "Klasser uten innhold"
+    },
+    {
+      "dwm_test_id": "kdrs.c18_01",
+      "legacy_namespace_id": "KDRS N5.20.01",
+      "note_nb": "Klasser uten innhold pr. arkivdel"
+    },
+    {
+      "dwm_test_id": "kdrs.f13",
+      "legacy_namespace_id": null,
+      "note_nb": "Utførte slettinger utenom kassasjon"
+    },
+    {
+      "dwm_test_id": "kdrs.h01",
+      "legacy_namespace_id": "KDRS N5.52",
+      "note_nb": "Løpende journal – historisk KDRS-nummer, ikke Arkade N5.52"
+    },
+    {
+      "dwm_test_id": "kdrs.h02",
+      "legacy_namespace_id": "KDRS N5.53",
+      "note_nb": "Løpende journal – historisk KDRS-nummer, ikke Arkade N5.53"
+    },
+    {
+      "dwm_test_id": "kdrs.h03",
+      "legacy_namespace_id": "KDRS N5.54",
+      "note_nb": "Løpende journal – historisk KDRS-nummer, ikke Arkade N5.54"
+    },
+    {
+      "dwm_test_id": "kdrs.h04",
+      "legacy_namespace_id": "KDRS N5.55",
+      "note_nb": "Løpende journal – historisk KDRS-nummer, ikke Arkade N5.55"
+    },
+    {
+      "dwm_test_id": "kdrs.h05",
+      "legacy_namespace_id": "KDRS N5.56",
+      "note_nb": "Offentlig journal – historisk KDRS-nummer, ikke Arkade N5.56"
+    },
+    {
+      "dwm_test_id": "kdrs.h06",
+      "legacy_namespace_id": "KDRS N5.57",
+      "note_nb": "Offentlig journal – historisk KDRS-nummer, ikke Arkade N5.57"
+    },
+    {
+      "dwm_test_id": "kdrs.h07",
+      "legacy_namespace_id": "KDRS N5.58",
+      "note_nb": "Offentlig journal – historisk KDRS-nummer, ikke Arkade N5.58"
+    },
+    {
+      "dwm_test_id": "kdrs.l02",
+      "legacy_namespace_id": "KDRS N5.65",
+      "note_nb": "Virksomhetsspesifikke metadata"
+    },
+    {
+      "dwm_test_id": "kdrs.u01",
+      "legacy_namespace_id": "KDRS N5.101",
+      "note_nb": "Konsentrert opptelling hele uttrekket"
+    },
+    {
+      "dwm_test_id": "kdrs.u02",
+      "legacy_namespace_id": "KDRS N5.102",
+      "note_nb": "Konsentrert opptelling pr. arkivdel"
+    },
+    {
+      "dwm_test_id": "kdrs.c15_01",
+      "legacy_namespace_id": "KDRS N5.17.01",
+      "note_nb": "Journalposter pr. arkivdel/type"
+    }
+  ],
+  "runtime_mapping": "noark5_workflow/external_evidence/arkade5_mapping.json"
+}

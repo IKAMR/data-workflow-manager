@@ -75,6 +75,9 @@
     ],
     "reports": [
       "config/noark5/reports/depot_validation_report.json"
+    ],
+    "external_mappings": [
+      "config/noark5/external/dwm_arkade5_mapping.json"
     ]
   },
   "documentation": [
@@ -83,7 +86,8 @@
     "docs/NOARK5-STANDARD-VALUES.md",
     "docs/NOARK5-TERMINOLOGY-NOTE.md",
     "docs/NOARK5-U1-U2-COVERAGE-MAPPING.md",
-    "docs/ARKADE5-NOARK5-TESTS.md"
+    "docs/ARKADE5-NOARK5-TESTS.md",
+    "docs/ARKADE5-DWM-MAPPING.md"
   ],
   "legacy_reference": {
     "repository": "IKAMR/KDRS_Query",
