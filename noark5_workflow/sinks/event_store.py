@@ -3,12 +3,14 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
+import threading
 from typing import Any, Mapping
 
 from noark5_workflow.core.events import WorkflowEvent
 
 
 EVENT_STORE_SCHEMA_VERSION = 1
+_APPEND_LOCK = threading.Lock()
 
 
 def _json_value(value: Any) -> Any:
@@ -45,11 +47,7 @@ def event_record(event: WorkflowEvent) -> dict[str, Any]:
 
 
 class GenericEventStoreSink:
-    """Mandatory append-only source of truth for one runtime event stream.
-
-    JSONL is an internal persistence encoding, not the public JSON log format.
-    PREMIS/CSV/JSON/text outputs are projections over these records.
-    """
+    """Mandatory append-only source of truth for one runtime event stream."""
 
     sink_id = "event_store"
     required = True
@@ -58,11 +56,17 @@ class GenericEventStoreSink:
         self.path = Path(path)
 
     def handle(self, event: WorkflowEvent, **runtime: Any) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        record = event_record(event)
-        with self.path.open("a", encoding="utf-8", newline="\n") as handle:
-            handle.write(json.dumps(record, ensure_ascii=False, separators=(",", ":")))
-            handle.write("\n")
+        record = json.dumps(
+            event_record(event),
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ) + "\n"
+        # Parallel jobs may emit to the same RUN event store. Serialize the
+        # complete line write so JSONL records cannot interleave.
+        with _APPEND_LOCK:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            with self.path.open("a", encoding="utf-8", newline="\n") as handle:
+                handle.write(record)
 
     def close(self, **runtime: Any) -> None:
         return None

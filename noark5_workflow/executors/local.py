@@ -25,9 +25,14 @@ class LocalExecutor(BaseExecutor):
             if isinstance(ctx.settings, dict)
             else None
         )
+        run_id = str(
+            ctx.metadata.get("run_id", "")
+            or ctx.settings.get("_current_run_id", "")
+            or ""
+        )
         event = WorkflowEvent.now(
             "operation.completed",
-            run_id=str(ctx.settings.get("_current_run_id", "") or ""),
+            run_id=run_id,
             job_id=str(ctx.metadata.get("job_id", "") or ""),
             success=bool(getattr(result, "ok", True)),
             message=str(getattr(result, "message", "") or ""),

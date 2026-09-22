@@ -4,20 +4,19 @@ from dataclasses import dataclass
 import datetime as _dt
 import json
 from pathlib import Path
+import threading
 from typing import Any
 import uuid
 
 from .result_review import RawTestResultRef
 
 
+_APPEND_LOCK = threading.Lock()
+
+
 @dataclass(frozen=True)
 class RawResultEnvelope:
-    """One immutable, append-only raw result produced by an operation.
-
-    The envelope is internal to Workflow Manager a17. It is deliberately not
-    PREMIS and not a final report format. A new execution always receives a new
-    result_id; previous raw results are never rewritten.
-    """
+    """One immutable, append-only raw result produced by an operation."""
 
     result_id: str
     recorded_at: str
@@ -31,6 +30,7 @@ class RawResultEnvelope:
     outputs: list[str]
     source_root: str = ""
     job_id: str = ""
+    run_id: str = ""
 
     @property
     def ref(self) -> RawTestResultRef:
@@ -42,7 +42,7 @@ class RawResultEnvelope:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "schema_version": 1,
+            "schema_version": 2,
             "result_id": self.result_id,
             "recorded_at": self.recorded_at,
             "operation_id": self.operation_id,
@@ -55,11 +55,13 @@ class RawResultEnvelope:
             "outputs": [_json_safe(item) for item in self.outputs],
             "source_root": self.source_root,
             "job_id": self.job_id,
+            "run_id": self.run_id,
         }
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "RawResultEnvelope":
-        if int(data.get("schema_version", 0)) != 1:
+        schema_version = int(data.get("schema_version", 0))
+        if schema_version not in {1, 2}:
             raise ValueError("Ukjent schema_version for råresultat")
         return cls(
             result_id=str(data.get("result_id", "")),
@@ -74,11 +76,11 @@ class RawResultEnvelope:
             outputs=[str(item) for item in (data.get("outputs") or [])],
             source_root=str(data.get("source_root", "")),
             job_id=str(data.get("job_id", "")),
+            run_id=str(data.get("run_id", "")),
         )
 
 
 def _json_safe(value: Any) -> Any:
-    """Convert operation result values conservatively to JSON-safe data."""
     if value is None or isinstance(value, (bool, int, float, str)):
         return value
     if isinstance(value, Path):
@@ -116,6 +118,7 @@ class RawResultStore:
         outputs: list[str] | None = None,
         source_root: str = "",
         job_id: str = "",
+        run_id: str = "",
         result_id: str | None = None,
         recorded_at: str | None = None,
     ) -> RawResultEnvelope:
@@ -136,11 +139,17 @@ class RawResultStore:
             outputs=list(outputs or []),
             source_root=str(source_root or ""),
             job_id=str(job_id or ""),
+            run_id=str(run_id or ""),
         )
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        with self.path.open("a", encoding="utf-8", newline="\n") as handle:
-            handle.write(json.dumps(envelope.to_dict(), ensure_ascii=False, sort_keys=True))
-            handle.write("\n")
+        record = json.dumps(
+            envelope.to_dict(),
+            ensure_ascii=False,
+            sort_keys=True,
+        ) + "\n"
+        with _APPEND_LOCK:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            with self.path.open("a", encoding="utf-8", newline="\n") as handle:
+                handle.write(record)
         return envelope
 
     def results(self) -> list[RawResultEnvelope]:
@@ -168,11 +177,6 @@ class RawResultStore:
 
 
 def raw_result_store_path(ctx) -> Path | None:
-    """Return the generic per-work-area raw result ledger path.
-
-    No source-side fallback is allowed. The caller must have an explicit
-    work_operations role before raw result persistence is enabled.
-    """
     work_operations = getattr(ctx, "work_operations", None)
     if work_operations is None:
         return None
@@ -180,13 +184,6 @@ def raw_result_store_path(ctx) -> Path | None:
 
 
 def persist_operation_raw_result(operation, result, ctx) -> RawResultEnvelope | None:
-    """Persist one operation result when the operation explicitly opts in.
-
-    Operations opt in using ``raw_result_record = True`` and may provide a
-    ``raw_result_identity(result, ctx)`` method returning test_id and
-    definition_version. The generated reference is also attached to
-    ``result.data['_result_ref']`` for downstream workflow/report code.
-    """
     if not bool(getattr(operation, "raw_result_record", False)):
         return None
     path = raw_result_store_path(ctx)
@@ -203,6 +200,12 @@ def persist_operation_raw_result(operation, result, ctx) -> RawResultEnvelope | 
     definition_version = str(identity.get("definition_version") or "")
 
     metadata = getattr(ctx, "metadata", {}) or {}
+    settings = getattr(ctx, "settings", {}) or {}
+    run_id = str(
+        metadata.get("run_id", "")
+        or settings.get("_current_run_id", "")
+        or ""
+    )
     envelope = RawResultStore(path).append(
         operation_id=operation_id,
         test_id=test_id,
@@ -214,6 +217,7 @@ def persist_operation_raw_result(operation, result, ctx) -> RawResultEnvelope | 
         outputs=list(getattr(result, "outputs", []) or []),
         source_root=str(getattr(ctx, "input_root", "") or ""),
         job_id=str(metadata.get("job_id", "") or ""),
+        run_id=run_id,
     )
     result_data = getattr(result, "data", None)
     if isinstance(result_data, dict):
@@ -221,12 +225,13 @@ def persist_operation_raw_result(operation, result, ctx) -> RawResultEnvelope | 
             "result_id": envelope.result_id,
             "test_id": envelope.test_id,
             "definition_version": envelope.definition_version,
+            "run_id": envelope.run_id,
             "raw_store": str(path),
         }
     try:
         ctx.log(
             f"Råresultat lagret: {envelope.result_id} "
-            f"({envelope.test_id}) - {path}"
+            f"({envelope.test_id}) | run={envelope.run_id or '-'} - {path}"
         )
     except Exception:
         pass
