@@ -23,7 +23,9 @@ from gui.persistent_app_a38 import WorkflowApp as _A38WorkflowApp
 from gui.persistent_app_a38 import run_gui
 from gui.persistent_app_a39 import WorkflowApp as _A39WorkflowApp
 from gui.persistent_app_a39 import run_gui
+from gui.persistent_app_a40 import WorkflowApp as _A40WorkflowApp
 from gui.persistent_app_a40 import run_gui
+from gui.persistent_app_a41 import run_gui
 
 
 if __name__ == "__main__":

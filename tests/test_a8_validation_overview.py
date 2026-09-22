@@ -1,7 +1,6 @@
 import tempfile
 import unittest
 from pathlib import Path
-from types import SimpleNamespace
 
 from app.noark5_validation_overview import (
     build_validation_overview,
@@ -39,7 +38,7 @@ class A8ValidationOverviewTests(unittest.TestCase):
             )
             report_dir.mkdir(parents=True)
             (report_dir / "artifact_manifest.json").write_text(
-                '{"job_id":"JOB-001","source_extraction":"%s"}'
+                '{"job_id":"JOB-001","run_id":"RUN-test","source_extraction":"%s"}'
                 % str(root / "source").replace("\\", "\\\\"),
                 encoding="utf-8",
             )
