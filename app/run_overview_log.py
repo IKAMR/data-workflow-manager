@@ -4,6 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
 
+from app.runtime_environment import capture_runtime_environment
 from app.workspace import ensure_workspace, run_log_dir
 from noark5_workflow.core.events import WorkflowEvent
 from noark5_workflow.core.identity import UserIdentity
@@ -64,6 +65,11 @@ class RunOverviewLog:
         settings["_current_run_id"] = self.run_id
         settings["_current_event_store_path"] = str(event_store_path)
 
+        # Capture once per run. All jobs/operations in the run receive the same
+        # environment snapshot, which makes benchmark/result comparison stable.
+        self.environment = capture_runtime_environment()
+        settings["_current_run_environment"] = dict(self.environment)
+
         self.dispatcher = build_event_dispatcher(
             settings,
             scope="run",
@@ -86,6 +92,7 @@ class RunOverviewLog:
                 "app_version": app_version,
                 "job_list_path": str(job_list_path or ""),
                 "planned_jobs": planned_jobs,
+                "environment": self.environment,
             },
         ))
 

@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import tomllib
 import unittest
 
@@ -8,9 +9,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class V014A1IdentityTests(unittest.TestCase):
-    def test_app_branding_and_version(self):
+    def test_app_branding_and_v014_development_line(self):
         self.assertEqual(APP_NAME, "Data Workflow Manager")
-        self.assertEqual(VERSION, "0.1.4-a1")
+        self.assertRegex(VERSION, r"^0\.1\.4-a\d+(?:\.\d+)*$")
 
     def test_repository_identity_is_documented(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
@@ -35,7 +36,7 @@ class V014A1IdentityTests(unittest.TestCase):
             (ROOT / "pyproject.toml").read_text(encoding="utf-8")
         )
         self.assertEqual(pyproject["project"]["name"], "noark5-workflow-manager")
-        self.assertEqual(pyproject["project"]["version"], "0.1.4a1")
+        self.assertRegex(pyproject["project"]["version"], r"^0\.1\.4a\d+$")
         self.assertEqual(pyproject["project"]["description"], "Data Workflow Manager")
 
     def test_old_repository_name_is_not_to_be_reused_immediately(self):

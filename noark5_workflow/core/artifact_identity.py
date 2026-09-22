@@ -54,8 +54,13 @@ def write_artifact_manifest(
         or ctx.settings.get("_current_run_id", "")
         or ""
     )
+    run_environment = (
+        ctx.metadata.get("run_environment")
+        or ctx.settings.get("_current_run_environment")
+        or {}
+    )
     document = {
-        "schema_version": 1,
+        "schema_version": 2,
         "created_at": datetime.now().astimezone().isoformat(timespec="seconds"),
         "run_id": run_id,
         "job_id": str(ctx.metadata.get("job_id", "") or ""),
@@ -65,6 +70,7 @@ def write_artifact_manifest(
         "source_extraction": str(ctx.extraction_root),
         "work_operations_effective": str(ctx.work_operations or ""),
         "artifact_root": str(output_dir),
+        "run_environment": dict(run_environment),
     }
     path = output_dir / "artifact_manifest.json"
     path.write_text(json.dumps(document, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
