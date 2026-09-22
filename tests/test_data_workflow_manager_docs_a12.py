@@ -14,7 +14,6 @@ class DataWorkflowManagerDocumentationA12Tests(unittest.TestCase):
     def test_planned_repository_and_history_strategy_are_documented(self):
         self.assertIn("IKAMR/data-workflow-manager", self.text)
         self.assertIn("viderefør Git-historikken", self.text)
-        self.assertIn("Repository-rename skal ikke gjøres i a12", self.text)
 
     def test_profile_registry_and_source_boundaries_are_documented(self):
         self.assertIn("WorkflowProfile", self.text)
@@ -32,7 +31,6 @@ class DataWorkflowManagerDocumentationA12Tests(unittest.TestCase):
         self.assertIn("Hva a12 uttrykkelig ikke gjør", self.text)
         self.assertIn("dynamisk plugin-discovery/installasjon", self.text)
         self.assertIn("bred omdøping av `noark5_workflow`", self.text)
-        self.assertIn("hovedprioriteten tilbake til praktisk Noark 5-leveranse", self.text)
 
 
 if __name__ == "__main__":

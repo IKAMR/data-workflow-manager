@@ -1,10 +1,20 @@
 # Versjonshistorikk
 
-Dette dokumentet samler releaseinformasjon for **ferdige versjoner** av Noark 5 Workflow Manager.
+Dette dokumentet samler releaseinformasjon for ferdige versjoner i samme
+Git-historikk.
 
-Nyeste ferdige versjon står øverst.
+Fra v0.1.4-utviklingen heter prosjektet **Data Workflow Manager**.
+Versjonene v0.1.0–v0.1.3 ble utgitt under navnet **Noark 5 Workflow Manager**.
 
-Alpha-trinn som `a1`, `a2`, `a3` og midlertidige rettelser som `a3.1` dokumenteres ikke som egne permanente releasefiler. De er utviklingstrinn fram mot en ferdig versjon.
+Nyeste ferdige versjon står øverst. Alpha-trinn dokumenteres ikke som egne
+permanente releaseversjoner.
+
+## Navneovergang etter v0.1.3
+
+Etter release v0.1.3 ble repositoryet renamet fra
+`IKAMR/noark5-workflow-manager` til `IKAMR/data-workflow-manager` med samme
+Git-historikk. v0.1.4-a1 er første utviklingstrinn med Data Workflow Manager som
+applikasjonsnavn.
 
 ## v0.1.3
 
@@ -53,16 +63,9 @@ Hovedendringer:
 - flere separate jobblister kan lagres og åpnes
 - aktiv jobb, workflow, operasjonsparametre og relevant jobbstatus kan gjenopprettes
 - store Noark 5-uttrekk lagres ikke i jobblistefilen; de refereres med sti
-- automatisk arbeidsstatus for ikke-manuelt lagret gjeldende jobb/jobbliste lagres utenfor repository per bruker
-- siste arbeidsstatus kan gjenopprettes etter normal avslutning og ny programstart
-- kontroll mot samme target/output i flere jobber
-- source-duplikat gir advarsel, men er tillatt
-- target som kolliderer med source eller allerede identifisert Workflow Manager-output blokkeres
-- ikke-tom ukjent target gir advarsel
-- permanent output-markør gjør tidligere Workflow Manager-output identifiserbar
-- kjøremiljø og framtidig plattformretning dokumenteres i `RUNTIME-ENVIRONMENTS.md`
-
-Checkpoints/stoppunkter og stegvis gjenopptakelse er planlagt for neste utviklingstrinn og er ikke del av v0.1.1.
+- automatisk arbeidsstatus utenfor repository per bruker
+- kontroll mot output/source-kollisjoner
+- kjøremiljø og framtidig plattformretning dokumentert
 
 ## v0.1.0
 
@@ -72,30 +75,9 @@ Viktig funksjonalitet:
 
 - valg og deteksjon av Noark 5-kilde og workflow-GUI
 - lokal kjøring gjennom `LocalExecutor`
-- eksplisitt arkitekturgrense for framtidig `RemoteExecutor`
+- arkitekturgrense for framtidig `RemoteExecutor`
 - DIAS metadata- og pakkedialog
 - import av eksisterende METS/`info.xml`
-- legg til fil, legg til mappe og opprett mappe i pakkestrukturen
-- direkte streaming av innhold til ukomprimert TAR
-- vedvarende sist brukte mapper
-- automatisert testresultatdokumentasjon
-- sentral workflow-PREMIS tilpasset fra SIARD Workflow Manager
-- workflow-PREMIS skrives bare til eksplisitt arbeids-/utdataområde
-
-Dokumentasjonsbaseline omfatter blant annet `DEVELOPMENT.md`, `ARCHITECTURE.md`, `INTERFACE.md`, `DEFINITIONS.md`, `TESTING.md`, `CODE-MAP.md`, `SHARED-DEVELOPMENT.md` og `SHARED-ROADMAP.md`.
-
-## Ved ny ferdig versjon
-
-Legg den nye seksjonen **øverst**, rett under innledningen:
-
-```text
-## vX.Y.Z
-
-Kort beskrivelse.
-
-Hovedendringer:
-- ...
-- ...
-```
-
-Ikke opprett permanente `RELEASE-vX.Y.Z-aN.md` for interne alpha-/fikstrinn.
+- fil/mappe-tillegg og direkte streaming til ukomprimert TAR
+- vedvarende mapper og testdokumentasjon
+- sentral workflow-PREMIS

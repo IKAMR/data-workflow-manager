@@ -2,37 +2,31 @@
 
 ## Status
 
-Dette dokumentet er autoritativt for generaliseringsretningen som ble besluttet i Noark 5 Workflow Manager v0.1.2-a12.
+Dette dokumentet ble opprinnelig etablert i Noark 5 Workflow Manager
+v0.1.2-a12 for å beskrive generaliseringsretningen.
 
-Dette er en **gradvis arkitekturendring**, ikke en ferdig repository-splitt.
-
-Noark 5 Workflow Manager skal fortsatt utvikles som fungerende Noark 5-verktøy. Arbeidet med et generisk rammeverk skal ikke forsinke praktisk behov for analyse, validering, rapportering og DIAS AIC-pakking.
-
-Planlagt framtidig hovedrepository:
+**Repository-rename er nå gjennomført.** Hovedrepositoryet er:
 
 `https://github.com/IKAMR/data-workflow-manager`
 
-IKAMR tar initiativ til og ansvar for dette hovedrepositoryet nå. Endelig langsiktig forvaltningsmodell er ikke låst, og andre fagmiljøer skal kunne arbeide gjennom forks og bidra tilbake.
+Git-historikken er videreført fra `IKAMR/noark5-workflow-manager`.
+Data Workflow Manager er fra v0.1.4-a1 hovednavnet på applikasjonen, mens
+Noark 5 videreføres som den første komplette profilen.
 
-SIARD Workflow Manager er et selvstendig søsterprosjekt og en viktig referanseimplementasjon. Data Workflow Manager skal ikke omskrive eierskap eller historikk for SIARD Workflow Manager.
+Historisk gjaldt følgende a12-avgrensning, og beholdes dokumentert fordi den
+forklarer utviklingsløpet: **Repository-rename skal ikke gjøres i a12**.
+
+Generaliseringsarbeidet er fortsatt gradvis. Praktisk analyse, validering,
+rapportering og bevaring skal ikke blokkeres av unødvendig refaktorering.
 
 ## Repository-strategi
 
-Vi oppretter ikke en parallell full kodebase ved å kopiere Noark 5 Workflow Manager.
-
-Ønsket retning når grensen er tilstrekkelig moden er:
+Den planlagte strategien er nå gjennomført i første trinn:
 
 ```text
-nå:
 IKAMR/noark5-workflow-manager
         |
-        | gradvis generalisering
-        v
-Noark 5 + generisk runtime
-
-senere:
-rename / viderefør Git-historikken
-        |
+        | rename / viderefør Git-historikken
         v
 IKAMR/data-workflow-manager
         |
@@ -40,22 +34,20 @@ IKAMR/data-workflow-manager
         +-- GUI / CLI
         +-- profiler/extensions
         +-- Noark 5 som første praktiske profil
-
-deretter:
-nytt/tynt IKAMR/noark5-workflow-manager
-        |
-        +-- peker til Data Workflow Manager
-        +-- dokumenterer Noark 5-bruk/profil
-        +-- eventuelt distribusjons-/wrapperlag
 ```
 
-Repository-rename skal ikke gjøres i a12.
+Vi skal ikke opprette en parallell full kodebase ved å kopiere historikken.
 
-Kriteriet for senere rename er at den kjørende applikasjonen reelt kan forstås som et generisk rammeverk der Noark 5 er en profil/extension, ikke en forutsetning i Core.
+Et eventuelt senere tynt `IKAMR/noark5-workflow-manager` kan dokumentere eller
+wrappe Noark 5-profilen, men skal ikke opprettes før vi bevisst ønsker å
+oppheve GitHubs redirect fra det gamle repositorynavnet.
+
+Se også `IDENTITY-MIGRATION.md`.
 
 ## Grunnmodell
 
-Data Workflow Manager utfører oppgaver på en input. Input vurderes og behandles gjennom operasjoner og ender i output med eller uten dokumentasjon.
+Data Workflow Manager utfører oppgaver på en input. Input vurderes og behandles
+gjennom operasjoner og ender i output med eller uten dokumentasjon.
 
 ```text
 Input
@@ -74,7 +66,8 @@ operations / workflow
 Output
 ```
 
-Den innerste runtime-kjernen skal ikke kjenne begrepene Noark 5, SIARD, ADDML eller DIAS.
+Den innerste runtime-kjernen skal ikke kjenne begrepene Noark 5, SIARD, ADDML
+eller DIAS.
 
 ## Arkitekturlag
 
@@ -107,11 +100,13 @@ Aktuelle generiske operasjonstyper:
 - generisk rapport-rendering
 - transformasjons-/migreringsorkestrering
 
-At en operasjonstype er generisk betyr ikke at alle kriteriene er innebygd i rammeverket.
+At en operasjonstype er generisk betyr ikke at alle kriteriene er innebygd i
+rammeverket.
 
 ## Definitions / extensions
 
-Definisjonslaget bestemmer hva som skal vurderes, transformeres eller produseres.
+Definisjonslaget bestemmer hva som skal vurderes, transformeres eller
+produseres.
 
 Eksempler:
 
@@ -124,13 +119,13 @@ Eksempler:
 - eksterne programmer
 - domenespesifikke operasjoner
 
-Kriterier bør skilles fra kode når det er praktisk. Da kan faglige krav endres uten at kjøringsrammeverket må endres.
-
-Ekstern kode kan fortsatt være hardkodet mot sitt eget fagområde. Kravet er at **Data Workflow Manager Core ikke hardkoder domenet**.
+Ekstern kode kan være hardkodet mot sitt fagområde. Kravet er at Data Workflow
+Manager Core ikke hardkoder domenet.
 
 ## Profiles
 
-En profil setter sammen relevante definitions/extensions/operasjoner til et brukbart domeneoppsett.
+En profil setter sammen relevante definitions/extensions/operasjoner til et
+brukbart domeneoppsett.
 
 Eksempler:
 
@@ -140,8 +135,6 @@ Eksempler:
 - senere andre formater og arbeidsflyter
 
 En profil er ikke nødvendigvis en separat applikasjon.
-
-Eksempel:
 
 ```text
 Noark 5 profile
@@ -155,7 +148,8 @@ Noark 5 profile
     +-- DIAS packaging extension
 ```
 
-DIAS er derfor ikke en del av Noark 5 Core. Det er et spesialisert pakkelag som kan brukes sammen med flere profiler.
+DIAS er derfor ikke en del av Noark 5 Core. Det er et spesialisert pakkelag
+som kan brukes sammen med flere profiler.
 
 ## Transformasjon og migrering
 
@@ -194,21 +188,13 @@ Aktuelle retninger omfatter blant annet:
 - framtidig generering av Noark 5-uttrekk
 - andre format- og representasjonsmigreringer
 
-Source og target trenger ikke tilhøre samme domene.
-
-## a12 – implementert arkitekturbevis
-
-a12 skal ikke gjøre hele kodebasen generisk.
-
-Følgende er implementert og testet:
+## Implementert arkitekturbevis fra a12
 
 ### Profile boundary
 
 `app/profile.py` introduserer `WorkflowProfile`.
 
-Noark 5 setter sammen dagens operasjoner i:
-
-`noark5_workflow/profile.py`
+Noark 5 setter sammen dagens operasjoner i `noark5_workflow/profile.py`:
 
 ```text
 NOARK5_PROFILE
@@ -220,41 +206,17 @@ WorkflowProfile
 OperationRegistry
 ```
 
-`noark5_workflow/app.py` bygger registry gjennom profilen i stedet for å registrere konkrete operasjoner direkte.
-
 ### Registry boundary
 
 `noark5_workflow/core/registry.py` kjenner ikke konkrete Noark 5-operasjoner.
 
-Registry bærer:
-
-- operasjoner
-- kategori-rekkefølge
-- kategoriaccent/presentasjonsmetadata
-
-GUI-et leser denne informasjonen fra registry/profilen.
-
 ### Source boundary
 
-`noark5_workflow/core/source.py` definerer den minimale generiske `WorkflowSource`-kontrakten.
-
-Foreløpig kreves bare:
-
-```text
-root
-```
+`noark5_workflow/core/source.py` definerer den minimale generiske
+`WorkflowSource`-kontrakten.
 
 `OperationContext.input_root` er den generiske inngangen for runtime/executor.
-
-Det eksisterende `extraction_root` beholdes for kompatibilitet med:
-
-- `.n5jobs`
-- GUI
-- CLI
-- eksisterende Noark 5-operasjoner
-- eksisterende tester
-
-a12 skal ikke masseomdøpe dette feltet.
+Det eksisterende `extraction_root` beholdes for kompatibilitet.
 
 ### Domenelaget forblir domenespesifikt
 
@@ -266,17 +228,13 @@ noark5_workflow/operations/metadata_inventory.py
 noark5_workflow/operations/analyse_arkivstruktur.py
 ```
 
-kan fortsatt kjenne Noark 5.
-
 Målet er:
 
 > generisk runtime, eksplisitt domenelag
 
-ikke:
+ikke domenekode som later som den er formatnøytral.
 
-> domenekode som later som den er formatnøytral
-
-## Kodekart for den nye grensen
+## Kodekart for grensen
 
 ```text
 Desktop GUI -------------------+
@@ -308,29 +266,14 @@ CLI ---------------------------+
              Noark source
 ```
 
-Source-grensen mot runtime:
-
-```text
-domain source object
-       |
-       | root
-       v
-WorkflowSource / source_root()
-       |
-       v
-OperationContext.input_root
-       |
-       v
-generic executor/runtime
-```
-
 ## Hva a12 uttrykkelig ikke gjør
 
-Ikke del av a12:
+Denne historiske avgrensningen er fortsatt relevant for å forstå hvorfor vi
+ikke masseomdøper kode i v0.1.4-a1:
 
 - dynamisk plugin-discovery/installasjon
 - eget plugin package-format
-- repository-rename
+- repository-rename (ble gjennomført senere, etter v0.1.3)
 - kopiering til et nytt parallelt hovedrepo
 - bred omdøping av `noark5_workflow`
 - omskriving av alle eksisterende Noark-operasjoner
@@ -340,35 +283,11 @@ Ikke del av a12:
 - migreringsmotor
 - generisk rapportmotor
 
-Disse vurderes senere når konkrete funksjonsbehov gjør grensen nødvendig.
+## Prioritet etter a12 og v0.1.4-a1
 
-## Prioritet etter a12
+Den historiske a12-prioriteten var at **hovedprioriteten tilbake til praktisk
+Noark 5-leveranse** skulle gjelde etter arkitekturbeviset. Det står fortsatt:
+Noark 5-profilen skal være fungerende mens den generiske runtimeen forbedres.
 
-Etter at a12 er låst, skal hovedprioriteten tilbake til praktisk Noark 5-leveranse:
-
-```text
-Noark 5 input
-    |
-    v
-analyse / validation
-    |
-    v
-structured results
-    |
-    v
-reporting
-    |
-    v
-DIAS AIC
-    |
-    v
-verification / documentation
-```
-
-Ny generisk funksjonalitet skal utformes slik at den senere kan flyttes naturlig til Data Workflow Manager, men dette skal ikke blokkere nødvendig Noark 5-funksjonalitet.
-
-## Dokumentasjonsregel videre
-
-Når eksisterende `ARCHITECTURE.md`, `CODE-MAP.md`, `SHARED-DEVELOPMENT.md` og `SHARED-ROADMAP.md` senere oppdateres, skal denne retningen innarbeides kirurgisk.
-
-Korrekte eksisterende beskrivelser av Noark 5, SIARD-referanser, DIAS, PREMIS, jobber, CLI og kjørebackend skal ikke skrives om bare fordi Data Workflow Manager-retningen er etablert.
+Samtidig er repositoryet nå Data Workflow Manager, og ny generisk funksjonalitet
+skal plasseres i riktig lag fra starten av.
