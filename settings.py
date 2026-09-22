@@ -49,8 +49,8 @@ DEFAULT_CONFIG = {
     "premis_agent_identifier": "username",
     "batch_execution_mode": "auto",
     "batch_max_workers": 0,
+    "last_report_output_dir": "",
 }
-
 
 def load_config() -> dict:
     data = dict(DEFAULT_CONFIG)
@@ -63,12 +63,8 @@ def load_config() -> dict:
             pass
     return data
 
-
 def save_config(changes: dict) -> dict:
     data = load_config()
     data.update(changes)
-    CONFIG_PATH.write_text(
-        json.dumps(data, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
+    CONFIG_PATH.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return data
