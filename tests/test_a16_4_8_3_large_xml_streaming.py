@@ -69,10 +69,14 @@ class A16483LargeXmlStreamingTests(unittest.TestCase):
                     ["arkivstruktur.xsd"],
                 )
 
-    def test_validation_uses_streaming_iterparse_and_records_size(self):
+    def test_explicit_streaming_uses_iterparse_and_records_size(self):
         with tempfile.TemporaryDirectory() as temp:
             xml, xsd = self._files(Path(temp), VALID_XML)
-            result = xsv.validate_xml_against_xsd(xml, xsd)
+            result = xsv.validate_xml_against_xsd(
+                xml,
+                xsd,
+                resource_strategy="streaming",
+            )
 
             self.assertTrue(result.valid)
             self.assertEqual(result.errors, [])
@@ -82,7 +86,11 @@ class A16483LargeXmlStreamingTests(unittest.TestCase):
     def test_streaming_validation_still_reports_xsd_errors(self):
         with tempfile.TemporaryDirectory() as temp:
             xml, xsd = self._files(Path(temp), INVALID_XML)
-            result = xsv.validate_xml_against_xsd(xml, xsd)
+            result = xsv.validate_xml_against_xsd(
+                xml,
+                xsd,
+                resource_strategy="streaming",
+            )
 
             self.assertFalse(result.valid)
             self.assertGreater(len(result.errors), 0)
@@ -93,12 +101,11 @@ class A16483LargeXmlStreamingTests(unittest.TestCase):
                 )
             )
 
-    def test_source_contains_no_full_xml_etree_parse(self):
+    def test_source_contains_streaming_iterparse_path(self):
         source = Path(xsv.__file__).read_text(encoding="utf-8")
         stream_block = source.split("def _stream_validate_xml", 1)[1]
         self.assertIn("etree.iterparse(", stream_block)
         self.assertIn('xml_path.open("rb")', stream_block)
-        self.assertNotIn("etree.parse(str(xml_path)", source)
 
 
 if __name__ == "__main__":

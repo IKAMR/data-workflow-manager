@@ -36,13 +36,12 @@ class RuleAwareJobRunner(JobRunner):
 
 
 class WorkflowApp(A35WorkflowApp):
-    """a16.4.7: recovery plus job-list output subfolder rules and collision-safe artifacts."""
+    """Recovery plus job-list output subfolder rules and collision-safe artifacts."""
 
     def __init__(self) -> None:
         super().__init__()
         if not hasattr(self.jobs, "output_subfolder_rule"):
             self.jobs.output_subfolder_rule = ""
-        # Replace the runner with the same core runner contract plus effective Work path.
         self.job_runner = RuleAwareJobRunner(self.registry, self.executor, self.settings)
         self.batch_runner = BatchRunner(self.job_runner)
 
@@ -71,6 +70,12 @@ class WorkflowApp(A35WorkflowApp):
         return 1
 
     def _apply_effective_work_operations(self, job) -> None:
+        """Calculate effective Work path without touching storage.
+
+        Loading/restoring a job list must be side-effect free. The referenced
+        drive may be disconnected at application startup. Actual directories
+        are created later by the operation that writes its artifact.
+        """
         rule = str(getattr(self.jobs, "output_subfolder_rule", "") or "")
         effective = effective_work_operations(
             job.work_operations,
@@ -79,8 +84,6 @@ class WorkflowApp(A35WorkflowApp):
             self._job_position(job),
         )
         job._effective_work_operations = effective
-        if effective is not None:
-            effective.mkdir(parents=True, exist_ok=True)
 
     def _normalise_job_before_run(self, job) -> None:
         self._apply_effective_work_operations(job)

@@ -62,7 +62,38 @@ class ValidateXmlSchemaOperation(BaseOperation):
             definition_id=str(definition.get("definition_id", "")),
             definition_version=str(definition.get("format_version", "")),
         )
-        ctx.progress(0.25,f"XSD: {schema_path.name}"); result=validate_xml_against_xsd(xml_path,schema_path)
+
+        requested_strategy = str(
+            ctx.settings.get("resource_strategy", "auto") or "auto"
+        )
+        environment = (
+            ctx.metadata.get("run_environment")
+            or ctx.settings.get("_current_run_environment")
+            or {}
+        )
+
+        ctx.progress(0.25,f"XSD: {schema_path.name}")
+        result=validate_xml_against_xsd(
+            xml_path,
+            schema_path,
+            resource_strategy=requested_strategy,
+            environment=environment,
+            expected_reuse=1,
+        )
+
+        decision = result.resource_decision or {}
+        if decision:
+            ctx.log(
+                "RESSURSSTRATEGI: "
+                f"{decision.get('selected')} | "
+                f"storage={decision.get('storage_kind')} | "
+                f"file={decision.get('file_size_bytes')} | "
+                f"available_ram={decision.get('available_memory_bytes')} | "
+                f"estimated_memory={decision.get('estimated_memory_bytes')} | "
+                f"workers={decision.get('recommended_workers')} | "
+                f"{decision.get('reason')}"
+            )
+
         report_path=out / item["output"]
         write_validation_report(result,report_path,validation_id=item["id"]); ctx.progress(1.0,"XML/XSD-validering fullført")
         data={

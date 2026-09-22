@@ -7,6 +7,8 @@ from urllib.parse import urlparse
 
 from lxml import etree
 
+from app.resource_strategy import ResourceDecision, choose_resource_strategy
+
 
 _SCHEMA_LOCATION_READ_CHUNK = 64 * 1024
 _STREAM_PARSE_CHUNK = 1024 * 1024
@@ -20,6 +22,7 @@ class XmlSchemaValidationResult:
     errors: list[dict]
     file_size_bytes: int | None = None
     validation_mode: str = "streaming-iterparse"
+    resource_decision: dict | None = None
 
     def as_dict(self) -> dict:
         return {
@@ -29,6 +32,7 @@ class XmlSchemaValidationResult:
             "errors": self.errors,
             "file_size_bytes": self.file_size_bytes,
             "validation_mode": self.validation_mode,
+            "resource_decision": self.resource_decision,
         }
 
 
@@ -59,12 +63,7 @@ def _exception_row(exc: BaseException, *, domain: str) -> dict:
 
 
 def schema_location_candidates(xml_path: Path) -> list[str]:
-    """Read xsi schema locations from the root element only.
-
-    A multi-GB XML file must not be parsed once merely to discover which local
-    XSD to use. XMLPullParser is fed until the root start-tag is available and
-    then the source stream is closed.
-    """
+    """Read xsi schema locations from the root element only."""
     xml_path = Path(xml_path)
     parser = etree.XMLPullParser(
         events=("start",),
@@ -140,8 +139,6 @@ def _load_schema(
         huge_tree=True,
     )
     try:
-        # Keep the XSD filename as parser base URL so xs:include/xs:import with
-        # relative local paths continue to resolve correctly.
         schema_doc = etree.parse(str(schema_path), parser)
         return etree.XMLSchema(schema_doc), []
     except (etree.XMLSyntaxError, etree.XMLSchemaParseError, OSError) as exc:
@@ -154,12 +151,8 @@ def _stream_validate_xml(
     xml_path: Path,
     schema: etree.XMLSchema,
 ) -> tuple[bool, list[dict]]:
-    """Validate incrementally without building a full in-memory ElementTree."""
     context = None
     try:
-        # Python owns the file handle. This avoids asking libxml2 to open a
-        # multi-GB Windows file by pathname and gives us normal Python I/O
-        # semantics for very large files.
         with xml_path.open("rb") as stream:
             context = etree.iterparse(
                 stream,
@@ -171,8 +164,6 @@ def _stream_validate_xml(
                 chunk_size=_STREAM_PARSE_CHUNK,
             )
             for _event, element in context:
-                # The schema validator has already consumed this completed
-                # subtree. Clearing processed nodes keeps memory use bounded.
                 element.clear()
                 parent = element.getparent()
                 if parent is not None:
@@ -193,9 +184,46 @@ def _stream_validate_xml(
         return False, [_exception_row(exc, domain="IO")]
 
 
+def _tree_validate_xml(
+    xml_path: Path,
+    schema: etree.XMLSchema,
+    *,
+    in_memory: bool,
+) -> tuple[bool, list[dict]]:
+    parser = etree.XMLParser(
+        resolve_entities=False,
+        no_network=True,
+        huge_tree=True,
+    )
+    try:
+        if in_memory:
+            with xml_path.open("rb") as stream:
+                payload = stream.read()
+            root = etree.fromstring(payload, parser=parser)
+            document = etree.ElementTree(root)
+        else:
+            # Python owns the file handle even for the direct/disk strategy.
+            # This avoids libxml2 path-opening limitations on Windows.
+            with xml_path.open("rb") as stream:
+                document = etree.parse(stream, parser)
+
+        valid = bool(schema.validate(document))
+        return valid, _error_rows(schema.error_log)
+    except etree.XMLSyntaxError as exc:
+        log = getattr(exc, "error_log", None)
+        errors = _error_rows(log) if log is not None and len(log) else []
+        return False, errors or [_exception_row(exc, domain="XML")]
+    except OSError as exc:
+        return False, [_exception_row(exc, domain="IO")]
+
+
 def validate_xml_against_xsd(
     xml_path: str | Path,
     schema_path: str | Path,
+    *,
+    resource_strategy: str = "auto",
+    environment: dict | None = None,
+    expected_reuse: int = 1,
 ) -> XmlSchemaValidationResult:
     xml_path = Path(xml_path).resolve()
     schema_path = Path(schema_path).resolve()
@@ -205,6 +233,14 @@ def validate_xml_against_xsd(
     except OSError:
         file_size_bytes = None
 
+    decision: ResourceDecision = choose_resource_strategy(
+        xml_path,
+        requested=resource_strategy,
+        workload="xml_schema_tree",
+        expected_reuse=expected_reuse,
+        environment=environment,
+    )
+
     schema, schema_errors = _load_schema(schema_path)
     if schema is None:
         return XmlSchemaValidationResult(
@@ -213,15 +249,28 @@ def validate_xml_against_xsd(
             schema_path,
             schema_errors,
             file_size_bytes=file_size_bytes,
+            validation_mode="schema-load",
+            resource_decision=decision.as_dict(),
         )
 
-    valid, errors = _stream_validate_xml(xml_path, schema)
+    if decision.selected == "memory":
+        valid, errors = _tree_validate_xml(xml_path, schema, in_memory=True)
+        mode = "memory-tree"
+    elif decision.selected == "disk":
+        valid, errors = _tree_validate_xml(xml_path, schema, in_memory=False)
+        mode = "disk-tree"
+    else:
+        valid, errors = _stream_validate_xml(xml_path, schema)
+        mode = "streaming-iterparse"
+
     return XmlSchemaValidationResult(
         valid,
         xml_path,
         schema_path,
         errors,
         file_size_bytes=file_size_bytes,
+        validation_mode=mode,
+        resource_decision=decision.as_dict(),
     )
 
 
