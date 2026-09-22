@@ -13,6 +13,7 @@ DEFAULT_CONFIG = {
     "run_log_dir": "",
     "setup_dir": "",
     "job_list_dir": "",
+    "app_work_subfolder": "dwm",
     "log_level": "INFO",
     "enabled_log_sinks": ["text_run_log", "premis"],
     "operation_visibility": 2,
@@ -46,6 +47,8 @@ DEFAULT_CONFIG = {
     "enable_premis_provenance": True,
     "premis_output_dir": "",
     "premis_agent_identifier": "username",
+    "batch_execution_mode": "auto",
+    "batch_max_workers": 0,
 }
 
 

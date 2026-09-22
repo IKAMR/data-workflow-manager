@@ -79,6 +79,7 @@ class ValidateXmlSchemaOperation(BaseOperation):
             resource_strategy=requested_strategy,
             environment=environment,
             expected_reuse=1,
+            available_xsds=extraction.xsd_files,
         )
 
         decision = result.resource_decision or {}

@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 from lxml import etree
 
@@ -107,37 +107,64 @@ def resolve_local_schema(
 ) -> Path | None:
     xml_path = Path(xml_path)
     available = [Path(p).resolve() for p in available_xsds]
-    by_name = {p.name.lower(): p for p in available}
+    by_name = {p.name.casefold(): p for p in available}
 
     for name in preferred_names or []:
-        found = by_name.get(name.lower())
+        found = by_name.get(name.casefold())
         if found:
             return found
 
     for location in schema_location_candidates(xml_path):
-        candidate_name = Path(urlparse(location).path).name.lower()
+        candidate_name = Path(urlparse(location).path).name.casefold()
         if candidate_name and candidate_name in by_name:
             return by_name[candidate_name]
 
         local_candidate = (xml_path.parent / location).resolve()
-        if local_candidate.is_file() and local_candidate.suffix.lower() == ".xsd":
+        if local_candidate.is_file() and local_candidate.suffix.casefold() == ".xsd":
             return local_candidate
 
-    same_stem = by_name.get(f"{xml_path.stem}.xsd".lower())
+    same_stem = by_name.get(f"{xml_path.stem}.xsd".casefold())
     if same_stem:
         return same_stem
 
     return available[0] if len(available) == 1 else None
 
 
+class _LocalXsdResolver(etree.Resolver):
+    """Resolve broken relative XSD imports against known local XSD files."""
+
+    def __init__(self, available_xsds: list[Path]) -> None:
+        super().__init__()
+        self._by_name: dict[str, list[Path]] = {}
+        for raw in available_xsds:
+            path = Path(raw).resolve()
+            self._by_name.setdefault(path.name.casefold(), []).append(path)
+
+    def resolve(self, url, pubid, context):
+        parsed = urlparse(str(url))
+        candidate_name = Path(unquote(parsed.path)).name.casefold()
+        matches = self._by_name.get(candidate_name, [])
+        # Only use basename fallback when it is unambiguous.
+        if len(matches) == 1:
+            return self.resolve_filename(str(matches[0]), context)
+        return None
+
+
 def _load_schema(
     schema_path: Path,
+    *,
+    available_xsds: list[Path] | None = None,
 ) -> tuple[etree.XMLSchema | None, list[dict]]:
     parser = etree.XMLParser(
         resolve_entities=False,
         no_network=True,
         huge_tree=True,
     )
+    local_xsds = [Path(p) for p in (available_xsds or [])]
+    if schema_path not in local_xsds:
+        local_xsds.append(schema_path)
+    parser.resolvers.add(_LocalXsdResolver(local_xsds))
+
     try:
         schema_doc = etree.parse(str(schema_path), parser)
         return etree.XMLSchema(schema_doc), []
@@ -202,8 +229,6 @@ def _tree_validate_xml(
             root = etree.fromstring(payload, parser=parser)
             document = etree.ElementTree(root)
         else:
-            # Python owns the file handle even for the direct/disk strategy.
-            # This avoids libxml2 path-opening limitations on Windows.
             with xml_path.open("rb") as stream:
                 document = etree.parse(stream, parser)
 
@@ -224,6 +249,7 @@ def validate_xml_against_xsd(
     resource_strategy: str = "auto",
     environment: dict | None = None,
     expected_reuse: int = 1,
+    available_xsds: list[Path] | None = None,
 ) -> XmlSchemaValidationResult:
     xml_path = Path(xml_path).resolve()
     schema_path = Path(schema_path).resolve()
@@ -241,7 +267,10 @@ def validate_xml_against_xsd(
         environment=environment,
     )
 
-    schema, schema_errors = _load_schema(schema_path)
+    schema, schema_errors = _load_schema(
+        schema_path,
+        available_xsds=available_xsds,
+    )
     if schema is None:
         return XmlSchemaValidationResult(
             False,

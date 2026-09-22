@@ -26,14 +26,33 @@ class A5ConsoleErrorIndicatorTests(unittest.TestCase):
         self.assertIn("threading.excepthook = self._thread_exception", text)
         self.assertIn("traceback.print_exception", text)
 
-    def test_monitor_has_persistent_red_error_indicator(self):
+    def test_monitor_has_red_error_indicator_shown_only_after_recorded_error(self):
         text = (
             ROOT / "app" / "exception_monitor.py"
         ).read_text(encoding="utf-8")
+
         self.assertIn('text="⚠ FEIL"', text)
         self.assertIn("fg_color=theme.DANGER_TEXT", text)
-        self.assertIn("self.button.grid()", text)
-        self.assertIn("self.button.grid_remove()", text)
+
+        install = text.split(
+            "def _install_indicator", 1
+        )[1].split("def _show_indicator", 1)[0]
+        self.assertNotIn("self.button.grid(", install)
+
+        show = text.split(
+            "def _show_indicator", 1
+        )[1].split("def _hide_indicator", 1)[0]
+        self.assertIn("self.button.grid(", show)
+
+        record = text.split(
+            "def _record(", 1
+        )[1].split("def _record_from_any_thread", 1)[0]
+        self.assertIn("self._show_indicator()", record)
+
+        hide = text.split(
+            "def _hide_indicator", 1
+        )[1].split("def _install_hooks", 1)[0]
+        self.assertIn("self.button.grid_remove()", hide)
 
     def test_error_details_are_available_inside_app(self):
         text = (

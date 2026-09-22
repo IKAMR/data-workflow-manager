@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from app.workspace import run_log_dir
 from noark5_workflow.core.events import WorkflowEvent
+from version import APP_NAME
 
 
 def _iso_text(value: str) -> str:
@@ -35,11 +36,7 @@ class TextJobRecord:
 
 
 class TextRunLogSink:
-    """Human-readable run-log sink for neutral WorkflowEvent instances.
-
-    The sink owns text formatting and file persistence. Runtime code should emit
-    semantic events; a future CSV/JSON sink can consume the same event stream.
-    """
+    """Human-readable run-log sink for neutral WorkflowEvent instances."""
 
     sink_id = "text_run_log"
 
@@ -144,7 +141,7 @@ class TextRunLogSink:
 
     def _render(self) -> str:
         lines = [
-            "Noark 5 Workflow Manager - overordnet kjørelogg",
+            f"{APP_NAME} - overordnet kjørelogg",
             "",
             f"Run ID: {self.run_id}",
             f"Kjøretype: {self.run_type}",

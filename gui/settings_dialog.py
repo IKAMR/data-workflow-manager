@@ -7,6 +7,7 @@ import customtkinter as ctk
 
 from app.operation_metadata import VISIBILITY_LABELS, visibility_label, visibility_value
 from app.settings_portable import export_settings, import_settings, reset_settings
+from app.work_output_layout import AppWorkSubfolderError, validate_app_work_subfolder
 from app.workspace import run_log_dir, setup_dir, job_list_dir
 from settings import save_config
 from . import theme
@@ -47,6 +48,9 @@ class SettingsDialog(ctk.CTkToplevel):
         self.run_log_dir_var = ctk.StringVar(value=str(self.settings.get("run_log_dir", "")))
         self.setup_dir_var = ctk.StringVar(value=str(self.settings.get("setup_dir", "")))
         self.job_list_dir_var = ctk.StringVar(value=str(self.settings.get("job_list_dir", "")))
+        self.app_work_subfolder_var = ctk.StringVar(
+            value=str(self.settings.get("app_work_subfolder", "dwm"))
+        )
 
         row = 0
         ctk.CTkLabel(
@@ -249,6 +253,38 @@ class SettingsDialog(ctk.CTkToplevel):
         row += 1
         ctk.CTkLabel(
             body,
+            text="Work-output",
+            font=theme.font(theme.SECTION_SIZE, "bold"),
+            text_color=theme.BLUE,
+        ).grid(row=row, column=0, columnspan=2, padx=12, pady=(20, 8), sticky="w")
+
+        row += 1
+        ctk.CTkLabel(
+            body,
+            text="App-undermappe i Work",
+            font=theme.font(theme.NORMAL_SIZE),
+        ).grid(row=row, column=0, padx=12, pady=8, sticky="w")
+        ctk.CTkEntry(
+            body,
+            textvariable=self.app_work_subfolder_var,
+            placeholder_text="dwm",
+            font=theme.font(theme.NORMAL_SIZE),
+        ).grid(row=row, column=1, padx=12, pady=8, sticky="ew")
+
+        row += 1
+        ctk.CTkLabel(
+            body,
+            text=(
+                "Standard: dwm | Blank = bruk Work - operations direkte | "
+                "Jobblistens undermappe-regel legges under dette nivået."
+            ),
+            font=theme.font(theme.SMALL_SIZE),
+            text_color=theme.TEXT_MUTED,
+        ).grid(row=row, column=0, columnspan=2, padx=12, pady=(0, 16), sticky="w")
+
+        row += 1
+        ctk.CTkLabel(
+            body,
             text="Tom verdi eller «Bruk standard» = bruk standard undermappe under Temp-mappe.",
             font=theme.font(theme.SMALL_SIZE),
             text_color=theme.TEXT_MUTED,
@@ -292,6 +328,7 @@ class SettingsDialog(ctk.CTkToplevel):
         self.run_log_dir_var.set(str(settings.get("run_log_dir", "")))
         self.setup_dir_var.set(str(settings.get("setup_dir", "")))
         self.job_list_dir_var.set(str(settings.get("job_list_dir", "")))
+        self.app_work_subfolder_var.set(str(settings.get("app_work_subfolder", "dwm")))
 
     def _backend_changed(self, value: str) -> None:
         state = "normal" if value == "server" else "disabled"
@@ -310,17 +347,23 @@ class SettingsDialog(ctk.CTkToplevel):
                 "execution_backend": backend,
                 "remote_endpoint": self.endpoint_var.get().strip(),
                 "shared_storage_root": self.storage_var.get().strip(),
-                # Stored internally as 0/1/2 for backward compatibility.
                 "operation_visibility": visibility_value(self.visibility_var.get()),
                 "run_log_dir": self.run_log_dir_var.get().strip(),
                 "setup_dir": self.setup_dir_var.get().strip(),
                 "job_list_dir": self.job_list_dir_var.get().strip(),
+                "app_work_subfolder": validate_app_work_subfolder(
+                    self.app_work_subfolder_var.get()
+                ),
             }
         )
         return updated
 
     def _save(self) -> None:
-        self.settings = self._collect()
+        try:
+            self.settings = self._collect()
+        except AppWorkSubfolderError as exc:
+            messagebox.showerror("Data Workflow Manager", str(exc))
+            return
         self.on_save(self.settings)
         self.destroy()
 
@@ -330,6 +373,7 @@ class SettingsDialog(ctk.CTkToplevel):
         current["run_log_dir"] = self.run_log_dir_var.get().strip()
         current["setup_dir"] = self.setup_dir_var.get().strip()
         current["job_list_dir"] = self.job_list_dir_var.get().strip()
+        current["app_work_subfolder"] = self.app_work_subfolder_var.get().strip()
         return current
 
     def _browse_standard_dir(self, key: str, variable: ctk.StringVar) -> None:
@@ -385,7 +429,7 @@ class SettingsDialog(ctk.CTkToplevel):
         path = export_settings(Path(filename))
         self._remember_setup_dir(path)
         messagebox.showinfo(
-            "Noark 5 Workflow Manager", f"Setup eksportert til:\n{path}"
+            "Data Workflow Manager", f"Setup eksportert til:\n{path}"
         )
 
     def _import(self) -> None:
@@ -403,7 +447,7 @@ class SettingsDialog(ctk.CTkToplevel):
             imported = import_settings(Path(filename))
         except (OSError, ValueError, TypeError) as exc:
             messagebox.showerror(
-                "Noark 5 Workflow Manager", f"Kunne ikke importere setup:\n{exc}"
+                "Data Workflow Manager", f"Kunne ikke importere setup:\n{exc}"
             )
             return
         self.settings = imported
@@ -412,11 +456,11 @@ class SettingsDialog(ctk.CTkToplevel):
         self._load_vars(self.settings)
         self._backend_changed(self.backend_var.get())
         self.on_save(imported)
-        messagebox.showinfo("Noark 5 Workflow Manager", "Setup importert.")
+        messagebox.showinfo("Data Workflow Manager", "Setup importert.")
 
     def _reset(self) -> None:
         if not messagebox.askyesno(
-            "Noark 5 Workflow Manager",
+            "Data Workflow Manager",
             "Nullstille alle applikasjonsinnstillinger til standardverdier?\n\n"
             "Dette inkluderer sist brukte mapper og jobbliste-referanser.",
         ):
@@ -427,5 +471,5 @@ class SettingsDialog(ctk.CTkToplevel):
         self._backend_changed(self.backend_var.get())
         self.on_save(defaults)
         messagebox.showinfo(
-            "Noark 5 Workflow Manager", "Setup er nullstilt til standardverdier."
+            "Data Workflow Manager", "Setup er nullstilt til standardverdier."
         )

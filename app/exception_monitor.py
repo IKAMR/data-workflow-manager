@@ -4,7 +4,6 @@ import sys
 import threading
 import traceback
 from datetime import datetime
-from tkinter import messagebox
 
 import customtkinter as ctk
 
@@ -13,17 +12,14 @@ from gui import theme
 
 
 class AppExceptionMonitor:
-    """Surface otherwise console-only exceptions inside the application.
-
-    The monitor does not suppress console tracebacks. It mirrors them into a
-    persistent, clearly visible GUI warning and keeps a short in-memory history.
-    """
+    """Surface otherwise console-only Python exceptions inside the app."""
 
     def __init__(self, app) -> None:
         self.app = app
         self.errors: list[str] = []
         self._previous_threading_hook = threading.excepthook
         self._previous_sys_hook = sys.excepthook
+        self._indicator_visible = False
 
         self._install_indicator()
         self._install_hooks()
@@ -42,20 +38,24 @@ class AppExceptionMonitor:
             text_color="#ffffff",
             command=self.show_errors,
         )
+        # Important: do NOT grid the button here. It is created hidden and is
+        # only placed in the status bar after _record() has stored a traceback.
+
+    def _show_indicator(self) -> None:
+        if self._indicator_visible:
+            return
         self.button.grid(row=0, column=3, padx=(2, 10), pady=2, sticky="e")
+        self._indicator_visible = True
+
+    def _hide_indicator(self) -> None:
+        if not self._indicator_visible:
+            return
         self.button.grid_remove()
+        self._indicator_visible = False
 
     def _install_hooks(self) -> None:
-        # Tkinter calls this for exceptions raised by button/menu/widget
-        # callbacks. Overriding it is the canonical way to surface callback
-        # exceptions without losing the traceback.
         self.app.report_callback_exception = self._tk_exception
-
-        # Worker/background thread exceptions otherwise only go to stderr.
         threading.excepthook = self._thread_exception
-
-        # Keep a final process-level hook as well. It primarily preserves
-        # visibility in the console; if Tk is still alive we also mirror it.
         sys.excepthook = self._sys_exception
 
     @staticmethod
@@ -72,7 +72,7 @@ class AppExceptionMonitor:
 
         try:
             self.button.configure(text=f"⚠ FEIL ({len(self.errors)})")
-            self.button.grid()
+            self._show_indicator()
         except Exception:
             pass
 
@@ -103,7 +103,6 @@ class AppExceptionMonitor:
             exc_tb,
             prefix="Tkinter callback exception",
         )
-        # Preserve the console traceback as before.
         traceback.print_exception(exc_type, exc_value, exc_tb)
         self._record(text)
 
@@ -132,8 +131,10 @@ class AppExceptionMonitor:
             self._record_from_any_thread(text)
 
     def show_errors(self) -> None:
+        # A visible indicator with no stored traceback is stale UI state. Hide it
+        # immediately instead of presenting a contradictory message box.
         if not self.errors:
-            messagebox.showinfo(APP_NAME, "Ingen registrerte programfeil.")
+            self.clear_indicator()
             return
 
         window = ctk.CTkToplevel(self.app)
@@ -146,10 +147,7 @@ class AppExceptionMonitor:
 
         ctk.CTkLabel(
             window,
-            text=(
-                f"⚠ PROGRAMFEIL – {len(self.errors)} registrert"
-                + ("e" if len(self.errors) != 1 else "")
-            ),
+            text=f"⚠ PROGRAMFEIL – {len(self.errors)} registrert",
             font=theme.font(theme.SECTION_SIZE, "bold"),
             text_color=theme.DANGER_TEXT,
             anchor="w",
@@ -163,18 +161,25 @@ class AppExceptionMonitor:
             wrap="none",
         )
         box.grid(row=1, column=0, padx=16, pady=(0, 10), sticky="nsew")
-        box.insert("1.0", "\n\n" + ("\n\n" + ("-" * 90) + "\n\n").join(self.errors))
+        box.insert(
+            "1.0",
+            ("\n\n" + ("-" * 90) + "\n\n").join(self.errors),
+        )
         box.configure(state="disabled")
         box.see("end")
 
         buttons = ctk.CTkFrame(window, fg_color="transparent")
         buttons.grid(row=2, column=0, padx=16, pady=(0, 14), sticky="e")
 
+        def acknowledge_and_close() -> None:
+            self.clear_indicator()
+            window.destroy()
+
         ctk.CTkButton(
             buttons,
             text="Kvitter",
             width=90,
-            command=self.clear_indicator,
+            command=acknowledge_and_close,
             fg_color=theme.BUTTON_BG,
             hover_color=theme.BUTTON_HOVER,
         ).pack(side="left", padx=(0, 8))
@@ -189,12 +194,15 @@ class AppExceptionMonitor:
         ).pack(side="left")
 
     def clear_indicator(self) -> None:
-        # Keep the actual error history for this application session but remove
-        # the visual alarm after the user has acknowledged it.
         try:
-            self.button.grid_remove()
+            self._hide_indicator()
+            self.button.configure(
+                text=f"⚠ FEIL ({len(self.errors)})" if self.errors else "⚠ FEIL"
+            )
             self.app.status_bar.set_status(
-                "Programfeil kvittert – detaljer beholdes i denne appøkten"
+                "Programfeil kvittert"
+                if self.errors
+                else "Klar"
             )
         except Exception:
             pass
