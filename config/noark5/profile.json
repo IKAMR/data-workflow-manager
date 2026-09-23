@@ -32,10 +32,7 @@
     "reusable_view_sections": true,
     "audience_specific_views": true,
     "materialized_presentation_profiles": true,
-    "depot_validation_report": true,
-    "arkade5_external_evidence_import": true,
-    "arkade5_lossless_normalization": true,
-    "arkade5_verified_semantic_mapping": true
+    "depot_validation_report": true
   },
   "definitions": {
     "tests": ["config/noark5/tests/xpath_catalog_2026_05_26.json"],
@@ -57,7 +54,10 @@
     "metadata": ["config/noark5/standards/metadata/index.json"],
     "requirements": ["config/noark5/standards/requirements/index.json"],
     "reports": ["config/noark5/reports/depot_validation_report.json"],
-    "external_mappings": ["config/noark5/external/dwm_arkade5_mapping.json"]
+    "external_mappings": [
+      "config/noark5/external/dwm_arkade5_mapping.json",
+      "config/noark5/external/combined_coverage_model.json"
+    ]
   },
   "documentation": [
     "docs/NOARK5-PROFILE-ARCHITECTURE.md",
@@ -67,7 +67,8 @@
     "docs/NOARK5-U1-U2-COVERAGE-MAPPING.md",
     "docs/ARKADE5-NOARK5-TESTS.md",
     "docs/ARKADE5-DWM-MAPPING.md",
-    "docs/ARKADE5-IMPORT-MODEL.md"
+    "docs/ARKADE5-IMPORT-MODEL.md",
+    "docs/ARKADE5-COMBINED-COVERAGE.md"
   ],
   "legacy_reference": {
     "repository": "IKAMR/KDRS_Query",

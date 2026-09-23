@@ -1,0 +1,25 @@
+{
+  "format_version": 1,
+  "model_id": "noark5.combined-dwm-arkade5-coverage.v1",
+  "purpose": "Samlet dekningsmodell for DWM og Arkade 5 uten å slå sammen kildeidentitet eller testsemantikk.",
+  "sources": {
+    "arkade_catalog": "config/noark5/external/arkade5_test_catalog.json",
+    "semantic_mapping": "config/noark5/external/dwm_arkade5_mapping.json",
+    "arkade_runtime_evidence": "work_operations/external_evidence/arkade5/<import_id>/normalized/arkade5_results.json",
+    "dwm_runtime_evidence": "DWM individuelle/master Noark 5-resultater"
+  },
+  "combined_statuses": {
+    "covered_by_both": "Både DWM og Arkade har evidens i den aktuelle kjøringen.",
+    "covered_by_arkade": "Arkade har evidens; DWM har ikke kjørt/har ingen tilsvarende test i den aktuelle kjøringen.",
+    "covered_by_dwm": "DWM har evidens; Arkade-resultat er ikke tilgjengelig i den aktuelle kjøringen.",
+    "not_covered_in_run": "Ingen av kildene har evidens i den aktuelle kjøringen."
+  },
+  "principles": {
+    "arkade_does_not_become_dwm_master": true,
+    "arkade_can_fill_documented_dwm_gaps": true,
+    "partial_and_complementary_keep_both_results": true,
+    "equivalent_requires_verified_mapping": true,
+    "raw_external_evidence_is_preserved": true,
+    "same_n5_number_is_not_equivalence": true
+  }
+}
