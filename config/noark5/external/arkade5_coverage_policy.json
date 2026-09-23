@@ -1,0 +1,119 @@
+{
+  "format_version": 1,
+  "policy_id": "dwm-arkade5-coverage-policy-v1",
+  "arkade_version": "2.13.0",
+  "basis": {
+    "mapping": "config/noark5/external/dwm_arkade5_mapping.json",
+    "gap_model": "config/noark5/external/gap_overlap_model.json",
+    "arkade_catalog": "config/noark5/external/arkade5_test_catalog.json",
+    "arkade_source_commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733"
+  },
+  "principles": {
+    "arkade_is_external_validator": true,
+    "arkade_does_not_become_dwm_master": true,
+    "arkade_can_close_documented_dwm_coverage_gap": true,
+    "internal_reimplementation_is_not_required_for_current_coverage": true,
+    "partial_and_complementary_controls_retain_both_sources": true,
+    "same_number_is_not_equivalence": true
+  },
+  "default_strategy": {
+    "arkade_only": "use_arkade_external",
+    "equivalent": "retain_both_and_compare_when_possible",
+    "partial": "retain_both",
+    "complementary": "retain_both",
+    "dwm_only": "use_dwm"
+  },
+  "documented_dwm_gaps": [
+    {
+      "arkade_test_id": "N5.01",
+      "namespace_id": "arkade:N5.01",
+      "current_coverage_strategy": "use_arkade_external",
+      "dwm_internal_implementation": "deferred",
+      "reason_nb": "Arkade 5 v2.13.0 dekker kontrollområdet; egen DWM-implementasjon er ikke nødvendig for dagens samlede dekning."
+    },
+    {
+      "arkade_test_id": "N5.02",
+      "namespace_id": "arkade:N5.02",
+      "current_coverage_strategy": "use_arkade_external",
+      "dwm_internal_implementation": "deferred",
+      "reason_nb": "Arkade 5 v2.13.0 dekker kontrollområdet; egen DWM-implementasjon er ikke nødvendig for dagens samlede dekning."
+    },
+    {
+      "arkade_test_id": "N5.28",
+      "namespace_id": "arkade:N5.28",
+      "current_coverage_strategy": "use_arkade_external",
+      "dwm_internal_implementation": "deferred",
+      "reason_nb": "Arkade 5 v2.13.0 dekker kontrollområdet; egen DWM-implementasjon er ikke nødvendig for dagens samlede dekning."
+    },
+    {
+      "arkade_test_id": "N5.30",
+      "namespace_id": "arkade:N5.30",
+      "current_coverage_strategy": "use_arkade_external",
+      "dwm_internal_implementation": "deferred",
+      "reason_nb": "Arkade 5 v2.13.0 dekker kontrollområdet; egen DWM-implementasjon er ikke nødvendig for dagens samlede dekning."
+    },
+    {
+      "arkade_test_id": "N5.32",
+      "namespace_id": "arkade:N5.32",
+      "current_coverage_strategy": "use_arkade_external",
+      "dwm_internal_implementation": "deferred",
+      "reason_nb": "Arkade 5 v2.13.0 dekker kontrollområdet; egen DWM-implementasjon er ikke nødvendig for dagens samlede dekning."
+    },
+    {
+      "arkade_test_id": "N5.33",
+      "namespace_id": "arkade:N5.33",
+      "current_coverage_strategy": "use_arkade_external",
+      "dwm_internal_implementation": "deferred",
+      "reason_nb": "Arkade 5 v2.13.0 dekker kontrollområdet; egen DWM-implementasjon er ikke nødvendig for dagens samlede dekning."
+    },
+    {
+      "arkade_test_id": "N5.34",
+      "namespace_id": "arkade:N5.34",
+      "current_coverage_strategy": "use_arkade_external",
+      "dwm_internal_implementation": "deferred",
+      "reason_nb": "Arkade 5 v2.13.0 dekker kontrollområdet; egen DWM-implementasjon er ikke nødvendig for dagens samlede dekning."
+    },
+    {
+      "arkade_test_id": "N5.47",
+      "namespace_id": "arkade:N5.47",
+      "current_coverage_strategy": "use_arkade_external",
+      "dwm_internal_implementation": "deferred",
+      "reason_nb": "Arkade 5 v2.13.0 dekker kontrollområdet; egen DWM-implementasjon er ikke nødvendig for dagens samlede dekning."
+    },
+    {
+      "arkade_test_id": "N5.48",
+      "namespace_id": "arkade:N5.48",
+      "current_coverage_strategy": "use_arkade_external",
+      "dwm_internal_implementation": "deferred",
+      "reason_nb": "Arkade 5 v2.13.0 dekker kontrollområdet; egen DWM-implementasjon er ikke nødvendig for dagens samlede dekning."
+    },
+    {
+      "arkade_test_id": "N5.51",
+      "namespace_id": "arkade:N5.51",
+      "current_coverage_strategy": "use_arkade_external",
+      "dwm_internal_implementation": "deferred",
+      "reason_nb": "Arkade 5 v2.13.0 dekker kontrollområdet; egen DWM-implementasjon er ikke nødvendig for dagens samlede dekning."
+    },
+    {
+      "arkade_test_id": "N5.62",
+      "namespace_id": "arkade:N5.62",
+      "current_coverage_strategy": "use_arkade_external",
+      "dwm_internal_implementation": "deferred",
+      "reason_nb": "Arkade 5 v2.13.0 dekker kontrollområdet; egen DWM-implementasjon er ikke nødvendig for dagens samlede dekning."
+    },
+    {
+      "arkade_test_id": "N5.63",
+      "namespace_id": "arkade:N5.63",
+      "current_coverage_strategy": "use_arkade_external",
+      "dwm_internal_implementation": "deferred",
+      "reason_nb": "Arkade 5 v2.13.0 dekker kontrollområdet; egen DWM-implementasjon er ikke nødvendig for dagens samlede dekning."
+    },
+    {
+      "arkade_test_id": "N5.64",
+      "namespace_id": "arkade:N5.64",
+      "current_coverage_strategy": "use_arkade_external",
+      "dwm_internal_implementation": "deferred",
+      "reason_nb": "Arkade 5 v2.13.0 dekker kontrollområdet; egen DWM-implementasjon er ikke nødvendig for dagens samlede dekning."
+    }
+  ]
+}

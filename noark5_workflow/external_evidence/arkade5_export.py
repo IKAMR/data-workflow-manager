@@ -11,10 +11,15 @@ from pathlib import Path
 from typing import Any
 
 from .arkade5 import list_arkade5_imports, load_arkade5_import
+from .arkade5_gap_analysis import build_gap_overlap_analysis
+from .arkade5_coverage_policy import (
+    load_arkade5_coverage_policy,
+    validate_arkade5_coverage_policy,
+)
 from .combined_coverage import build_combined_coverage
 
 
-PACKAGE_FORMAT_VERSION = 1
+PACKAGE_FORMAT_VERSION = 2
 PACKAGE_TYPE = "dwm.noark5.arkade5-portable-evidence"
 
 
@@ -38,6 +43,21 @@ def _write_json(path: Path, value: Any) -> None:
     )
 
 
+def _record(
+    path: Path,
+    *,
+    package_root: Path,
+    records: list[dict[str, Any]],
+    role: str,
+) -> None:
+    records.append({
+        "path": path.relative_to(package_root).as_posix(),
+        "role": role,
+        "sha256": _sha256(path),
+        "size": path.stat().st_size,
+    })
+
+
 def _copy_with_record(
     source: Path,
     target: Path,
@@ -48,12 +68,7 @@ def _copy_with_record(
 ) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(source, target)
-    records.append({
-        "path": target.relative_to(package_root).as_posix(),
-        "role": role,
-        "sha256": _sha256(target),
-        "size": target.stat().st_size,
-    })
+    _record(target, package_root=package_root, records=records, role=role)
 
 
 def _dwm_test_ids_present(depot_model: dict[str, Any] | None) -> list[str]:
@@ -71,14 +86,7 @@ def write_arkade5_evidence_package(
     output_dir: str | Path,
     depot_model: dict[str, Any] | None = None,
 ) -> Path:
-    """Write one portable ZIP containing Arkade source, normalization and knowledge.
-
-    The export is deliberately evidence-oriented:
-    - original Arkade reports remain original source evidence,
-    - normalized data remains separate,
-    - DWM/Arkade relation and combined coverage remain separate,
-    - nothing in the package promotes Arkade to a DWM master result.
-    """
+    """Write portable Arkade evidence plus the semantic knowledge used by DWM."""
     work = Path(work_operations)
     output = Path(output_dir)
     output.mkdir(parents=True, exist_ok=True)
@@ -86,6 +94,17 @@ def write_arkade5_evidence_package(
     imports = list_arkade5_imports(work)
     if not imports:
         raise ValueError("Ingen importerte Arkade 5-rapporter er tilgjengelige for eksport.")
+
+    gap_analysis = build_gap_overlap_analysis()
+    policy = load_arkade5_coverage_policy()
+    policy_validation = validate_arkade5_coverage_policy(
+        policy=policy,
+        gap_analysis=gap_analysis,
+    )
+    if not policy_validation["valid"]:
+        raise ValueError(
+            "Arkade 5-dekningspolicy samsvarer ikke med dokumentert gap-analyse."
+        )
 
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     zip_path = output / f"arkade5-evidence-{stamp}.zip"
@@ -95,6 +114,8 @@ def write_arkade5_evidence_package(
         ("config/noark5/external/arkade5_test_catalog.json", "arkade_test_catalog"),
         ("config/noark5/external/dwm_arkade5_mapping.json", "dwm_arkade5_mapping"),
         ("config/noark5/external/combined_coverage_model.json", "combined_coverage_model"),
+        ("config/noark5/external/gap_overlap_model.json", "gap_overlap_model"),
+        ("config/noark5/external/arkade5_coverage_policy.json", "coverage_policy"),
     ]
 
     dwm_ids = _dwm_test_ids_present(depot_model)
@@ -108,11 +129,33 @@ def write_arkade5_evidence_package(
         for relative, role in knowledge_sources:
             src = repo_root / relative
             if not src.is_file():
-                raise FileNotFoundError(f"Mangler kunnskapsfil for Arkade-eksport: {relative}")
+                raise FileNotFoundError(
+                    f"Mangler kunnskapsfil for Arkade-eksport: {relative}"
+                )
             dst = package_root / "knowledge" / Path(relative).name
             _copy_with_record(
                 src, dst, package_root=package_root, records=records, role=role
             )
+
+        gap_target = package_root / "analysis" / "gap_overlap_analysis.json"
+        _write_json(gap_target, gap_analysis)
+        _record(
+            gap_target,
+            package_root=package_root,
+            records=records,
+            role="gap_overlap_analysis",
+        )
+
+        policy_validation_target = (
+            package_root / "analysis" / "coverage_policy_validation.json"
+        )
+        _write_json(policy_validation_target, policy_validation)
+        _record(
+            policy_validation_target,
+            package_root=package_root,
+            records=records,
+            role="coverage_policy_validation",
+        )
 
         for manifest in imports:
             import_id = str(manifest.get("import_id") or "").strip()
@@ -145,22 +188,26 @@ def write_arkade5_evidence_package(
 
             normalized_target = import_root / "normalized" / "arkade5_results.json"
             _write_json(normalized_target, normalized)
-            records.append({
-                "path": normalized_target.relative_to(package_root).as_posix(),
-                "role": "arkade_normalized",
-                "sha256": _sha256(normalized_target),
-                "size": normalized_target.stat().st_size,
-            })
+            _record(
+                normalized_target,
+                package_root=package_root,
+                records=records,
+                role="arkade_normalized",
+            )
 
             if reconciliation is not None:
-                rec_target = import_root / "reconciliation" / "arkade5_dwm_reconciliation.json"
+                rec_target = (
+                    import_root
+                    / "reconciliation"
+                    / "arkade5_dwm_reconciliation.json"
+                )
                 _write_json(rec_target, reconciliation)
-                records.append({
-                    "path": rec_target.relative_to(package_root).as_posix(),
-                    "role": "arkade_dwm_reconciliation",
-                    "sha256": _sha256(rec_target),
-                    "size": rec_target.stat().st_size,
-                })
+                _record(
+                    rec_target,
+                    package_root=package_root,
+                    records=records,
+                    role="arkade_dwm_reconciliation",
+                )
 
             coverage = build_combined_coverage(
                 arkade_normalized=normalized,
@@ -168,12 +215,12 @@ def write_arkade5_evidence_package(
             )
             coverage_target = import_root / "combined_coverage.json"
             _write_json(coverage_target, coverage)
-            records.append({
-                "path": coverage_target.relative_to(package_root).as_posix(),
-                "role": "combined_coverage",
-                "sha256": _sha256(coverage_target),
-                "size": coverage_target.stat().st_size,
-            })
+            _record(
+                coverage_target,
+                package_root=package_root,
+                records=records,
+                role="combined_coverage",
+            )
 
             manifest_target = import_root / "import_manifest.json"
             portable_manifest = {
@@ -182,19 +229,21 @@ def write_arkade5_evidence_package(
                 if key != "manifest_path"
             }
             _write_json(manifest_target, portable_manifest)
-            records.append({
-                "path": manifest_target.relative_to(package_root).as_posix(),
-                "role": "arkade_import_manifest",
-                "sha256": _sha256(manifest_target),
-                "size": manifest_target.stat().st_size,
-            })
+            _record(
+                manifest_target,
+                package_root=package_root,
+                records=records,
+                role="arkade_import_manifest",
+            )
 
             import_rows.append({
                 "import_id": import_id,
                 "source_file": source_path.name,
                 "source_sha256": source_meta.get("sha256"),
                 "source_version": normalized.get("source_version"),
-                "date_of_testing": (normalized.get("summary") or {}).get("date_of_testing"),
+                "date_of_testing": (normalized.get("summary") or {}).get(
+                    "date_of_testing"
+                ),
                 "tests": len(normalized.get("tests") or []),
                 "coverage_summary": coverage.get("summary"),
             })
@@ -204,19 +253,21 @@ def write_arkade5_evidence_package(
             "# Arkade 5 portable evidence package\n\n"
             "Pakken er eksportert av Data Workflow Manager og bevarer Arkade 5 "
             "som ekstern evidens. `source/` er original kilderapport, "
-            "`normalized/` er tapsfri DWM-normalisering, `combined_coverage.json` "
-            "er DWM/Arkade-dekning, og `knowledge/` inneholder den pinnede "
-            "testkatalogen og semantiske mappingen som ble brukt.\n\n"
-            "Arkade-resultater i pakken er ikke DWM-masterresultater og innebærer "
-            "ingen automatisk depotgodkjenning eller avvisning.\n",
+            "`normalized/` er tapsfri DWM-normalisering og `knowledge/` "
+            "inneholder testkatalog, mapping, gapmodell og gjeldende "
+            "dekningspolicy. `analysis/` inneholder materialisert statisk "
+            "gap-/overlappanalyse og policykontroll.\n\n"
+            "Arkade-resultater blir ikke DWM-masterresultater. Dokumenterte "
+            "DWM-gap kan dekkes av Arkade som ekstern validator uten at "
+            "kontrollen må reimplementeres i DWM.\n",
             encoding="utf-8",
         )
-        records.append({
-            "path": "README.md",
-            "role": "package_readme",
-            "sha256": _sha256(readme),
-            "size": readme.stat().st_size,
-        })
+        _record(
+            readme,
+            package_root=package_root,
+            records=records,
+            role="package_readme",
+        )
 
         package_manifest = {
             "format_version": PACKAGE_FORMAT_VERSION,
@@ -228,7 +279,14 @@ def write_arkade5_evidence_package(
                 "semantic_mapping_separate_from_results": True,
                 "same_test_number_is_not_equivalence": True,
                 "arkade_does_not_become_dwm_master": True,
+                "arkade_can_close_documented_dwm_gap": True,
+                "internal_reimplementation_not_required_for_current_coverage": True,
                 "no_automatic_depot_decision": True,
+            },
+            "knowledge": {
+                "gap_analysis_model_id": gap_analysis.get("model_id"),
+                "coverage_policy_id": policy.get("policy_id"),
+                "coverage_policy_valid": policy_validation["valid"],
             },
             "dwm_test_ids_present": dwm_ids,
             "imports": import_rows,
@@ -237,9 +295,14 @@ def write_arkade5_evidence_package(
         manifest_path = package_root / "manifest.json"
         _write_json(manifest_path, package_manifest)
 
-        with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        with zipfile.ZipFile(
+            zip_path, "w", compression=zipfile.ZIP_DEFLATED
+        ) as archive:
             for path in sorted(package_root.rglob("*")):
                 if path.is_file():
-                    archive.write(path, path.relative_to(package_root).as_posix())
+                    archive.write(
+                        path,
+                        path.relative_to(package_root).as_posix(),
+                    )
 
     return zip_path

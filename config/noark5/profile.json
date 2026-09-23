@@ -43,7 +43,8 @@
     "combined_external_coverage_gui": true,
     "portable_external_evidence_export": true,
     "arkade_gap_overlap_analysis": true,
-    "arkade_gap_overlap_gui": true
+    "arkade_gap_overlap_gui": true,
+    "arkade_external_gap_coverage_policy": true
   },
   "definitions": {
     "tests": [
@@ -84,7 +85,8 @@
     "external_mappings": [
       "config/noark5/external/dwm_arkade5_mapping.json",
       "config/noark5/external/combined_coverage_model.json",
-      "config/noark5/external/gap_overlap_model.json"
+      "config/noark5/external/gap_overlap_model.json",
+      "config/noark5/external/arkade5_coverage_policy.json"
     ]
   },
   "documentation": [
@@ -102,7 +104,8 @@
     "docs/ARKADE5-GUI-DRILLDOWN.md",
     "docs/ARKADE5-PORTABLE-EVIDENCE.md",
     "docs/ARKADE5-DWM-GAP-OVERLAP.md",
-    "docs/ARKADE5-DWM-GAP-OVERLAP-GUI.md"
+    "docs/ARKADE5-DWM-GAP-OVERLAP-GUI.md",
+    "docs/ARKADE5-COVERAGE-POLICY.md"
   ],
   "legacy_reference": {
     "repository": "IKAMR/KDRS_Query",
