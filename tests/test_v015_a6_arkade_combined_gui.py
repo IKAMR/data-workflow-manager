@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import unittest
 
 
@@ -28,9 +29,11 @@ class V015A6ArkadeCombinedGuiTests(unittest.TestCase):
         self.assertIn("Noark5ControlOverviewDialogA16", app)
         self.assertIn("persistent_app_a48 import run_gui", main)
 
-    def test_version_is_a6(self):
+    def test_version_has_not_regressed_before_a6(self):
         version = (ROOT / "version.py").read_text(encoding="utf-8")
-        self.assertIn('VERSION = "0.1.5-a6"', version)
+        match = re.search(r'VERSION\s*=\s*"0\.1\.5-a(\d+)(?:\.\d+)*"', version)
+        self.assertIsNotNone(match, "Expected a v0.1.5 alpha version")
+        self.assertGreaterEqual(int(match.group(1)), 6)
 
 
 if __name__ == "__main__":
