@@ -15,6 +15,10 @@ from noark5_workflow.core.artifact_identity import (
 from noark5_workflow.core.context import OperationContext
 from noark5_workflow.core.operation import BaseOperation, ExecutionTarget, OperationDefinition
 from noark5_workflow.core.result import OperationResult
+from noark5_workflow.external_evidence.depot_arkade5 import (
+    attach_arkade5_to_depot_model,
+    inject_arkade5_html,
+)
 
 
 class BuildNoark5DepotReportOperation(BaseOperation):
@@ -23,7 +27,7 @@ class BuildNoark5DepotReportOperation(BaseOperation):
         name="Noark 5 depotvalideringsrapport",
         description=(
             "Bygger depotets valideringsrapport fra siste materialiserte depot-presentasjon. "
-            "Ingen XML/XPath eller nye tellere kjøres."
+            "Importert Arkade 5-evidens legges til som separat ekstern validering uten ny XML/XPath-analyse."
         ),
         execution_target=ExecutionTarget.EITHER,
         category="Rapport",
@@ -63,6 +67,10 @@ class BuildNoark5DepotReportOperation(BaseOperation):
             presentation,
             source_presentation_file=str(source),
         )
+        model = attach_arkade5_to_depot_model(
+            model,
+            work_operations=Path(ctx.work_operations),
+        )
 
         out = artifact_run_dir(
             ctx,
@@ -85,7 +93,9 @@ class BuildNoark5DepotReportOperation(BaseOperation):
             encoding="utf-8",
         )
         write_depot_report_html(model, html_file)
+        inject_arkade5_html(html_file, model)
 
+        arkade_summary = ((model.get("external_validation") or {}).get("arkade5") or {}).get("summary") or {}
         return OperationResult(
             True,
             f"Noark 5 depotvalideringsrapport bygget. Resultat: {out}",
@@ -95,5 +105,7 @@ class BuildNoark5DepotReportOperation(BaseOperation):
                 "source_presentation": str(source),
                 "report_model": str(model_file),
                 "report_html": str(html_file),
+                "arkade5_imports": int(arkade_summary.get("imports") or 0),
+                "arkade5_covered_by_arkade": int(arkade_summary.get("covered_by_arkade") or 0),
             },
         )
