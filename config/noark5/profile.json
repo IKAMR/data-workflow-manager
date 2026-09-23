@@ -33,7 +33,8 @@
     "audience_specific_views": true,
     "materialized_presentation_profiles": true,
     "depot_validation_report": true,
-    "external_validation_in_depot_report": true
+    "external_validation_in_depot_report": true,
+    "combined_external_coverage_gui": true
   },
   "definitions": {
     "tests": ["config/noark5/tests/xpath_catalog_2026_05_26.json"],
@@ -70,7 +71,8 @@
     "docs/ARKADE5-DWM-MAPPING.md",
     "docs/ARKADE5-IMPORT-MODEL.md",
     "docs/ARKADE5-COMBINED-COVERAGE.md",
-    "docs/ARKADE5-DEPOT-REPORT.md"
+    "docs/ARKADE5-DEPOT-REPORT.md",
+    "docs/ARKADE5-GUI-COVERAGE.md"
   ],
   "legacy_reference": {
     "repository": "IKAMR/KDRS_Query",
