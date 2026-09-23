@@ -1,0 +1,28 @@
+{
+  "format_version": 1,
+  "delta_id": "arkade5-noark5-v2.13.0-to-v2.13.1",
+  "base_catalog_version": "2.13.0",
+  "base_catalog_commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+  "current_arkade_version": "2.13.1",
+  "current_arkade_commit": "b27136ede491d3ec8b9e0ec9973ba455a0febbdf",
+  "release_date": "2026-09-23",
+  "issue": "ARKADE-826",
+  "semantic_catalog_changed": false,
+  "mapping_changed": false,
+  "coverage_policy_changed": false,
+  "noark5_test_implementations_changed": 0,
+  "runtime_affected_test_ids": [
+    "N5.28",
+    "N5.30",
+    "N5.32",
+    "N5.33",
+    "N5.64"
+  ],
+  "inspected_not_runtime_affected_test_ids": [
+    "N5.29",
+    "N5.34"
+  ],
+  "scope": "TAR/DIAS document directory detection and relative path handling",
+  "note_nb": "De 54 Noark 5-testimplementasjonene er uendret fra Arkade 5 v2.13.0. DWM beholder derfor den kildekodeverifiserte v2.13.0-katalogen og mappingen som semantisk baseline, og registrerer v2.13.1 som et eksplisitt release-delta. ARKADE-826 kan endre runtime-resultatet for de fem oppførte testene ved TAR/DIAS-input.",
+  "versioned_evidence_rule": "Arkade source_version beholdes per import. Resultater fra v2.13.0 og v2.13.1 kan sammenlignes, men skal ikke slås sammen som samme validatorversjon."
+}

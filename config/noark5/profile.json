@@ -47,7 +47,8 @@
     "arkade_external_gap_coverage_policy": true,
     "arkade_integration_health_check": true,
     "arkade_practical_acceptance": true,
-    "arkade_release_readiness_gate": true
+    "arkade_release_readiness_gate": true,
+    "arkade_release_delta_tracking": true
   },
   "definitions": {
     "tests": [
@@ -92,7 +93,8 @@
       "config/noark5/external/arkade5_coverage_policy.json",
       "config/noark5/external/arkade5_integration_contract.json",
       "config/noark5/external/arkade5_practical_acceptance_contract.json",
-      "config/noark5/external/arkade5_release_readiness_contract.json"
+      "config/noark5/external/arkade5_release_readiness_contract.json",
+      "config/noark5/external/arkade5_release_delta_2_13_1.json"
     ]
   },
   "documentation": [
@@ -114,7 +116,8 @@
     "docs/ARKADE5-COVERAGE-POLICY.md",
     "docs/ARKADE5-INTEGRATION-CONTRACT.md",
     "docs/ARKADE5-PRACTICAL-ACCEPTANCE.md",
-    "docs/ARKADE5-RELEASE-READINESS.md"
+    "docs/ARKADE5-RELEASE-READINESS.md",
+    "docs/ARKADE5-V2.13.1-CHANGE-IMPACT.md"
   ],
   "legacy_reference": {
     "repository": "IKAMR/KDRS_Query",
