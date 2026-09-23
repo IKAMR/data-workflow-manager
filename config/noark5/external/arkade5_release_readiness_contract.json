@@ -1,0 +1,24 @@
+{
+  "format_version": 1,
+  "contract_id": "dwm-v0.1.5-arkade-release-readiness-v1",
+  "target_release": "0.1.5",
+  "requirements": {
+    "full_test_suite": {
+      "summary_file": "docs/test-results/.last-test-summary.txt",
+      "failed": 0,
+      "errors": 0
+    },
+    "arkade_integration_health": "OK",
+    "arkade_practical_acceptance": "READY"
+  },
+  "status_values": [
+    "READY_FOR_V0.1.5",
+    "NOT_READY_FOR_V0.1.5"
+  ],
+  "principles": {
+    "release_gate_aggregates_existing_checks": true,
+    "release_gate_does_not_change_test_results": true,
+    "arkade_findings_about_archive_are_not_release_failures": true,
+    "blocking_integration_integrity_errors_are_release_failures": true
+  }
+}

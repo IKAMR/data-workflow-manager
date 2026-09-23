@@ -5,7 +5,11 @@
   "display_name": "Noark 5",
   "status": "active_development_a26",
   "profile_root": "config/noark5",
-  "supported_versions": ["3.1", "4.0", "5.0"],
+  "supported_versions": [
+    "3.1",
+    "4.0",
+    "5.0"
+  ],
   "principles": {
     "manifest_is_authoritative_entrypoint": true,
     "profile_specific_knowledge_outside_generic_engine": true,
@@ -15,7 +19,9 @@
     "version_specific_rules_must_be_explicit": true,
     "do_not_assume_rules_across_versions": true
   },
-  "sources": {"registry": "config/noark5/standards/sources.json"},
+  "sources": {
+    "registry": "config/noark5/standards/sources.json"
+  },
   "capabilities": {
     "schema_validation": true,
     "xpath_analysis": true,
@@ -40,11 +46,16 @@
     "arkade_gap_overlap_gui": true,
     "arkade_external_gap_coverage_policy": true,
     "arkade_integration_health_check": true,
-    "arkade_practical_acceptance": true
+    "arkade_practical_acceptance": true,
+    "arkade_release_readiness_gate": true
   },
   "definitions": {
-    "tests": ["config/noark5/tests/xpath_catalog_2026_05_26.json"],
-    "external_tests": ["config/noark5/external/arkade5_test_catalog.json"],
+    "tests": [
+      "config/noark5/tests/xpath_catalog_2026_05_26.json"
+    ],
+    "external_tests": [
+      "config/noark5/external/arkade5_test_catalog.json"
+    ],
     "analysis": [
       "config/noark5/analysis/u1_total.json",
       "config/noark5/analysis/u1_u2_core_arkiv_arkivdel.json",
@@ -56,19 +67,32 @@
       "config/noark5/standards/specification_coverage.json",
       "config/noark5/standards/provenance_contract.json"
     ],
-    "schemas": ["config/noark5/xml_schema_validation.json"],
-    "views": ["config/noark5/views/canonical_views.json"],
-    "field_definitions": ["config/noark5/arkivstruktur_fields.json"],
-    "metadata": ["config/noark5/standards/metadata/index.json"],
-    "requirements": ["config/noark5/standards/requirements/index.json"],
-    "reports": ["config/noark5/reports/depot_validation_report.json"],
+    "schemas": [
+      "config/noark5/xml_schema_validation.json"
+    ],
+    "views": [
+      "config/noark5/views/canonical_views.json"
+    ],
+    "field_definitions": [
+      "config/noark5/arkivstruktur_fields.json"
+    ],
+    "metadata": [
+      "config/noark5/standards/metadata/index.json"
+    ],
+    "requirements": [
+      "config/noark5/standards/requirements/index.json"
+    ],
+    "reports": [
+      "config/noark5/reports/depot_validation_report.json"
+    ],
     "external_mappings": [
       "config/noark5/external/dwm_arkade5_mapping.json",
       "config/noark5/external/combined_coverage_model.json",
       "config/noark5/external/gap_overlap_model.json",
       "config/noark5/external/arkade5_coverage_policy.json",
       "config/noark5/external/arkade5_integration_contract.json",
-      "config/noark5/external/arkade5_practical_acceptance_contract.json"
+      "config/noark5/external/arkade5_practical_acceptance_contract.json",
+      "config/noark5/external/arkade5_release_readiness_contract.json"
     ]
   },
   "documentation": [
@@ -89,7 +113,8 @@
     "docs/ARKADE5-DWM-GAP-OVERLAP-GUI.md",
     "docs/ARKADE5-COVERAGE-POLICY.md",
     "docs/ARKADE5-INTEGRATION-CONTRACT.md",
-    "docs/ARKADE5-PRACTICAL-ACCEPTANCE.md"
+    "docs/ARKADE5-PRACTICAL-ACCEPTANCE.md",
+    "docs/ARKADE5-RELEASE-READINESS.md"
   ],
   "legacy_reference": {
     "repository": "IKAMR/KDRS_Query",
