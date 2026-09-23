@@ -1,88 +1,9 @@
 {
-  "mapping_format_version": 1,
+  "mapping_format_version": 2,
   "source": "Arkade 5",
-  "target": "Noark 5 Workflow Manager depot report",
-  "mappings": [
-    {
-      "arkade_test_id": "N5.04",
-      "comparison": "summary_count",
-      "n5wf_path": "summary.archive_count",
-      "arkade_selector": "total",
-      "quality": "equivalent"
-    },
-    {
-      "arkade_test_id": "N5.05",
-      "comparison": "summary_count",
-      "n5wf_path": "summary.archive_part_count",
-      "arkade_selector": "total",
-      "quality": "equivalent"
-    },
-    {
-      "arkade_test_id": "N5.07",
-      "comparison": "summary_count",
-      "n5wf_path": "summary.classification_system_count",
-      "arkade_selector": "total",
-      "quality": "equivalent"
-    },
-    {
-      "arkade_test_id": "N5.08",
-      "comparison": "summary_count",
-      "n5wf_path": "summary.class_count",
-      "arkade_selector": "total",
-      "quality": "equivalent"
-    },
-    {
-      "arkade_test_id": "N5.10",
-      "comparison": "summary_count",
-      "n5wf_path": "summary.folder_count",
-      "arkade_selector": "total",
-      "quality": "equivalent"
-    },
-    {
-      "arkade_test_id": "N5.16",
-      "comparison": "summary_count",
-      "n5wf_path": "summary.registration_count",
-      "arkade_selector": "total",
-      "quality": "equivalent"
-    },
-    {
-      "arkade_test_id": "N5.23",
-      "comparison": "summary_count",
-      "n5wf_path": "summary.document_description_count",
-      "arkade_selector": "total",
-      "quality": "equivalent"
-    },
-    {
-      "arkade_test_id": "N5.26",
-      "comparison": "summary_count",
-      "n5wf_path": "summary.document_object_count",
-      "arkade_selector": "total",
-      "quality": "equivalent"
-    },
-    {
-      "arkade_test_id": "N5.59",
-      "comparison": "summary_count",
-      "n5wf_path": "summary.journalpost_count",
-      "arkade_selector": "archive_structure_journalposts",
-      "quality": "equivalent"
-    }
-  ],
-  "known_non_equivalent": [
-    {
-      "arkade_test_id": "N5.09",
-      "reason": "Arkade avgrenser til primært klassifikasjonssystem; eksisterende N5WF-kontroll har annen semantikk."
-    },
-    {
-      "arkade_test_id": "N5.24",
-      "reason": "Arkade har unntak for status utgår og fysisk medium/fysisk arkiv."
-    },
-    {
-      "arkade_test_id": "N5.27",
-      "reason": "Arkade bruker første/siste registrerings opprettelsesdato; eksisterende legacy-mapping har annen datakilde."
-    },
-    {
-      "arkade_test_id": "N5.64",
-      "reason": "Arkade kontrollerer faktisk filstørrelse på disk; XML-metadata er ikke ekvivalent."
-    }
-  ]
+  "target": "Data Workflow Manager depot report",
+  "authoritative_semantic_mapping": "config/noark5/external/dwm_arkade5_mapping.json",
+  "principle": "Scalar reconciliation is allowed only when a dedicated selector and target value are explicitly verified. Semantic relation is read from the a2 mapping and is not inferred from legacy N5 numbering.",
+  "mappings": [],
+  "known_non_equivalent": []
 }

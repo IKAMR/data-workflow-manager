@@ -15,26 +15,27 @@ from noark5_workflow.external_evidence.arkade5 import (
 )
 
 
-SAMPLE = {'Summary': {'Uuid': 'u', 'ArchiveType': 'Noark5', 'DateOfTesting': '2026-02-26T12:00:00', 'NumberOfTestsRun': 3, 'NumberOfErrors': 0, 'NumberOfWarnings': 0}, 'TestsResults': [{'TestId': 'N5.04', 'TestName': 'N5.04 - Antall arkiv', 'TestType': 'ContentAnalysis', 'TestDescription': None, 'ResultSet': {'Name': None, 'ResultSets': [], 'Results': [{'ResultType': 'Success', 'Location': {'String': '', 'FileName': None, 'LineNumbers': None}, 'Message': 'Totalt: 1'}]}, 'HasResults': True, 'NumberOfErrors': '0'}, {'TestId': 'N5.05', 'TestName': 'N5.05 - Antall arkivdeler', 'TestType': 'ContentAnalysis', 'TestDescription': None, 'ResultSet': {'Name': None, 'ResultSets': [], 'Results': [{'ResultType': 'Success', 'Location': {'String': '', 'FileName': None, 'LineNumbers': None}, 'Message': 'Totalt: 5'}]}, 'HasResults': True, 'NumberOfErrors': '0'}, {'TestId': 'N5.15', 'TestName': 'N5.15 - statuser', 'TestType': 'ContentAnalysis', 'TestDescription': None, 'ResultSet': {'Name': None, 'ResultSets': [{'Name': 'Arkivdel A', 'ResultSets': [], 'Results': [{'ResultType': 'Error', 'Location': {'String': 'arkivstruktur.xml', 'FileName': None, 'LineNumbers': [10]}, 'Message': 'Under behandling: 19'}]}], 'Results': []}, 'HasResults': True, 'NumberOfErrors': '1'}]}
+SAMPLE = {"Summary": {"Uuid": "u", "ArchiveType": "Noark5", "DateOfTesting": "2026-02-26T12:00:00", "NumberOfTestsRun": 3, "NumberOfErrors": 0, "NumberOfWarnings": 0}, "TestsResults": [{"TestId": "N5.04", "TestName": "N5.04 - Antall arkiv", "TestType": "ContentAnalysis", "TestDescription": None, "ResultSet": {"Name": None, "ResultSets": [], "Results": [{"ResultType": "Success", "Location": {"String": "", "FileName": None, "LineNumbers": None}, "Message": "Totalt: 1"}]}, "HasResults": True, "NumberOfErrors": "0"}, {"TestId": "N5.05", "TestName": "N5.05 - Antall arkivdeler", "TestType": "ContentAnalysis", "TestDescription": None, "ResultSet": {"Name": None, "ResultSets": [], "Results": [{"ResultType": "Success", "Location": {"String": "", "FileName": None, "LineNumbers": None}, "Message": "Totalt: 5"}]}, "HasResults": True, "NumberOfErrors": "0"}, {"TestId": "N5.15", "TestName": "N5.15 - statuser", "TestType": "ContentAnalysis", "TestDescription": None, "ResultSet": {"Name": None, "ResultSets": [{"Name": "Arkivdel A", "ResultSets": [], "Results": [{"ResultType": "Error", "Location": {"String": "arkivstruktur.xml", "FileName": None, "LineNumbers": [10]}, "Message": "Under behandling: 19"}]}], "Results": []}, "HasResults": True, "NumberOfErrors": "1"}]}
 
 
 class A9ArkadeExternalEvidenceTests(unittest.TestCase):
     def test_normalization_preserves_test_identity_errors_and_nested_results(self):
         normalized = normalize_arkade5_report(SAMPLE, source_file="arkade.json", source_sha256="abc")
         self.assertEqual(normalized["source_system"], "Arkade 5")
+        self.assertEqual(normalized["format_version"], 2)
         test = next(item for item in normalized["tests"] if item["test_id"] == "N5.15")
         self.assertEqual(test["number_of_errors"], 1)
         self.assertEqual(test["source_status"], "error")
         self.assertEqual(test["results"][0]["result_set_path"], ["Arkivdel A"])
         self.assertEqual(test["results"][0]["location"]["line_numbers"], [10])
+        self.assertIn("source_raw", test)
+        self.assertIn("result_set_tree", test)
 
-    def test_reconciliation_compares_only_explicit_safe_mapping(self):
+    def test_reconciliation_is_empty_until_scalar_equivalence_is_explicitly_verified(self):
         normalized = normalize_arkade5_report(SAMPLE)
         rec = build_arkade5_reconciliation(normalized, {"summary": {"archive_count": 1, "archive_part_count": 4}})
-        by_id = {item["arkade_test_id"]: item for item in rec["items"]}
-        self.assertEqual(by_id["N5.04"]["status"], "match")
-        self.assertEqual(by_id["N5.05"]["status"], "mismatch")
-        self.assertNotIn("N5.15", by_id)
+        self.assertEqual(rec["items"], [])
+        self.assertEqual(rec["summary"], {"match": 0, "mismatch": 0, "not_available": 0})
 
     def test_import_preserves_original_normalizes_and_writes_reconciliation(self):
         with tempfile.TemporaryDirectory() as td:
@@ -44,8 +45,9 @@ class A9ArkadeExternalEvidenceTests(unittest.TestCase):
             depot = root / "depot_validation_report.json"
             depot.write_text(json.dumps({"summary": {"archive_count": 1, "archive_part_count": 5}}), encoding="utf-8")
             work = root / "work"
-            manifest = import_arkade5_report(source, work_operations=work, depot_report_path=depot, imported_by={"user_id":"u1","username":"tester"})
+            manifest = import_arkade5_report(source, work_operations=work, depot_report_path=depot, imported_by={"user_id": "u1", "username": "tester"})
             self.assertEqual(manifest["evidence_source"], "Arkade 5")
+            self.assertEqual(manifest["normalized_format_version"], 2)
             self.assertEqual(manifest["imported_by"]["user_id"], "u1")
             self.assertTrue((work / manifest["source"]["preserved_file"]).is_file())
             self.assertTrue((work / manifest["normalized_file"]).is_file())
