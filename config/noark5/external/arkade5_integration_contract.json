@@ -1,0 +1,45 @@
+{
+  "format_version": 1,
+  "contract_id": "dwm-arkade5-v2.13.0-integration-contract-v1",
+  "arkade_version": "2.13.0",
+  "arkade_source_commit": "40a32ee0ae84ddf44d1f3c35f1860567ca262733",
+  "expected": {
+    "arkade_test_count": 54,
+    "relations": {
+      "equivalent": 1,
+      "partial": 21,
+      "complementary": 19,
+      "arkade_only": 13
+    },
+    "dwm_only_count": 14,
+    "policy_gap_count": 13
+  },
+  "required_files": [
+    "config/noark5/external/arkade5_test_catalog.json",
+    "config/noark5/external/dwm_arkade5_mapping.json",
+    "config/noark5/external/combined_coverage_model.json",
+    "config/noark5/external/gap_overlap_model.json",
+    "config/noark5/external/arkade5_coverage_policy.json",
+    "docs/ARKADE5-NOARK5-TESTS.md",
+    "docs/ARKADE5-DWM-MAPPING.md",
+    "docs/ARKADE5-IMPORT-MODEL.md",
+    "docs/ARKADE5-COMBINED-COVERAGE.md",
+    "docs/ARKADE5-DEPOT-REPORT.md",
+    "docs/ARKADE5-GUI-COVERAGE.md",
+    "docs/ARKADE5-GUI-DRILLDOWN.md",
+    "docs/ARKADE5-PORTABLE-EVIDENCE.md",
+    "docs/ARKADE5-DWM-GAP-OVERLAP.md",
+    "docs/ARKADE5-DWM-GAP-OVERLAP-GUI.md",
+    "docs/ARKADE5-COVERAGE-POLICY.md"
+  ],
+  "principles": {
+    "source_code_catalog_is_authoritative_for_arkade": true,
+    "mapping_is_authoritative_for_dwm_arkade_relation": true,
+    "same_number_is_not_equivalence": true,
+    "arkade_is_external_evidence": true,
+    "arkade_does_not_become_dwm_master": true,
+    "partial_and_complementary_retain_both_sources": true,
+    "arkade_only_uses_external_validator_by_current_policy": true,
+    "health_check_must_fail_closed": true
+  }
+}
