@@ -1,0 +1,28 @@
+{
+  "format_version": 1,
+  "contract_id": "dwm-arkade5-practical-acceptance-v1",
+  "purpose": "Validate practical Arkade 5 evidence integration on one work_operations tree before v0.1.5 release.",
+  "requirements": {
+    "repository_integration_health": "OK",
+    "minimum_imports": 1,
+    "preserved_source_exists": true,
+    "preserved_source_sha256_matches_manifest": true,
+    "normalized_file_exists": true,
+    "normalized_format_version": 2,
+    "all_normalized_test_ids_known_in_pinned_catalog": true,
+    "all_normalized_test_ids_unique_per_import": true
+  },
+  "non_blocking_observations": [
+    "Arkade test errors",
+    "Arkade warnings",
+    "unknown or different inferred source version",
+    "absence of DWM reconciliation",
+    "less than 54 tests in a specific Arkade report"
+  ],
+  "principles": {
+    "acceptance_checks_integration_not_archive_quality": true,
+    "arkade_errors_do_not_mean_integration_failure": true,
+    "arkade_remains_external_evidence": true,
+    "no_automatic_depot_decision": true
+  }
+}
