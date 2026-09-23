@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -8,21 +9,21 @@ from . import theme
 
 
 def raw_result_path_for_job(job) -> Path | None:
-    """Return the active job's raw-result ledger, without source fallback."""
-    work_operations = getattr(job, "work_operations", None)
+    """Return the active job's raw-result ledger.
+
+    When the job-list output-subfolder rule is active, JobRunner stores its
+    effective Work - operations path transiently on the job. Result views must
+    use that exact path rather than the persisted base Work - operations path.
+    """
+    effective = getattr(job, "_effective_work_operations", None)
+    work_operations = effective or getattr(job, "work_operations", None)
     if work_operations is None:
         return None
     return Path(work_operations) / "wf" / "results" / "raw-results.jsonl"
 
 
 def raw_results_for_job(job) -> list[RawResultEnvelope]:
-    """Load raw results relevant to one job from its work area.
-
-    New a17 results carry job_id and are filtered strictly. Older/partial a17
-    rows without job_id remain visible only when their source_root matches the
-    active extraction root. This is a conservative compatibility fallback and
-    does not merge results from unrelated work areas.
-    """
+    """Load raw results relevant to one job from its effective work area."""
     path = raw_result_path_for_job(job)
     if path is None or not path.is_file():
         return []
@@ -42,7 +43,7 @@ def raw_results_for_job(job) -> list[RawResultEnvelope]:
 
 
 class RawResultsDialog(ctk.CTkToplevel):
-    """Read-only practical view of append-only a17 raw results."""
+    """Read-only practical view of append-only raw results."""
 
     def __init__(self, master, job) -> None:
         super().__init__(master)
@@ -64,15 +65,14 @@ class RawResultsDialog(ctk.CTkToplevel):
             text_color=theme.BLUE,
         ).grid(row=0, column=0, padx=18, pady=(16, 3), sticky="w")
 
-        path = raw_result_path_for_job(job)
-        path_text = str(path) if path is not None else "Arbeid – operasjoner er ikke definert"
-        ctk.CTkLabel(
+        self.path_label = ctk.CTkLabel(
             self,
-            text=path_text,
+            text="",
             font=theme.font(theme.SMALL_SIZE),
             text_color=theme.TEXT_MUTED,
             anchor="w",
-        ).grid(row=1, column=0, padx=18, pady=(0, 3), sticky="ew")
+        )
+        self.path_label.grid(row=1, column=0, padx=18, pady=(0, 3), sticky="ew")
 
         self.summary_label = ctk.CTkLabel(
             self,
@@ -111,6 +111,15 @@ class RawResultsDialog(ctk.CTkToplevel):
         self.refresh()
 
     def refresh(self) -> None:
+        path = raw_result_path_for_job(self.job)
+        self.path_label.configure(
+            text=(
+                str(path)
+                if path is not None
+                else "Work - operations er ikke definert"
+            )
+        )
+
         for child in self.items.winfo_children():
             child.destroy()
         try:

@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -12,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class A155AutoWorkflowTests(unittest.TestCase):
-    def test_standard_sequence_is_canonical_six_operation_noark5_flow(self):
+    def test_standard_sequence_is_canonical_noark5_flow(self):
         sequence = workflow_sequence_by_id("noark5_standard")
         self.assertIsNotNone(sequence)
         self.assertEqual(sequence.profile_id, "noark5")
@@ -23,6 +24,7 @@ class A155AutoWorkflowTests(unittest.TestCase):
                 "validate_xml_schema",
                 "analyse_arkivstruktur",
                 "run_noark5_xpath_tests_2026",
+                "import_arkade5_reports",
                 "compose_noark5_views",
                 "build_noark5_depot_report",
             ),

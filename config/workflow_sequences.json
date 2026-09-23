@@ -5,12 +5,13 @@
       "sequence_id": "noark5_standard",
       "name": "Noark 5 – standard",
       "profile_id": "noark5",
-      "description": "Standardløype der individuelle Noark 5-testresultater er master. Historisk U1/U2 og regresjonskjøring inngår ikke i ordinær kjøring.",
+      "description": "Standardløype der individuelle Noark 5-testresultater er master. Lokale Arkade 5 Noark 5-rapporter oppdages og importeres som separat ekstern evidens før resultatvisninger og depotrapport bygges. Historisk U1/U2 og regresjonskjøring inngår ikke i ordinær kjøring.",
       "operation_ids": [
         "metadata_inventory",
         "validate_xml_schema",
         "analyse_arkivstruktur",
         "run_noark5_xpath_tests_2026",
+        "import_arkade5_reports",
         "compose_noark5_views",
         "build_noark5_depot_report"
       ]

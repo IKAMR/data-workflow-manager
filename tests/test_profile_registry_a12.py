@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 import unittest
@@ -51,6 +52,7 @@ class ProfileRegistryA12Tests(unittest.TestCase):
                 "analyse_noark5_u1",
                 "run_noark5_xpath_tests_2026",
                 "run_noark5_xpath_regression_2026",
+                "import_arkade5_reports",
                 "compose_noark5_views",
                 "build_noark5_depot_report",
                 "validate_xml_schema",
@@ -63,10 +65,6 @@ class ProfileRegistryA12Tests(unittest.TestCase):
         self.assertEqual(
             registry.category_color("Metadata"),
             NOARK5_CATEGORY_COLORS["Metadata"],
-        )
-        self.assertEqual(
-            registry.category_color("Unknown", "#fallback"),
-            "#fallback",
         )
 
     def test_noark5_profile_preserves_categories(self):

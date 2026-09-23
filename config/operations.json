@@ -100,6 +100,15 @@
       ],
       "display_order": 1
     },
+    "import_arkade5_reports": {
+      "maturity": "alpha",
+      "short_name": "Arkade-import",
+      "display_category": "Resultat",
+      "profiles": [
+        "noark5"
+      ],
+      "display_order": 1
+    },
     "compose_noark5_views": {
       "maturity": "alpha",
       "short_name": "Resultatvisninger",
@@ -107,7 +116,7 @@
       "profiles": [
         "noark5"
       ],
-      "display_order": 1
+      "display_order": 2
     },
     "build_noark5_depot_report": {
       "maturity": "alpha",
@@ -116,7 +125,7 @@
       "profiles": [
         "noark5"
       ],
-      "display_order": 2
+      "display_order": 3
     },
     "dias_package": {
       "maturity": "stable",
