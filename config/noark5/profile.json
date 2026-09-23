@@ -42,7 +42,8 @@
     "external_validation_in_depot_report": true,
     "combined_external_coverage_gui": true,
     "portable_external_evidence_export": true,
-    "arkade_gap_overlap_analysis": true
+    "arkade_gap_overlap_analysis": true,
+    "arkade_gap_overlap_gui": true
   },
   "definitions": {
     "tests": [
@@ -100,7 +101,8 @@
     "docs/ARKADE5-GUI-COVERAGE.md",
     "docs/ARKADE5-GUI-DRILLDOWN.md",
     "docs/ARKADE5-PORTABLE-EVIDENCE.md",
-    "docs/ARKADE5-DWM-GAP-OVERLAP.md"
+    "docs/ARKADE5-DWM-GAP-OVERLAP.md",
+    "docs/ARKADE5-DWM-GAP-OVERLAP-GUI.md"
   ],
   "legacy_reference": {
     "repository": "IKAMR/KDRS_Query",
