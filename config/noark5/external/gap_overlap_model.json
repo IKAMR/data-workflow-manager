@@ -1,0 +1,24 @@
+{
+  "format_version": 1,
+  "model_id": "noark5.dwm-arkade5-gap-overlap.v1",
+  "analysis_kind": "static_implementation_gap_overlap",
+  "source_of_truth": {
+    "mapping": "config/noark5/external/dwm_arkade5_mapping.json",
+    "arkade_catalog": "config/noark5/external/arkade5_test_catalog.json",
+    "dwm_catalog": "config/noark5/tests/xpath_catalog_2026_05_26.json"
+  },
+  "relation_to_runtime_coverage": "Static implementation knowledge; not evidence that a test ran in a specific job.",
+  "statuses": {
+    "documented_equivalent_overlap": "Dokumentert ekvivalent overlapp for den koblede kontrollen.",
+    "partial_overlap_retain_both": "Delvis overlapp; begge kilder må beholdes.",
+    "complementary_overlap_retain_both": "Komplementære kontroller; begge kilder må beholdes.",
+    "dwm_gap_covered_by_arkade": "Dokumentert DWM-gap som Arkade 5 dekker.",
+    "dwm_only": "DWM/KDRS-kontroll uten direkte Arkade 5-test."
+  },
+  "namespace_rules": {
+    "arkade": "arkade:N5.xx",
+    "dwm": "dwm:kdrs.xxx",
+    "kdrs_legacy": "kdrs:N5.xx",
+    "same_number_never_implies_equivalence": true
+  }
+}

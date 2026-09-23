@@ -41,7 +41,8 @@
     "depot_validation_report": true,
     "external_validation_in_depot_report": true,
     "combined_external_coverage_gui": true,
-    "portable_external_evidence_export": true
+    "portable_external_evidence_export": true,
+    "arkade_gap_overlap_analysis": true
   },
   "definitions": {
     "tests": [
@@ -81,7 +82,8 @@
     ],
     "external_mappings": [
       "config/noark5/external/dwm_arkade5_mapping.json",
-      "config/noark5/external/combined_coverage_model.json"
+      "config/noark5/external/combined_coverage_model.json",
+      "config/noark5/external/gap_overlap_model.json"
     ]
   },
   "documentation": [
@@ -97,7 +99,8 @@
     "docs/ARKADE5-DEPOT-REPORT.md",
     "docs/ARKADE5-GUI-COVERAGE.md",
     "docs/ARKADE5-GUI-DRILLDOWN.md",
-    "docs/ARKADE5-PORTABLE-EVIDENCE.md"
+    "docs/ARKADE5-PORTABLE-EVIDENCE.md",
+    "docs/ARKADE5-DWM-GAP-OVERLAP.md"
   ],
   "legacy_reference": {
     "repository": "IKAMR/KDRS_Query",
