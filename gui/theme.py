@@ -33,9 +33,6 @@ BUTTON_HOVER = "#252b3a"
 DANGER_BG = "#2a1515"
 DANGER_TEXT = "#e05252"
 
-# Tooltip palette is intentionally more prominent than ordinary surfaces.
-# Dark mode uses a slightly lighter card; light mode uses a slightly darker
-# neutral card.  Both keep high text contrast and a visible border.
 TOOLTIP_DARK_BG = "#2a3142"
 TOOLTIP_DARK_TEXT = "#f4f7ff"
 TOOLTIP_DARK_BORDER = "#526079"
@@ -48,7 +45,12 @@ TITLE_SIZE = 13
 SECTION_SIZE = 10
 NORMAL_SIZE = 10
 SMALL_SIZE = 9
-# Tooltips are a distinct semantic role, but still follow the global A-/A+ offset.
+
+# Semantic aliases used by newer dialogs. Keep the established base sizes
+# authoritative while allowing dialogs to describe font roles explicitly.
+HEADER_SIZE = TITLE_SIZE
+BODY_SIZE = NORMAL_SIZE
+
 TOOLTIP_SIZE = 10
 FONT_MIN_SIZE = 10
 
