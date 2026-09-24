@@ -37,6 +37,7 @@ from gui.persistent_app_a49 import run_gui
 from gui.persistent_app_a50 import run_gui
 from gui.persistent_app_a51 import run_gui
 from gui.persistent_app_a52 import run_gui
+from gui.persistent_app_a53 import run_gui
 
 if __name__ == "__main__":
     run_gui()
