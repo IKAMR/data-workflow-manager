@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import json
@@ -101,6 +100,8 @@ class V015A15Arkade2131Tests(unittest.TestCase):
 
     def test_version_has_not_regressed_before_a15(self):
         version = (ROOT / "version.py").read_text(encoding="utf-8")
+        if re.search(r'VERSION\s*=\s*"0\.1\.5"', version):
+            return
         match = re.search(
             r'VERSION\s*=\s*"0\.1\.5-a(\d+)(?:\.\d+)*"',
             version,

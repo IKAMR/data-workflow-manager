@@ -31,8 +31,10 @@ class V015A6ArkadeCombinedGuiTests(unittest.TestCase):
 
     def test_version_has_not_regressed_before_a6(self):
         version = (ROOT / "version.py").read_text(encoding="utf-8")
+        if re.search(r'VERSION\s*=\s*"0\.1\.5"', version):
+            return
         match = re.search(r'VERSION\s*=\s*"0\.1\.5-a(\d+)(?:\.\d+)*"', version)
-        self.assertIsNotNone(match, "Expected a v0.1.5 alpha version")
+        self.assertIsNotNone(match, "Expected v0.1.5 release or alpha version")
         self.assertGreaterEqual(int(match.group(1)), 6)
 
 

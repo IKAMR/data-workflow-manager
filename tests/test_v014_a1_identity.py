@@ -11,7 +11,10 @@ ROOT = Path(__file__).resolve().parents[1]
 class V014A1IdentityTests(unittest.TestCase):
     def test_app_branding_and_alpha_development_line(self):
         self.assertEqual(APP_NAME, "Data Workflow Manager")
-        self.assertRegex(VERSION, r"^0\.1\.\d+-a\d+(?:\.\d+)*$")
+        self.assertRegex(
+            VERSION,
+            r"^0\.1\.\d+(?:-a\d+(?:\.\d+)*)?$",
+        )
 
     def test_repository_identity_is_documented(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
