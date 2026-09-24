@@ -65,14 +65,12 @@ class V015A11ArkadeCoveragePolicyTests(unittest.TestCase):
 
     def test_version_has_not_regressed_before_a11(self):
         version = (ROOT / "version.py").read_text(encoding="utf-8")
-        if re.search(r'VERSION\s*=\s*"0\.1\.5"', version):
-            return
-        match = re.search(
-            r'VERSION\s*=\s*"0\.1\.5-a(\d+)(?:\.\d+)*"',
-            version,
-        )
+        match = re.search(r'VERSION\s*=\s*"(\d+)\.(\d+)\.(\d+)(?:-a(\d+)(?:\.\d+)*)?"', version)
         self.assertIsNotNone(match)
-        self.assertGreaterEqual(int(match.group(1)), 11)
+        release = tuple(map(int, match.group(1, 2, 3)))
+        self.assertGreaterEqual(release, (0, 1, 5))
+        if release == (0, 1, 5) and match.group(4) is not None:
+            self.assertGreaterEqual(int(match.group(4)), 11)
 
 
 if __name__ == "__main__":
