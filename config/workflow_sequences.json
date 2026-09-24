@@ -17,6 +17,20 @@
       ]
     },
     {
+      "sequence_id": "noark5_dwm",
+      "name": "Noark 5 – DWM uten Arkade",
+      "profile_id": "noark5",
+      "description": "Komplett DWM-løype uten Arkade 5-import: metadata, XML/XSD, struktur, Noark 5-tester, resultatvisninger og depotrapport.",
+      "operation_ids": [
+        "metadata_inventory",
+        "validate_xml_schema",
+        "analyse_arkivstruktur",
+        "run_noark5_xpath_tests_2026",
+        "compose_noark5_views",
+        "build_noark5_depot_report"
+      ]
+    },
+    {
       "sequence_id": "noark5_analyse",
       "name": "Noark 5 – grunnkontroll",
       "profile_id": "noark5",

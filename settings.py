@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 import json
@@ -44,6 +45,7 @@ DEFAULT_CONFIG = {
     "recent_job_list_files": [],
     "storage_layout_profile": "ikamr_standard",
     "noark5_discovery_workflow": "noark5_standard",
+    "custom_workflow_sequences": [],
     "enable_premis_provenance": True,
     "premis_output_dir": "",
     "premis_agent_identifier": "username",
