@@ -52,7 +52,6 @@ from gui.persistent_app_a68 import run_gui
 from gui.persistent_app_a69 import run_gui
 from gui.persistent_app_a70 import run_gui
 from gui.persistent_app_a71 import run_gui
-from gui.persistent_app_a72 import run_gui
 
 if __name__ == "__main__":
     run_gui()
