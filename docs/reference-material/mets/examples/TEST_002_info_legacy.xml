@@ -1,0 +1,62 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mets:mets xmlns:mets="http://www.loc.gov/METS/" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" OBJID="UUID:22222222-3333-4444-8555-666666666666" LABEL="SakArkiv (2008 - 2020)" TYPE="SIP" PROFILE="http://xml.ra.se/METS/RA_METS_eARD.xml" xsi:schemaLocation="http://www.loc.gov/METS/ https://schema.arkivverket.no/INFOFIL/latest/submissionDescription.xsd">
+  <mets:metsHdr CREATEDATE="2022-05-25T00:00:00">
+    <mets:agent ROLE="ARCHIVIST" TYPE="ORGANIZATION">
+      <mets:name>9999 - Test kommune</mets:name>
+    </mets:agent>
+    <mets:agent ROLE="ARCHIVIST" TYPE="INDIVIDUAL">
+      <mets:name>Testperson Arkivleder</mets:name>
+      <mets:note>Eksempelverdi</mets:note>
+      <mets:note>Eksempelverdi</mets:note>
+      <mets:note>Eksempelverdi</mets:note>
+      <mets:note>notescontent:Address,Telephone,Email</mets:note>
+    </mets:agent>
+    <mets:agent ROLE="OTHER" OTHERROLE="SUBMITTER" TYPE="ORGANIZATION">
+      <mets:name>Eksempel Leverandør AS</mets:name>
+    </mets:agent>
+    <mets:agent ROLE="OTHER" OTHERROLE="PRODUCER" TYPE="ORGANIZATION">
+      <mets:name>Eksempel Leverandør AS</mets:name>
+    </mets:agent>
+    <mets:agent ROLE="IPOWNER" TYPE="ORGANIZATION">
+      <mets:name>9999 - Test kommune</mets:name>
+    </mets:agent>
+    <mets:agent ROLE="CREATOR" TYPE="ORGANIZATION">
+      <mets:name>Eksempel Leverandør AS</mets:name>
+    </mets:agent>
+    <mets:agent ROLE="CREATOR" TYPE="OTHER" OTHERTYPE="SOFTWARE">
+      <mets:name>Arkade 5</mets:name>
+      <mets:note>Eksempelverdi</mets:note>
+      <mets:note>notescontent:Version</mets:note>
+    </mets:agent>
+    <mets:agent ROLE="PRESERVATION" TYPE="ORGANIZATION">
+      <mets:name>Depot</mets:name>
+    </mets:agent>
+    <mets:agent ROLE="ARCHIVIST" TYPE="OTHER" OTHERTYPE="SOFTWARE">
+      <mets:name>SakArkiv</mets:name>
+      <mets:note>Eksempelverdi</mets:note>
+      <mets:note>notescontent:Version</mets:note>
+    </mets:agent>
+    <mets:agent ROLE="OTHER" OTHERROLE="PRODUCER" TYPE="OTHER" OTHERTYPE="SOFTWARE">
+      <mets:name>Eksempel Uttrekk</mets:name>
+      <mets:note>Eksempelverdi</mets:note>
+      <mets:note>notescontent:Version</mets:note>
+    </mets:agent>
+    <mets:altRecordID TYPE="DELIVERYSPECIFICATION">TEST_002 SakArkiv PROD (2008-2019)</mets:altRecordID>
+    <mets:altRecordID TYPE="SUBMISSIONAGREEMENT">DEPOT 26/101-1; 2026-01-10</mets:altRecordID>
+    <mets:altRecordID TYPE="STARTDATE">2008-08-28</mets:altRecordID>
+    <mets:altRecordID TYPE="ENDDATE">2020-04-16</mets:altRecordID>
+  </mets:metsHdr>
+  <mets:fileSec>
+    <mets:fileGrp ID="fileGroup001" USE="FILES">
+      <mets:file ID="fileId_0" MIMETYPE="application/tar" SIZE="1000000" CREATED="2026-01-15T09:30:00+01:00" CHECKSUM="0000000000000000000000000000000000000000000000000000000000000000" CHECKSUMTYPE="SHA-256" USE="Datafile">
+        <mets:FLocat LOCTYPE="URL" xlink:type="simple" xlink:href="file:example_0.bin" />
+      </mets:file>
+      <mets:file ID="fileId_1" MIMETYPE="application/xml" SIZE="2000000" CREATED="2026-01-15T09:30:00+01:00" CHECKSUM="0000000000000000000000000000000000000000000000000000000000000000" CHECKSUMTYPE="SHA-256" USE="Datafile">
+        <mets:FLocat LOCTYPE="URL" xlink:type="simple" xlink:href="file:example_1.bin" />
+      </mets:file>
+    </mets:fileGrp>
+  </mets:fileSec>
+  <mets:structMap>
+    <mets:div />
+  </mets:structMap>
+</mets:mets>
