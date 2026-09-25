@@ -39,19 +39,28 @@ def enable_native_work_window(window) -> None:
 def present_native_work_window(window) -> None:
     """Bring one native work window to the foreground without keeping it topmost.
 
-    Removing Tk's transient relationship gives the window normal OS chrome, but
-    Windows may then activate the parent again after creation. A short, explicit
-    activation pulse after the window has been mapped fixes the Z-order without
-    turning the window into a permanent always-on-top window.
-
-    On non-Windows platforms the helper only performs the normal deiconify/lift/
-    focus sequence.
+    Each presentation gets a generation token. If another work window opens and
+    releases this window as its parent, the parent's pending delayed callbacks
+    become stale and are ignored. This prevents an older parent presentation
+    callback from stealing foreground focus back from a newly opened child.
     """
+    generation = int(getattr(window, "_dwm_present_generation", 0)) + 1
+    window._dwm_present_generation = generation
+
+    def is_current() -> bool:
+        try:
+            return (
+                window.winfo_exists()
+                and int(getattr(window, "_dwm_present_generation", 0))
+                == generation
+            )
+        except (tk.TclError, AttributeError):
+            return False
 
     def final_focus() -> None:
+        if not is_current():
+            return
         try:
-            if not window.winfo_exists():
-                return
             if sys.platform.startswith("win"):
                 try:
                     window.attributes("-topmost", False)
@@ -69,16 +78,15 @@ def present_native_work_window(window) -> None:
             return
 
     def activate() -> None:
+        if not is_current():
+            return
         try:
-            if not window.winfo_exists():
-                return
             window.deiconify()
             window.update_idletasks()
             window.lift()
 
             if sys.platform.startswith("win"):
                 try:
-                    # Temporary activation pulse only. It is cleared again below.
                     window.attributes("-topmost", True)
                 except (tk.TclError, AttributeError):
                     pass
@@ -88,20 +96,141 @@ def present_native_work_window(window) -> None:
             except (tk.TclError, AttributeError):
                 pass
 
-            # Let the native window manager finish activation, then return the
-            # window to ordinary non-topmost behaviour.
             window.after(90, final_focus)
         except (tk.TclError, AttributeError):
             return
 
     try:
         window.after_idle(activate)
-        # A second delayed pass covers Windows cases where the caller's button
-        # command regains focus after the first idle callback.
         window.after(180, final_focus)
     except (tk.TclError, AttributeError):
         return
 
+
+def release_parent_work_window(parent) -> None:
+    """Release parent Z-order and invalidate its pending presentation callbacks.
+
+    The generation bump is the key part: any delayed focus/lift callbacks created
+    earlier by ``present_native_work_window(parent)`` immediately become stale.
+    """
+    if parent is None:
+        return
+    try:
+        if not parent.winfo_exists():
+            return
+    except Exception:
+        return
+
+    try:
+        parent._dwm_present_generation = (
+            int(getattr(parent, "_dwm_present_generation", 0)) + 1
+        )
+
+        if sys.platform.startswith("win"):
+            try:
+                parent.attributes("-topmost", False)
+            except (tk.TclError, AttributeError):
+                pass
+        try:
+            parent.lower()
+        except (tk.TclError, AttributeError):
+            pass
+    except (tk.TclError, AttributeError):
+        return
+
+
+def present_child_over_parent(window, parent) -> None:
+    """Present a native child work window above its caller, then return both
+    windows to normal non-topmost behaviour.
+
+    On Windows this uses native SetWindowPos for deterministic Z-order. Tk's
+    temporary ``-topmost`` pulse alone is not sufficient when a maximization
+    callback and the caller's earlier activation callback overlap.
+    """
+
+    def activate_native() -> None:
+        try:
+            if not window.winfo_exists():
+                return
+        except (tk.TclError, AttributeError):
+            return
+
+        if sys.platform.startswith("win"):
+            try:
+                import ctypes
+
+                user32 = ctypes.windll.user32
+                SWP_NOMOVE = 0x0002
+                SWP_NOSIZE = 0x0001
+                SWP_NOACTIVATE = 0x0010
+                flags_parent = SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE
+                flags_child = SWP_NOMOVE | SWP_NOSIZE
+
+                HWND_NOTOPMOST = -2
+                HWND_TOPMOST = -1
+                HWND_TOP = 0
+
+                if parent is not None and parent.winfo_exists():
+                    try:
+                        parent.attributes("-topmost", False)
+                    except (tk.TclError, AttributeError):
+                        pass
+                    parent_hwnd = int(parent.winfo_id())
+                    user32.SetWindowPos(
+                        parent_hwnd,
+                        HWND_NOTOPMOST,
+                        0, 0, 0, 0,
+                        flags_parent,
+                    )
+
+                child_hwnd = int(window.winfo_id())
+                # Put the result view deterministically above the caller.
+                user32.SetWindowPos(
+                    child_hwnd,
+                    HWND_TOPMOST,
+                    0, 0, 0, 0,
+                    flags_child,
+                )
+                # Immediately return it to ordinary non-topmost ordering while
+                # retaining its position at the front.
+                user32.SetWindowPos(
+                    child_hwnd,
+                    HWND_NOTOPMOST,
+                    0, 0, 0, 0,
+                    flags_child,
+                )
+                user32.SetWindowPos(
+                    child_hwnd,
+                    HWND_TOP,
+                    0, 0, 0, 0,
+                    flags_child,
+                )
+            except Exception:
+                try:
+                    window.lift()
+                except (tk.TclError, AttributeError):
+                    pass
+        else:
+            try:
+                if parent is not None:
+                    parent.lower()
+                window.lift()
+            except (tk.TclError, AttributeError):
+                pass
+
+        try:
+            window.focus_force()
+        except (tk.TclError, AttributeError):
+            pass
+
+    try:
+        # First pass after mapping, second after the a6 maximize callback
+        # (220 ms), and a final pass after all activation pulses have settled.
+        window.after_idle(activate_native)
+        window.after(280, activate_native)
+        window.after(480, activate_native)
+    except (tk.TclError, AttributeError):
+        return
 
 def _visible_toplevel(widget):
     """Return the nearest visible toplevel that should act as parent."""
