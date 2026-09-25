@@ -1,6 +1,106 @@
 from __future__ import annotations
 
+import sys
 import tkinter as tk
+
+
+def enable_native_work_window(window) -> None:
+    """Make one explicitly selected work window a normal native OS window.
+
+    Call this from the window's own constructor after CustomTkinter has created
+    the Toplevel. Do not apply it from the global <Map> hook: changing transient
+    window-manager state while a Toplevel is being mapped can cause remapping
+    loops/flicker on Windows.
+
+    Windows gets normal minimize/maximize/close controls. Other platforms keep
+    the window manager's native decorations. Intentional popup/tooltips that use
+    overrideredirect are not changed.
+    """
+    try:
+        if bool(window.overrideredirect()):
+            return
+    except (tk.TclError, AttributeError):
+        return
+
+    try:
+        window.resizable(True, True)
+        window.tk.call("wm", "transient", window._w, "")
+        if sys.platform.startswith("win"):
+            try:
+                window.attributes("-toolwindow", False)
+            except (tk.TclError, AttributeError):
+                pass
+        window._dwm_native_work_window = True
+    except (tk.TclError, AttributeError):
+        # Window styling must never prevent a window from opening.
+        return
+
+
+def present_native_work_window(window) -> None:
+    """Bring one native work window to the foreground without keeping it topmost.
+
+    Removing Tk's transient relationship gives the window normal OS chrome, but
+    Windows may then activate the parent again after creation. A short, explicit
+    activation pulse after the window has been mapped fixes the Z-order without
+    turning the window into a permanent always-on-top window.
+
+    On non-Windows platforms the helper only performs the normal deiconify/lift/
+    focus sequence.
+    """
+
+    def final_focus() -> None:
+        try:
+            if not window.winfo_exists():
+                return
+            if sys.platform.startswith("win"):
+                try:
+                    window.attributes("-topmost", False)
+                except (tk.TclError, AttributeError):
+                    pass
+            window.lift()
+            try:
+                window.focus_force()
+            except (tk.TclError, AttributeError):
+                try:
+                    window.focus_set()
+                except (tk.TclError, AttributeError):
+                    pass
+        except (tk.TclError, AttributeError):
+            return
+
+    def activate() -> None:
+        try:
+            if not window.winfo_exists():
+                return
+            window.deiconify()
+            window.update_idletasks()
+            window.lift()
+
+            if sys.platform.startswith("win"):
+                try:
+                    # Temporary activation pulse only. It is cleared again below.
+                    window.attributes("-topmost", True)
+                except (tk.TclError, AttributeError):
+                    pass
+
+            try:
+                window.focus_force()
+            except (tk.TclError, AttributeError):
+                pass
+
+            # Let the native window manager finish activation, then return the
+            # window to ordinary non-topmost behaviour.
+            window.after(90, final_focus)
+        except (tk.TclError, AttributeError):
+            return
+
+    try:
+        window.after_idle(activate)
+        # A second delayed pass covers Windows cases where the caller's button
+        # command regains focus after the first idle callback.
+        window.after(180, final_focus)
+    except (tk.TclError, AttributeError):
+        return
 
 
 def _visible_toplevel(widget):
@@ -54,9 +154,9 @@ def place_near_parent(window, root) -> None:
 def install_child_window_placement(root) -> None:
     """Position every later custom Toplevel relative to its current parent.
 
-    One application-level binding covers Jobber, Mapper, Resultater,
-    settings, project/location dialogs and later CTk/Tk dialogs without
-    duplicating positioning code in each dialog class.
+    Important: this global <Map> hook performs placement only. Window-manager
+    style/transient/focus changes must be explicit in selected work-window
+    classes.
     """
     if getattr(root, "_n5wf_child_placement_installed", False):
         return
