@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 from pathlib import Path
@@ -8,6 +7,15 @@ from noark5_workflow.core.raw_result_store import RawResultEnvelope, RawResultSt
 from . import theme
 
 
+def work_operations_for_job(job) -> Path | None:
+    """Return the job's effective/configured Work - operations path."""
+    effective = getattr(job, "_effective_work_operations", None)
+    work_operations = effective or getattr(job, "work_operations", None)
+    if work_operations is None:
+        return None
+    return Path(work_operations)
+
+
 def raw_result_path_for_job(job) -> Path | None:
     """Return the active job's raw-result ledger.
 
@@ -15,11 +23,21 @@ def raw_result_path_for_job(job) -> Path | None:
     effective Work - operations path transiently on the job. Result views must
     use that exact path rather than the persisted base Work - operations path.
     """
-    effective = getattr(job, "_effective_work_operations", None)
-    work_operations = effective or getattr(job, "work_operations", None)
+    work_operations = work_operations_for_job(job)
     if work_operations is None:
         return None
-    return Path(work_operations) / "wf" / "results" / "raw-results.jsonl"
+    return work_operations / "wf" / "results" / "raw-results.jsonl"
+
+
+def raw_results_storage_unavailable(job) -> bool:
+    """True when Work is configured but currently unreachable/offline."""
+    work_operations = work_operations_for_job(job)
+    if work_operations is None:
+        return False
+    try:
+        return not work_operations.exists()
+    except OSError:
+        return True
 
 
 def raw_results_for_job(job) -> list[RawResultEnvelope]:
@@ -110,6 +128,56 @@ class RawResultsDialog(ctk.CTkToplevel):
 
         self.refresh()
 
+    def _clear_items(self) -> None:
+        for child in self.items.winfo_children():
+            child.destroy()
+
+    def _show_storage_unavailable(self, path: Path | None) -> None:
+        work_operations = work_operations_for_job(self.job)
+
+        self.summary_label.configure(
+            text=(
+                "Lagringsområdet for aktiv jobb er ikke tilgjengelig. "
+                "Råresultatene kan derfor ikke leses."
+            )
+        )
+
+        lines = [
+            "LAGRING UTILGJENGELIG",
+            "",
+            "Lagringsområdet for aktiv jobb er ikke tilgjengelig.",
+            "Koble til / lås opp lagringen og trykk Oppdater.",
+        ]
+
+        if work_operations is not None:
+            lines.extend(("", "Forventet Work-bane:", str(work_operations)))
+
+        if path is not None:
+            lines.extend(("", "Forventet råresultatfil:", str(path)))
+
+        lines.extend(
+            (
+                "",
+                "Dette betyr ikke at jobben har 0 råresultater.",
+            )
+        )
+
+        ctk.CTkLabel(
+            self.items,
+            text="\n".join(lines),
+            font=theme.font(theme.NORMAL_SIZE),
+            text_color=theme.TEXT_MUTED,
+            anchor="w",
+            justify="left",
+        ).grid(
+            row=0,
+            column=0,
+            columnspan=5,
+            padx=14,
+            pady=24,
+            sticky="nw",
+        )
+
     def refresh(self) -> None:
         path = raw_result_path_for_job(self.job)
         self.path_label.configure(
@@ -120,12 +188,36 @@ class RawResultsDialog(ctk.CTkToplevel):
             )
         )
 
-        for child in self.items.winfo_children():
-            child.destroy()
+        self._clear_items()
+
+        # Important: an unreachable Work area is not evidence of zero results.
+        if raw_results_storage_unavailable(self.job):
+            self._show_storage_unavailable(path)
+            return
+
         try:
             items = raw_results_for_job(self.job)
-        except ValueError as exc:
-            self.summary_label.configure(text=f"Kunne ikke lese råresultater: {exc}")
+        except (OSError, ValueError) as exc:
+            self.summary_label.configure(
+                text=f"Kunne ikke lese råresultater: {exc}"
+            )
+            ctk.CTkLabel(
+                self.items,
+                text=(
+                    "Råresultatfilen kunne ikke leses. "
+                    "Dette er ikke det samme som at jobben har 0 råresultater."
+                ),
+                font=theme.font(theme.NORMAL_SIZE),
+                text_color=theme.TEXT_MUTED,
+                anchor="w",
+            ).grid(
+                row=0,
+                column=0,
+                columnspan=5,
+                padx=14,
+                pady=24,
+                sticky="w",
+            )
             return
 
         passed = sum(1 for item in items if item.ok)
