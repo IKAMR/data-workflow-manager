@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 from html import escape
@@ -6,6 +5,10 @@ from pathlib import Path
 from typing import Any
 
 from .arkade5 import list_arkade5_imports, load_arkade5_import
+from .arkade5_pronom import (
+    load_arkade5_pronom_statistics,
+    summarize_arkade5_pronom_statistics,
+)
 from .combined_coverage import build_combined_coverage
 
 
@@ -28,6 +31,9 @@ def build_arkade5_depot_evidence(
     Importene beholdes separat. Sammendraget skiller mellom:
       * unike kontrollområder på tvers av alle importer
       * forekomster summert per import
+      * lettvekts PRONOM/Siegfried-statistikk per import
+
+    Detaljert filinventar med en rad per dokument lastes ikke inn i modellen.
     """
     work = Path(work_operations)
     imports = list_arkade5_imports(work)
@@ -51,6 +57,16 @@ def build_arkade5_depot_evidence(
         "covered_by_both": set(),
         "covered_by_dwm": set(),
         "not_covered_in_run": set(),
+    }
+
+    pronom_format_ids: set[str] = set()
+    pronom_totals = {
+        "statistics_imports": 0,
+        "statistics_rows": 0,
+        "total_files": 0,
+        "unidentified_files": 0,
+        "detailed_inventory_available": 0,
+        "detailed_inventory_imported": 0,
     }
 
     for manifest in imports:
@@ -86,6 +102,28 @@ def build_arkade5_depot_evidence(
             elif arkade_status == "warning":
                 unique_sets["arkade_warnings"].add(control_id)
 
+        pronom_normalized = load_arkade5_pronom_statistics(work, manifest)
+        pronom = summarize_arkade5_pronom_statistics(
+            pronom_normalized,
+            manifest=manifest,
+        )
+        pstats = pronom.get("statistics") or {}
+        pdetailed = pronom.get("detailed_file_inventory") or {}
+        if pronom.get("available"):
+            pronom_totals["statistics_imports"] += 1
+            pronom_totals["statistics_rows"] += int(pstats.get("row_count") or 0)
+            pronom_totals["total_files"] += int(pstats.get("total_files") or 0)
+            pronom_totals["unidentified_files"] += int(pstats.get("unidentified_files") or 0)
+            pronom_format_ids.update(
+                str(value).strip()
+                for value in (pstats.get("format_ids") or [])
+                if str(value).strip()
+            )
+        if pdetailed.get("found"):
+            pronom_totals["detailed_inventory_available"] += 1
+        if pdetailed.get("imported"):
+            pronom_totals["detailed_inventory_imported"] += 1
+
         rows.append({
             "import_id": import_id,
             "source_version": normalized.get("source_version"),
@@ -100,6 +138,7 @@ def build_arkade5_depot_evidence(
             "number_of_errors": source_summary.get("number_of_errors"),
             "number_of_warnings": source_summary.get("number_of_warnings"),
             "coverage": coverage,
+            "pronom": pronom,
         })
 
     unique_summary = {
@@ -107,9 +146,17 @@ def build_arkade5_depot_evidence(
         for key, values in unique_sets.items()
     }
     unique_summary["imports"] = len(rows)
+    unique_summary["pronom_statistics_imports"] = pronom_totals["statistics_imports"]
+    unique_summary["pronom_statistics_rows"] = pronom_totals["statistics_rows"]
+    unique_summary["pronom_total_files"] = pronom_totals["total_files"]
+    unique_summary["pronom_unidentified_files"] = pronom_totals["unidentified_files"]
+    unique_summary["pronom_unique_format_ids"] = len(pronom_format_ids)
+    unique_summary["pronom_detailed_inventory_available"] = pronom_totals[
+        "detailed_inventory_available"
+    ]
 
     return {
-        "format_version": 2,
+        "format_version": 3,
         "evidence_type": "arkade5_combined_coverage_for_depot_report",
         "principles": {
             "all_imports_remain_separate": True,
@@ -118,12 +165,19 @@ def build_arkade5_depot_evidence(
             "arkade_errors_are_review_evidence": True,
             "summary_counts_are_unique_control_areas": True,
             "occurrence_counts_are_kept_separately": True,
+            "pronom_statistics_are_external_evidence": True,
+            "pronom_detailed_inventory_is_not_imported": True,
         },
         "dwm_test_ids_present": dwm_ids,
         "summary": unique_summary,
         "occurrences": {
             "imports": len(rows),
             **occurrence_totals,
+        },
+        "pronom_summary": {
+            **pronom_totals,
+            "unique_format_ids": len(pronom_format_ids),
+            "format_ids": sorted(pronom_format_ids, key=str.casefold),
         },
         "unique_control_ids": {
             key: sorted(values)
@@ -218,20 +272,69 @@ def attach_arkade5_to_depot_model(
         depot_model=depot_model,
     )
     depot_model["external_validation"] = {"arkade5": external}
-    depot_model.setdefault("evidence", {})["arkade5_import_count"] = (
-        external.get("summary") or {}
-    ).get("imports", 0)
+    evidence = depot_model.setdefault("evidence", {})
+    evidence["arkade5_import_count"] = (external.get("summary") or {}).get("imports", 0)
+    evidence["pronom_statistics_import_count"] = (
+        external.get("pronom_summary") or {}
+    ).get("statistics_imports", 0)
+    evidence["pronom_detailed_inventory_available_count"] = (
+        external.get("pronom_summary") or {}
+    ).get("detailed_inventory_available", 0)
     add_arkade5_review_points(depot_model, external)
     return depot_model
 
 
+def _pronom_html(imports: list[dict[str, Any]]) -> str:
+    sections: list[str] = []
+    for item in imports:
+        pronom = item.get("pronom") or {}
+        if not pronom.get("available"):
+            continue
+        stats = pronom.get("statistics") or {}
+        detailed = pronom.get("detailed_file_inventory") or {}
+        rows = []
+        for row in stats.get("rows") or []:
+            rows.append(
+                "<tr>"
+                f"<td>{escape(str(row.get('format_id') or '–'))}</td>"
+                f"<td>{escape(str(row.get('file_type') or '–'))}</td>"
+                f"<td>{escape(str(row.get('format_version') or '–'))}</td>"
+                f"<td>{escape(str(row.get('raf_220301') or '–'))}</td>"
+                f"<td>{escape(str(row.get('count') or 0))}</td>"
+                "</tr>"
+            )
+        detailed_text = "ikke funnet"
+        if detailed.get("found"):
+            detailed_text = (
+                f"funnet ({escape(str(detailed.get('original_name') or 'ukjent fil'))}, "
+                f"{escape(str(detailed.get('size_bytes') or 0))} byte), men ikke importert"
+                if not detailed.get("imported")
+                else "funnet og importert"
+            )
+        sections.append(f"""
+<h3>Filformater / PRONOM – Arkade-import {escape(str(item.get('import_id') or '–'))}</h3>
+<p><strong>Identifikasjonsmotor:</strong> {escape(str(pronom.get('identification_engine') or 'Siegfried / PRONOM'))}<br>
+<strong>Statistikkrader:</strong> {escape(str(stats.get('row_count') or 0))}<br>
+<strong>Filer i statistikken:</strong> {escape(str(stats.get('total_files') or 0))}<br>
+<strong>Unike Format-ID/PUID:</strong> {escape(str(stats.get('unique_format_ids') or 0))}<br>
+<strong>Uidentifiserte filer:</strong> {escape(str(stats.get('unidentified_files') or 0))}<br>
+<strong>Detaljert filinventar:</strong> {detailed_text}</p>
+<table>
+<tr><th>Format-ID</th><th>Filtype</th><th>Formatversjon</th><th>RAF-220301</th><th>Antall</th></tr>
+{''.join(rows)}
+</table>
+""")
+    return "\n".join(sections)
+
+
 def inject_arkade5_html(path: str | Path, depot_model: dict[str, Any]) -> None:
-    """Insert one readable external-evidence section into an existing report HTML."""
+    """Insert readable Arkade and PRONOM external-evidence sections."""
     path = Path(path)
     external = ((depot_model.get("external_validation") or {}).get("arkade5") or {})
     imports = external.get("imports") or []
     summary = external.get("summary") or {}
     occurrences = external.get("occurrences") or {}
+    pronom_summary = external.get("pronom_summary") or {}
 
     if not imports or not path.is_file():
         return
@@ -257,6 +360,16 @@ def inject_arkade5_html(path: str | Path, depot_model: dict[str, Any]) -> None:
     if occurrence_covered != unique_covered:
         coverage_text += f" ({occurrence_covered} forekomster på tvers av importer)"
 
+    pronom_intro = ""
+    if int(pronom_summary.get("statistics_imports") or 0) > 0:
+        pronom_intro = (
+            "<p><strong>PRONOM/Siegfried-statistikk:</strong> "
+            f"{escape(str(pronom_summary.get('statistics_imports') or 0))} import(er), "
+            f"{escape(str(pronom_summary.get('statistics_rows') or 0))} statistikkrader, "
+            f"{escape(str(pronom_summary.get('total_files') or 0))} filer, "
+            f"{escape(str(pronom_summary.get('unique_format_ids') or 0))} unike Format-ID/PUID.</p>"
+        )
+
     section = f"""
 <h2>8. Ekstern validering – Arkade 5</h2>
 <div class="note">
@@ -266,11 +379,13 @@ ikke automatisk depotgodkjenning eller avvisning.
 </div>
 <p><strong>Importerte Arkade-kjøringer:</strong> {escape(str(summary.get('imports', 0)))}</p>
 <p><strong>Unike kontrollområder dekket av Arkade uten DWM-resultat:</strong> {escape(coverage_text)}</p>
+{pronom_intro}
 <table>
 <tr><th>Testdato</th><th>Arkade-versjon</th><th>Import-ID</th><th>Kun Arkade</th><th>Begge</th><th>Feil</th><th>Advarsler</th></tr>
 {''.join(rows)}
 </table>
-<p class="small">Komplett normalisert og rå Arkade-evidens er bevart under work_operations/external_evidence/arkade5/.</p>
+{_pronom_html(imports)}
+<p class="small">Komplett normalisert Arkade-evidens og importert PRONOM-statistikk er bevart under work_operations/external_evidence/arkade5/. Det detaljerte filinventaret dokumenteres som kilde, men importeres ikke i denne versjonen.</p>
 """
 
     html = path.read_text(encoding="utf-8")

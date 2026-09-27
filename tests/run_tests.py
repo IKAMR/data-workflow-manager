@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import re
 import sys
 import unittest
 from datetime import datetime
@@ -21,6 +22,30 @@ def _iter_tests(suite: unittest.TestSuite):
             yield item
 
 
+def _current_version_test_token() -> str | None:
+    """Return e.g. ``v016_a13`` for VERSION ``0.1.6-a13``.
+
+    Current-version tests are deliberately run first. This catches exactly the
+    regression class introduced by the active alpha before the full historical
+    suite scrolls past hundreds of older tests.
+    """
+    match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)-a(\d+)", VERSION)
+    if not match:
+        return None
+    major, minor, patch, alpha = match.groups()
+    return f"v{int(major)}{int(minor)}{int(patch)}_a{int(alpha)}"
+
+
+def _test_sort_key(test) -> tuple[int, str]:
+    try:
+        test_id = test.id()
+    except Exception:
+        test_id = str(test)
+    token = _current_version_test_token()
+    is_current = bool(token and token in test_id)
+    return (0 if is_current else 1, test_id)
+
+
 class CompactTextTestResult(unittest.TextTestResult):
     def getDescription(self, test):
         method = getattr(test, "_testMethodName", None)
@@ -28,17 +53,16 @@ class CompactTextTestResult(unittest.TextTestResult):
 
 
 def main() -> int:
-    suite = unittest.defaultTestLoader.discover(str(ROOT / "tests"), pattern="test_*.py")
-    tests = list(_iter_tests(suite))
+    discovered = unittest.defaultTestLoader.discover(str(ROOT / "tests"), pattern="test_*.py")
+    tests = sorted(list(_iter_tests(discovered)), key=_test_sort_key)
+    suite = unittest.TestSuite(tests)
+
     test_ids = []
     for test in tests:
         try:
             test_ids.append(test.id())
         except Exception:
             test_ids.append(str(test))
-
-    # Re-discover because iterating the suite above consumes nested suites in some Python versions.
-    suite = unittest.defaultTestLoader.discover(str(ROOT / "tests"), pattern="test_*.py")
 
     stream = io.StringIO()
     runner = unittest.TextTestRunner(

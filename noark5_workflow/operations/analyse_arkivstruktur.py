@@ -53,20 +53,27 @@ class AnalyseArkivstrukturOperation(BaseOperation):
         defined_fields_error = None
         warnings = []
 
+        # a13.10: make the previously hidden source of the libxml2 nodeset
+        # warning explicit. The default field definition now uses iterparse and
+        # must complete before the XPath test catalogue starts.
+        ctx.log("DEFINERTE FELT START: strategy=streaming-iterparse")
         try:
             defined_fields = extract_defined_fields(arkivstruktur)
+            ctx.log(
+                "DEFINERTE FELT SLUTT: strategy=streaming-iterparse | "
+                f"arkiv={defined_fields.get('archive_count', 0)} | "
+                f"arkivdeler={defined_fields.get('archive_parts_count', 0)}"
+            )
         except DefinedFieldExtractionError as exc:
-            # The streamed structural analysis above is still valid. Defined
-            # field extraction is enrichment and must not prevent the remaining
-            # validation workflow from running. Keep the failure explicit.
             defined_fields_error = exc.as_dict()
             warning = (
                 "Definert feltuttrekk kunne ikke fullføres. "
                 f"{exc}. Workflow fortsetter med strukturanalysen."
             )
             warnings.append(warning)
+            ctx.log(f"DEFINERTE FELT FEIL: {exc.as_dict()}")
             ctx.log(f"ADVARSEL: {warning}")
-        except (etree.XMLSyntaxError, OSError) as exc:
+        except (etree.XMLSyntaxError, ET.ParseError, OSError) as exc:
             defined_fields_error = {
                 "error_type": type(exc).__name__,
                 "message": str(exc),
@@ -78,6 +85,7 @@ class AnalyseArkivstrukturOperation(BaseOperation):
                 "Workflow fortsetter med strukturanalysen."
             )
             warnings.append(warning)
+            ctx.log(f"DEFINERTE FELT FEIL: {defined_fields_error}")
             ctx.log(f"ADVARSEL: {warning}")
 
         ctx.progress(1.0, "Analyse av arkivstruktur.xml fullført")
@@ -98,6 +106,7 @@ class AnalyseArkivstrukturOperation(BaseOperation):
         data = {
             **analysis.as_dict(),
             "defined_fields": defined_fields,
+            "defined_fields_strategy": "streaming-iterparse",
         }
         if defined_fields_error is not None:
             data["defined_fields_error"] = defined_fields_error

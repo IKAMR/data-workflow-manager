@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import hashlib
@@ -9,6 +8,7 @@ from pathlib import Path
 from typing import Iterable
 
 from .arkade5 import import_arkade5_report, list_arkade5_imports
+from .arkade5_pronom import attach_arkade5_pronom_evidence
 
 
 @dataclass(frozen=True)
@@ -87,6 +87,34 @@ def _is_inside_external_evidence(path: Path) -> bool:
     return "external_evidence" in {part.casefold() for part in path.parts}
 
 
+def _is_inside_arkade5_area(path: Path) -> bool:
+    """Return True when the path is below a directory named arkade5_*.
+
+    Archive operators commonly keep Arkade 5 reports under paths such as
+    repository_operations/arkade5_v2.12.3/folder/1543_010_testrapport.json.
+    The report filename itself does not necessarily contain the word Arkade.
+    """
+    return any(part.casefold().startswith("arkade5_") for part in path.parts)
+
+
+def _plausible_arkade5_json(path: Path) -> bool:
+    """Cheap pre-filter before content validation.
+
+    A file is plausible when its name indicates Arkade/test report, or when it
+    lives anywhere below an arkade5_* directory. Content validation remains the
+    authority in _looks_like_arkade5_report().
+    """
+    lower = path.name.casefold()
+    parent = path.parent.name.casefold()
+    return (
+        lower.startswith("arkade-testrapport")
+        or "arkade" in lower
+        or "testrapport" in lower
+        or parent.startswith("arkade-testrapporter")
+        or _is_inside_arkade5_area(path)
+    )
+
+
 def discover_arkade5_reports(
     report_path: str | Path,
     *,
@@ -133,6 +161,12 @@ _PRUNE_DIRS = {
     "content",
     "aip",
     "external_evidence",
+    # Noark 5 document payload directories can contain hundreds of thousands
+    # of files and must never be traversed by report discovery. Matching is
+    # case-folded below, so this covers DOKUMENT/dokument and
+    # DOKUMENTER/dokumenter on both case-sensitive and insensitive systems.
+    "dokument",
+    "dokumenter",
 }
 
 
@@ -176,13 +210,9 @@ def _walk_report_candidates(
             if _is_inside_external_evidence(path):
                 continue
 
-            # Keep the automatic scan cheap. Validate all plausible JSON names.
-            lower = name.casefold()
-            if not (
-                lower.startswith("arkade-testrapport")
-                or "arkade" in lower
-                or current_path.name.casefold().startswith("arkade-testrapporter")
-            ):
+            # Keep the automatic scan cheap, but never exclude a valid report
+            # solely because Arkade did not put "arkade" in the filename.
+            if not _plausible_arkade5_json(path):
                 continue
             yield path
 
@@ -260,10 +290,12 @@ def import_discovered_arkade5_reports(
     )
 
     existing = list_arkade5_imports(work)
-    existing_sha = {
-        str((row.get("source") or {}).get("sha256") or "").casefold()
+    existing_by_sha = {
+        str((row.get("source") or {}).get("sha256") or "").casefold(): row
         for row in existing
-    } - {""}
+        if str((row.get("source") or {}).get("sha256") or "").strip()
+    }
+    existing_sha = set(existing_by_sha)
 
     imported = []
     skipped = []
@@ -272,10 +304,26 @@ def import_discovered_arkade5_reports(
     for candidate in candidates:
         digest = candidate.sha256
         if digest.casefold() in existing_sha:
+            existing_manifest = existing_by_sha.get(digest.casefold()) or {}
+            import_id = str(existing_manifest.get("import_id") or "")
+            pronom = None
+            pronom_error = None
+            if import_id:
+                try:
+                    pronom = attach_arkade5_pronom_evidence(
+                        candidate.path,
+                        work_operations=work,
+                        import_id=import_id,
+                    )
+                except Exception as exc:
+                    pronom_error = str(exc)
             skipped.append({
                 "file": str(candidate.path),
                 "reason": "already_imported",
                 "sha256": digest,
+                "import_id": import_id or None,
+                "pronom": pronom,
+                "pronom_error": pronom_error,
             })
             continue
 
@@ -285,12 +333,27 @@ def import_discovered_arkade5_reports(
                 work_operations=work,
                 imported_by=imported_by,
             )
+            import_id = str(manifest.get("import_id") or "")
+            pronom = None
+            pronom_error = None
+            if import_id:
+                try:
+                    pronom = attach_arkade5_pronom_evidence(
+                        candidate.path,
+                        work_operations=work,
+                        import_id=import_id,
+                    )
+                except Exception as exc:
+                    pronom_error = str(exc)
             imported.append({
                 "file": str(candidate.path),
-                "import_id": manifest.get("import_id"),
+                "import_id": import_id or None,
                 "sha256": digest,
+                "pronom": pronom,
+                "pronom_error": pronom_error,
             })
             existing_sha.add(digest.casefold())
+            existing_by_sha[digest.casefold()] = manifest
         except Exception as exc:
             failed.append({
                 "file": str(candidate.path),
