@@ -1451,6 +1451,11 @@
             "id": "document_type_counts",
             "type": "group_text",
             "select": "//dokumenttype"
+          },
+          {
+            "id": "document_description_created_per_year",
+            "type": "year_counts",
+            "select": "//dokumentbeskrivelse/opprettetDato"
           }
         ],
         "archive_part_metrics": [
@@ -1478,6 +1483,11 @@
             "id": "document_type_counts",
             "type": "group_text",
             "select": ".//dokumenttype"
+          },
+          {
+            "id": "document_description_created_per_year",
+            "type": "year_counts",
+            "select": ".//dokumentbeskrivelse/opprettetDato"
           }
         ],
         "reconciliation": [
@@ -1499,6 +1509,10 @@
           },
           {
             "id": "document_type_counts",
+            "type": "counter_sum"
+          },
+          {
+            "id": "document_description_created_per_year",
             "type": "counter_sum"
           }
         ]
@@ -1811,6 +1825,12 @@
                 "min": 100000000
               }
             ]
+          },
+          {
+            "id": "document_object_parent_created_counts",
+            "type": "group_xpath",
+            "select": "//dokumentobjekt",
+            "value": "string(ancestor::dokumentbeskrivelse[1]/opprettetDato)"
           }
         ],
         "archive_part_metrics": [
@@ -1929,6 +1949,12 @@
                 "min": 100000000
               }
             ]
+          },
+          {
+            "id": "document_object_parent_created_counts",
+            "type": "group_xpath",
+            "select": ".//dokumentobjekt",
+            "value": "string(ancestor::dokumentbeskrivelse[1]/opprettetDato)"
           }
         ],
         "reconciliation": [
@@ -1991,6 +2017,10 @@
             "type": "counter_sum",
             "whole": "file_size_buckets",
             "parts": "file_size_buckets"
+          },
+          {
+            "id": "document_object_parent_created_counts",
+            "type": "counter_sum"
           }
         ]
       },

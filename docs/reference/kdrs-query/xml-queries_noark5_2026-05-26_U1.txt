@@ -1,7 +1,7 @@
 _PARAMETERS_
 query_name=Noark 5 Additional queries - SSIKT ephorte arkivdel, rev1
-query_date=2022-09-21
-query_description=Kjører manuelt aktiverte job_enabled <> 0 Noark 5-queries [QA må gjøres mot xsd skjemaer Noark 5 v3.1, 4.0 & 5.0]
+query_date=2026-05-26
+query_description=Bug fix generisk opptelling. Kjører manuelt aktiverte job_enabled <> 0 Noark 5-queries [QA må gjøres mot xsd skjemaer Noark 5 v3.1, 4.0 & 5.0]
 
 query_type=Noark5
 query_subtype=3.1,4.0,5.0
@@ -96,7 +96,7 @@ concat(", Avsluttet dato sak: ", count(//mappe[@xsi:type='saksmappe'][string-len
 for $mappetype in distinct-values(//mappe/@xsi:type)
 return
 (concat($mappetype, ': ', count(//mappe[@xsi:type=$mappetype]), ", @@" ) ),
-concat('Uten spesialisering: ', count(//mappe[count(@*)=3])), 
+concat('Uten spesialisering: ', count(//mappe[count(@*)<1])), 
 
 "N5.15.02 Mappe status (generisk); @@",
 for $mappestatus in distinct-values(//mappe/saksstatus)
@@ -120,7 +120,7 @@ for $registreringtype in distinct-values(//registrering/@xsi:type)
 return
 (concat($registreringtype, ': ', count(//registrering[@xsi:type=$registreringtype]), ", @@" ) ), " ", 
 
-concat('Reg: Uten spesialisering: ', count(//registrering[count(@*)=3]), 
+concat('Reg: Uten spesialisering: ', count(//registrering[count(@*)<1]), 
 ', Tom journalstatus: ', count(//journalstatus[not(text())]) ), 
 
 concat("N5.21 Registreringer uten dokumentbeskrivelse: ", 

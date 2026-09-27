@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -11,7 +12,10 @@ class TestA144ResultStructure(unittest.TestCase):
 
     def test_version_is_a14_4(self):
         text = (ROOT / "version.py").read_text(encoding="utf-8")
-        self.assertIn('VERSION = "0.1.6-a14"', text)
+        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a(\d+)', text)
+        self.assertIsNotNone(match)
+        self.assertGreaterEqual(int(match.group(1)), 14)
+
 
     def test_technical_is_last_and_noark_is_not_top_level(self):
         text = (ROOT / "gui" / "depot_result_center_a14_4.py").read_text(encoding="utf-8")

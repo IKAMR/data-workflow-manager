@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
+import re
 import unittest
 
 
@@ -32,7 +33,10 @@ class V016A141ResultCenterStaticTests(unittest.TestCase):
 
     def test_version_is_a14_1_or_newer(self):
         text = (ROOT / "version.py").read_text(encoding="utf-8")
-        self.assertIn('VERSION = "0.1.6-a14"', text)
+        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a(\d+)', text)
+        self.assertIsNotNone(match)
+        self.assertGreaterEqual(int(match.group(1)), 14)
+
 
 
 if __name__ == "__main__":

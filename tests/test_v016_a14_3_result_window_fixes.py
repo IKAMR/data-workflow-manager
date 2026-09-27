@@ -7,13 +7,18 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def _a14_version():
     text = (ROOT / "version.py").read_text(encoding="utf-8")
-    match = re.search(r'VERSION\s*=\s*"0\.1\.6-a14(?:\.(\d+)(?:\.(\d+))?)?"', text)
+    match = re.search(r'VERSION\s*=\s*"0\.1\.6-a(\d+)(?:\.(\d+)(?:\.(\d+))?)?"', text)
     if not match:
         return None, None
-    # Bare a14 is the current flattened a14 version and supersedes dotted a14.x increments.
-    if match.group(1) is None:
+    alpha = int(match.group(1))
+    if alpha > 14:
         return match, (999, 0)
-    return match, (int(match.group(1)), int(match.group(2) or 0))
+    if alpha < 14:
+        return None, None
+    if match.group(2) is None:
+        return match, (999, 0)
+    return match, (int(match.group(2)), int(match.group(3) or 0))
+
 
 
 class V016A143ResultWindowFixTests(unittest.TestCase):

@@ -310,6 +310,64 @@
         }
       ],
       "presentation_group": "validation_evidence"
+    },
+    "yearly_volume": {
+      "label": "Omfang per år",
+      "fields": [
+        {
+          "id": "folder_created_per_year",
+          "label": "Mapper/saker per år",
+          "source_test": "kdrs.c09_r4",
+          "source_path": "per_year",
+          "value_type": "distribution",
+          "presentation_order": 10,
+          "visible_for": [
+            "depot",
+            "archive_creator",
+            "final_report"
+          ]
+        },
+        {
+          "id": "journal_date_per_year",
+          "label": "Registreringer/journalposter per år",
+          "source_test": "kdrs.c16_01_r7",
+          "source_path": "per_year",
+          "value_type": "distribution",
+          "presentation_order": 20,
+          "visible_for": [
+            "depot",
+            "archive_creator",
+            "final_report"
+          ]
+        },
+        {
+          "id": "document_description_created_per_year",
+          "label": "Dokumentbeskrivelser per år",
+          "source_test": "kdrs.c21",
+          "source_path": "document_description_created_per_year",
+          "value_type": "distribution",
+          "presentation_order": 30,
+          "visible_for": [
+            "depot",
+            "archive_creator",
+            "final_report"
+          ]
+        },
+        {
+          "id": "document_object_created_per_year",
+          "label": "Dokumentobjekter per år",
+          "source_test": "kdrs.c24",
+          "source_path": "document_object_parent_created_counts",
+          "value_type": "distribution",
+          "presentation_order": 40,
+          "visible_for": [
+            "depot",
+            "archive_creator",
+            "final_report"
+          ]
+        }
+      ],
+      "presentation_group": "content_volume"
     }
   },
   "compositions": [
@@ -337,6 +395,7 @@
       "entity": "archive_part",
       "sections": [
         "content_summary",
+        "yearly_volume",
         "preservation_summary",
         "format_summary"
       ],

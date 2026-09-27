@@ -1,7 +1,7 @@
 _PARAMETERS_
 query_name=Noark 5 Additional queries - SSIKT ephorte arkivdel, rev1
-query_date=2022-09-21
-query_description=Kjører manuelt aktiverte job_enabled <> 0 Noark 5-queries [QA må gjøres mot xsd skjemaer Noark 5 v3.1, 4.0 & 5.0]
+query_date=2026-05-26
+query_description=Bug fix generisk opptelling. Kjører manuelt aktiverte job_enabled <> 0 Noark 5-queries [QA må gjøres mot xsd skjemaer Noark 5 v3.1, 4.0 & 5.0]
 
 query_type=Noark5
 query_subtype=3.1,4.0,5.0
@@ -47,7 +47,7 @@ concat("[.2] Mappe typer: @@", ", Alle: ", count(descendant::mappe), " @@"),
 for $mappetype in distinct-values(descendant::mappe/@xsi:type)
 return
 (concat($mappetype, ": ", count(descendant::mappe[@xsi:type=$mappetype]), 
-", Uten spesialisering: ", count(descendant::mappe[count(@*)=3]), 
+", Uten spesialisering: ", count(descendant::mappe[count(@*)<1]), 
 ", Uten reg: ", count(descendant::mappe[not (mappe or registrering)]) ), "; @@" ), 
 
 concat("Mappe, sak status; Avsluttet: ", count(descendant::mappe[saksstatus='Avsluttet']),

@@ -44,6 +44,25 @@ def _field_source(field: dict[str, Any] | None) -> dict[str, Any] | None:
     return {"test_id": test_id, "path": path}
 
 
+
+
+def _year_counter(value: Any) -> dict[str, int]:
+    """Normalize a distribution keyed by dates or years to YYYY -> count."""
+    if not isinstance(value, dict):
+        return {}
+    out: dict[str, int] = {}
+    for key, count in value.items():
+        year = str(key or "")[:4]
+        if len(year) != 4 or not year.isdigit():
+            continue
+        try:
+            amount = int(count)
+        except (TypeError, ValueError):
+            continue
+        out[year] = out.get(year, 0) + amount
+    return dict(sorted(out.items()))
+
+
 def _classify_standard_value_checks(checks: dict[str, Any]) -> dict[str, int]:
     counts = {
         "all_observed_values_standard": 0,
@@ -199,6 +218,12 @@ def build_depot_report_model(
                 "journalpost_count": _ok_value(fields.get("journalpost_count")),
                 "document_description_count": _ok_value(fields.get("document_description_count")),
                 "document_object_count": _ok_value(fields.get("document_object_count")),
+                "yearly_volume": {
+                    "folder": _year_counter(_ok_value(fields.get("folder_created_per_year"), {})),
+                    "journal": _year_counter(_ok_value(fields.get("journal_date_per_year"), {})),
+                    "document_description": _year_counter(_ok_value(fields.get("document_description_created_per_year"), {})),
+                    "document_object": _year_counter(_ok_value(fields.get("document_object_created_per_year"), {})),
+                },
                 "screening_count": _ok_value(fields.get("screening_count")),
                 "disposal_decision_count": _ok_value(fields.get("disposal_decision_count")),
                 "performed_disposal_count": _ok_value(fields.get("performed_disposal_count")),
