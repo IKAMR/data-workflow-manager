@@ -521,6 +521,11 @@ class DepotResultViewsDialog(ctk.CTkToplevel):
         user_identity: dict[str, str] | None = None,
     ):
         super().__init__(master)
+        # Newer result-center subclasses can keep the Toplevel hidden while
+        # inherited layers build/rebuild their widgets.  This prevents Windows
+        # from painting intermediate tab structures during construction.
+        if getattr(self, "_defer_initial_show", False):
+            self.withdraw()
         self.title("Resultatvisninger – Noark 5")
         self.geometry("980x760")
         self.minsize(820, 620)
