@@ -61,35 +61,34 @@ from gui.persistent_app_a15_1 import run_gui
 from gui.persistent_app_a16_1 import run_gui
 from gui.persistent_app_a16_4 import run_gui
 from gui.persistent_app_a16_6 import run_gui
-
 from gui.persistent_app_a16_7 import run_gui
 from gui.persistent_app_a16_9 import run_gui
-
 from gui.persistent_app_a16_10 import run_gui
 from gui.persistent_app_a16_11 import run_gui
 from gui.persistent_app_a16_12 import run_gui
-
 from gui.persistent_app_a16_13 import run_gui
 from gui.persistent_app_a16_14 import run_gui
 from gui.persistent_app_a16_15 import run_gui
-
 from gui.persistent_app_a16_16 import run_gui
 from gui.persistent_app_a16_18 import run_gui
 from gui.persistent_app_a16_19 import run_gui
 from gui.persistent_app_a16_20 import run_gui
 from gui.persistent_app_a16_21 import run_gui
-
 from gui.persistent_app_a16_22 import run_gui
-
 from gui.persistent_app_a16_24 import run_gui
 from gui.persistent_app_a16_25 import run_gui
-
 from gui.persistent_app_a16_26 import run_gui
 from gui.persistent_app_a16_29 import run_gui
 from gui.persistent_app_a16_30 import run_gui
 from gui.persistent_app_a16_31 import run_gui
 from gui.persistent_app_a17_3 import run_gui
 from gui.persistent_app_a17_4 import run_gui
+from gui.persistent_app_a18_5 import run_gui
+from gui.persistent_app_a18_6 import run_gui
+from gui.persistent_app_a18_7 import run_gui
+
+from gui.persistent_app_a18_8 import run_gui
+from gui.persistent_app_a18_9 import run_gui
 
 if __name__ == "__main__":
     run_gui()
