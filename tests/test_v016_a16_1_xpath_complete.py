@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import re
 import tempfile
 import unittest
 
@@ -20,7 +21,9 @@ class V016A161XpathCompleteTests(unittest.TestCase):
 
     def test_version_is_a16(self):
         text = (ROOT / "version.py").read_text(encoding="utf-8")
-        self.assertIn('VERSION = "0.1.6-a16"', text)
+        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a(\d+)(?:\.\d+)*"', text)
+        self.assertIsNotNone(match)
+        self.assertGreaterEqual(int(match.group(1)), 16)
 
     def test_runtime_is_a16_1(self):
         text = (ROOT / "main.py").read_text(encoding="utf-8")

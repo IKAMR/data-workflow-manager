@@ -88,6 +88,8 @@ from gui.persistent_app_a16_26 import run_gui
 from gui.persistent_app_a16_29 import run_gui
 from gui.persistent_app_a16_30 import run_gui
 from gui.persistent_app_a16_31 import run_gui
+from gui.persistent_app_a17_3 import run_gui
+from gui.persistent_app_a17_4 import run_gui
 
 if __name__ == "__main__":
     run_gui()
