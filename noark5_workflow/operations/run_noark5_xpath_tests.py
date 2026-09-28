@@ -26,7 +26,7 @@ class _BaseNoark5XpathTestsOperation(BaseOperation):
     def raw_result_identity(self, result, ctx):
         return {
             "test_id": f"noark5-kdrs-query-2026-05-26-{self.execution_profile}",
-            "definition_version": "5",
+            "definition_version": "6",
         }
 
     def can_run(self, ctx: OperationContext) -> tuple[bool, str]:
@@ -48,7 +48,7 @@ class _BaseNoark5XpathTestsOperation(BaseOperation):
             out,
             operation_id=self.definition.operation_id,
             definition_id="noark5-kdrs-query-2026-05-26",
-            definition_version="5",
+            definition_version="6",
         )
 
         ctx.progress(0.02, f"Starter {self.definition.name}")
@@ -177,7 +177,6 @@ class _BaseNoark5XpathTestsOperation(BaseOperation):
             True,
             f"Noark 5-testkatalog kjørt ({self.execution_profile}): "
             f"{s.get('ok', 0)} OK, {s.get('source_missing', 0)} mangler kildefil, "
-            f"{s.get('disabled_by_legacy_source', 0)} legacy-deaktivert, "
             f"{s.get('error', 0)} feil.{master_text}{regression_text}{perf_text} Resultat: {out}",
             data={
                 "result_index": index,
@@ -198,8 +197,8 @@ class RunNoark5XpathTestsOperation(_BaseNoark5XpathTestsOperation):
         operation_id="run_noark5_xpath_tests_2026",
         name="Noark 5 XPath-tester 2026",
         description=(
-            "Kjører ordinær Noark 5-testprofil. Historiske regresjonsreferanser "
-            "er ikke med i normal depotvalidering."
+            "Kjører hele Noark 5 XPath-grunnlaget 2026 og lagrer hver definert test "
+            "maskinlesbart. Presentasjon og prioritering skjer etter materialisering."
         ),
         execution_target=ExecutionTarget.EITHER,
         category="Innhold",
@@ -218,9 +217,8 @@ class RunNoark5XpathRegressionOperation(_BaseNoark5XpathTestsOperation):
         operation_id="run_noark5_xpath_regression_2026",
         name="Noark 5 XPath-regresjon 2026",
         description=(
-            "Utviklings-/QA-kjøring som inkluderer historiske U01/U02-regresjonsreferanser "
-            "og lager maskinell sammenligning mot kanoniske individuelle analyser. "
-            "Skal ikke brukes som ordinær depotvalidering."
+            "Utviklings-/QA-kjøring av 2026 XPath-grunnlaget med maskinell "
+            "sammenligning mot kanoniske individuelle analyser."
         ),
         execution_target=ExecutionTarget.EITHER,
         category="Systemspesifikt",

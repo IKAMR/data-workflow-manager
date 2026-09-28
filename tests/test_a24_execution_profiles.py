@@ -25,11 +25,11 @@ class A24ExecutionProfileTests(unittest.TestCase):
         )
         selected_ids = {t["test_id"] for t in selected}
         excluded_ids = {t["test_id"] for t in excluded}
-        self.assertNotIn("kdrs.u01", selected_ids)
-        self.assertNotIn("kdrs.u02", selected_ids)
-        self.assertIn("kdrs.u01", excluded_ids)
-        self.assertIn("kdrs.u02", excluded_ids)
-        self.assertEqual(len(selected), len(self.catalog["tests"]) - 2)
+        self.assertIn("kdrs.u01", selected_ids)
+        self.assertIn("kdrs.u02", selected_ids)
+        self.assertNotIn("kdrs.u01", excluded_ids)
+        self.assertNotIn("kdrs.u02", excluded_ids)
+        self.assertEqual(len(selected), len(self.catalog["tests"]))
 
     def test_regression_includes_legacy_references(self):
         selected, excluded = _select_catalog_tests(

@@ -98,8 +98,12 @@ class A19U1Tests(unittest.TestCase):
 
     def test_reference_files_are_preserved(self):
         root = Path(__file__).resolve().parents[1]
-        self.assertTrue((root / "docs/reference/kdrs-query/xml-queries_noark5_2022-09-21_U1.txt").is_file())
-        self.assertTrue((root / "docs/reference/kdrs-query/xml-queries_noark5_2022-09-21_U2.txt").is_file())
+        reference = root / "docs/reference/kdrs-query"
+        self.assertTrue((reference / "xml-queries_noark5_2026-05-26_U1.txt").is_file())
+        self.assertTrue((reference / "xml-queries_noark5_2026-05-26_U2.txt").is_file())
+        self.assertTrue((reference / "xml-queries_noark5_2026-05-26.txt").is_file())
+        self.assertTrue((reference / "xml-queries_noark5_2026-05-26_no-journal.txt").is_file())
+        self.assertTrue((reference / "xml-queries_noark5_2026-05-26_no-offjournal.txt").is_file())
 
 
 if __name__ == "__main__":

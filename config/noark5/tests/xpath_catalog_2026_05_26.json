@@ -1,7 +1,7 @@
 {
-  "catalog_format_version": 10,
+  "catalog_format_version": 11,
   "catalog_id": "noark5-kdrs-query-2026-05-26",
-  "status": "implementation_qa_a24",
+  "status": "implementation_qa_a24_a16_complete",
   "source": {
     "repository": "IKAMR/KDRS_Query",
     "path": "doc/xml-queries_noark5_2026-05-26.txt",
@@ -12,7 +12,14 @@
       "5.0"
     ],
     "query_version": "0.2",
-    "role": "authoritative_legacy_source"
+    "role": "authoritative_legacy_source",
+    "reference_set": [
+      "docs/reference/kdrs-query/xml-queries_noark5_2026-05-26.txt",
+      "docs/reference/kdrs-query/xml-queries_noark5_2026-05-26_U1.txt",
+      "docs/reference/kdrs-query/xml-queries_noark5_2026-05-26_U2.txt",
+      "docs/reference/kdrs-query/xml-queries_noark5_2026-05-26_no-journal.txt",
+      "docs/reference/kdrs-query/xml-queries_noark5_2026-05-26_no-offjournal.txt"
+    ]
   },
   "execution_model": {
     "engine": "lxml",
@@ -29,7 +36,11 @@
     "archive_part_metrics": true,
     "reconciliation": "whole_extraction_vs_archive_parts",
     "u1_u2_role": "development_regression_reference_until_a24",
-    "standard_value_comparison": "external_registry_side_by_side_by_version"
+    "standard_value_comparison": "external_registry_side_by_side_by_version",
+    "legacy_job_enabled_role": "legacy_execution_and_report_hint_only",
+    "execute_all_defined_tests": true,
+    "generic_specialization_rule_2026": "count(@*)<1",
+    "generic_specialization_rule_note": "2026 correction replaces older count(@*)=3 logic where applicable."
   },
   "tests": [
     {
@@ -342,6 +353,55 @@
         ]
       },
       "status": "active"
+    },
+    {
+      "test_id": "kdrs.dwm.arkivuttrekk_metadata",
+      "legacy": {
+        "job_id": "DWM-AU01",
+        "test_point": null,
+        "job_enabled": 1,
+        "master_source": "DWM supplemental over 2026 reference set"
+      },
+      "name": "Arkivuttrekk – oppgitte metadataegenskaper",
+      "system": "noark5",
+      "subsystem": "",
+      "source_xml": "arkivuttrekk.xml",
+      "scope": "source_document",
+      "tags": [
+        "archive_extraction",
+        "declared_metadata",
+        "evidence",
+        "dwm_supplemental"
+      ],
+      "noark_versions": [
+        "3.1",
+        "4.0",
+        "5.0"
+      ],
+      "version_basis": "generic_property_capture_not_normative",
+      "execution": {
+        "kind": "metrics",
+        "metrics": [
+          {
+            "id": "property_count",
+            "type": "xpath",
+            "expression": "count(//property)"
+          },
+          {
+            "id": "properties",
+            "type": "rows",
+            "select": "//property",
+            "fields": {
+              "name": "string(@name)",
+              "value": "string(value)"
+            }
+          }
+        ]
+      },
+      "status": "active",
+      "implementation_notes": [
+        "a16.1: oppgitte verdier i arkivuttrekk.xml lagres som evidens og skal ikke behandles som fasit uten krysskontroll."
+      ]
     },
     {
       "test_id": "kdrs.c05",
@@ -673,10 +733,40 @@
             "id": "created_per_year",
             "type": "year_counts",
             "select": "//mappe/opprettetDato"
+          },
+          {
+            "id": "case_folder_created_per_year",
+            "type": "year_counts",
+            "select": "//mappe[@type=\"saksmappe\"]/opprettetDato"
+          }
+        ],
+        "archive_part_metrics": [
+          {
+            "id": "created_per_year",
+            "type": "year_counts",
+            "select": ".//mappe/opprettetDato"
+          },
+          {
+            "id": "case_folder_created_per_year",
+            "type": "year_counts",
+            "select": ".//mappe[@type=\"saksmappe\"]/opprettetDato"
+          }
+        ],
+        "reconciliation": [
+          {
+            "id": "created_per_year",
+            "type": "counter_sum"
+          },
+          {
+            "id": "case_folder_created_per_year",
+            "type": "counter_sum"
           }
         ]
       },
-      "status": "active"
+      "status": "active",
+      "implementation_notes": [
+        "a16.1: årsfordeling materialiseres både totalt og per arkivdel; saksmapper beholdes som egen serie."
+      ]
     },
     {
       "test_id": "kdrs.c10",
@@ -743,7 +833,10 @@
         "kind": "class_folder_list",
         "metrics": []
       },
-      "status": "disabled_by_legacy_source"
+      "status": "active",
+      "implementation_notes": [
+        "a16.1: legacy job_enabled=0 beholdes som kildehistorikk, men testen kjøres og lagres i JSON i DWM."
+      ]
     },
     {
       "test_id": "kdrs.c11_01",
@@ -773,7 +866,10 @@
         "kind": "empty_class_list",
         "metrics": []
       },
-      "status": "disabled_by_legacy_source"
+      "status": "active",
+      "implementation_notes": [
+        "a16.1: legacy job_enabled=0 beholdes som kildehistorikk, men testen kjøres og lagres i JSON i DWM."
+      ]
     },
     {
       "test_id": "kdrs.c12",
@@ -1211,10 +1307,49 @@
             "id": "journal_date_per_year",
             "type": "year_counts",
             "select": "//registrering/journaldato"
+          },
+          {
+            "id": "journalpost_journal_date_per_year",
+            "type": "year_counts",
+            "select": "//registrering[@type=\"journalpost\"]/journaldato"
+          }
+        ],
+        "archive_part_metrics": [
+          {
+            "id": "created_per_year",
+            "type": "year_counts",
+            "select": ".//registrering/opprettetDato"
+          },
+          {
+            "id": "journal_date_per_year",
+            "type": "year_counts",
+            "select": ".//registrering/journaldato"
+          },
+          {
+            "id": "journalpost_journal_date_per_year",
+            "type": "year_counts",
+            "select": ".//registrering[@type=\"journalpost\"]/journaldato"
+          }
+        ],
+        "reconciliation": [
+          {
+            "id": "created_per_year",
+            "type": "counter_sum"
+          },
+          {
+            "id": "journal_date_per_year",
+            "type": "counter_sum"
+          },
+          {
+            "id": "journalpost_journal_date_per_year",
+            "type": "counter_sum"
           }
         ]
       },
-      "status": "active"
+      "status": "active",
+      "implementation_notes": [
+        "a16.1: registrering og journalpost materialiseres som separate årsserier totalt og per arkivdel."
+      ]
     },
     {
       "test_id": "kdrs.c17",
@@ -1245,7 +1380,10 @@
         "kind": "class_registration_conflict_list",
         "metrics": []
       },
-      "status": "disabled_by_legacy_source"
+      "status": "active",
+      "implementation_notes": [
+        "a16.1: legacy job_enabled=0 beholdes som kildehistorikk, men testen kjøres og lagres i JSON i DWM."
+      ]
     },
     {
       "test_id": "kdrs.c18",
@@ -1277,7 +1415,10 @@
         "kind": "class_registration_list",
         "metrics": []
       },
-      "status": "disabled_by_legacy_source"
+      "status": "active",
+      "implementation_notes": [
+        "a16.1: legacy job_enabled=0 beholdes som kildehistorikk, men testen kjøres og lagres i JSON i DWM."
+      ]
     },
     {
       "test_id": "kdrs.c18_01",
@@ -1307,7 +1448,10 @@
         "kind": "empty_class_per_archive_part",
         "metrics": []
       },
-      "status": "disabled_by_legacy_source"
+      "status": "active",
+      "implementation_notes": [
+        "a16.1: legacy job_enabled=0 beholdes som kildehistorikk, men testen kjøres og lagres i JSON i DWM."
+      ]
     },
     {
       "test_id": "kdrs.c19",
@@ -1831,6 +1975,12 @@
             "type": "group_xpath",
             "select": "//dokumentobjekt",
             "value": "string(ancestor::dokumentbeskrivelse[1]/opprettetDato)"
+          },
+          {
+            "id": "document_object_parent_created_per_year",
+            "type": "year_counts_by_node",
+            "select": "//dokumentobjekt",
+            "value": "string(ancestor::dokumentbeskrivelse[1]/opprettetDato)"
           }
         ],
         "archive_part_metrics": [
@@ -1955,6 +2105,12 @@
             "type": "group_xpath",
             "select": ".//dokumentobjekt",
             "value": "string(ancestor::dokumentbeskrivelse[1]/opprettetDato)"
+          },
+          {
+            "id": "document_object_parent_created_per_year",
+            "type": "year_counts_by_node",
+            "select": ".//dokumentobjekt",
+            "value": "string(ancestor::dokumentbeskrivelse[1]/opprettetDato)"
           }
         ],
         "reconciliation": [
@@ -2021,6 +2177,10 @@
           {
             "id": "document_object_parent_created_counts",
             "type": "counter_sum"
+          },
+          {
+            "id": "document_object_parent_created_per_year",
+            "type": "counter_sum"
           }
         ]
       },
@@ -2028,7 +2188,8 @@
       "implementation_notes": [
         "a22: Versjonsnummer, format, formatdetaljer og filstørrelsesstatistikk fra U01 materialiseres i C24.",
         "a22: samme faglige måling materialiseres per arkivdel og avstemmes mot total der summering er faglig relevant.",
-        "a22: total og arkivdel-scope bruker samme testdefinisjon med reconciliation der metrikkene kan rekonstrueres."
+        "a22: total og arkivdel-scope bruker samme testdefinisjon med reconciliation der metrikkene kan rekonstrueres.",
+        "a16.1: dokumentobjekt får egen årsserie per objekt, basert på opprettetDato på nærmeste dokumentbeskrivelse."
       ],
       "standard_value_checks": [
         {
@@ -2809,7 +2970,7 @@
       },
       "name": "Graderinger",
       "system": "noark5",
-      "subsystem": "v3.1_v4.0",
+      "subsystem": "v3.1_v4.0_v5.0",
       "source_xml": "arkivstruktur.xml",
       "scope": "source_document",
       "tags": [
@@ -2818,9 +2979,10 @@
       ],
       "noark_versions": [
         "3.1",
-        "4.0"
+        "4.0",
+        "5.0"
       ],
-      "version_basis": "explicit_subsystem",
+      "version_basis": "explicit_version_variants_in_2026_xpath",
       "execution": {
         "kind": "metrics",
         "metrics": [
@@ -2863,7 +3025,8 @@
         }
       ],
       "implementation_notes": [
-        "a23: standardverdikontroll er ekstern og versjonsspesifikk; observerte verdier beholdes uendret og avvik er ikke automatisk testfeil."
+        "a23: standardverdikontroll er ekstern og versjonsspesifikk; observerte verdier beholdes uendret og avvik er ikke automatisk testfeil.",
+        "a16.1: 5.0 er eksplisitt med via grad/gradering-metrikkene; 3.1/4.0 bruker gradering."
       ]
     },
     {
@@ -4144,10 +4307,8 @@
   "standard_values_registry": "../standards/noark5_standard_values.json",
   "execution_profiles": {
     "normal": {
-      "description": "Ordinær depotvalidering. Legacy-/regresjonsreferanser kjøres ikke.",
-      "exclude_lifecycle_roles": [
-        "development_regression_reference"
-      ]
+      "description": "Ordinær materialisering av hele 2026 XPath-grunnlaget. Presentasjon og prioritering skjer etter lagring.",
+      "exclude_lifecycle_roles": []
     },
     "regression": {
       "description": "Utviklings-/regresjonskjøring. Inkluderer legacy-referanser som U01/U02.",

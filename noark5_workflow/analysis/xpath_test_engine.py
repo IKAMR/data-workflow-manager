@@ -74,6 +74,24 @@ def _year_counts(node, select: str) -> dict[str, int]:
     return dict(sorted(counts.items()))
 
 
+def _year_counts_by_node(node, spec: dict[str, Any]) -> dict[str, int]:
+    """Count one year value per selected node.
+
+    This is used when the date belongs to a related/ancestor element but the
+    counted population is the selected node itself, e.g. one observation per
+    document object using its parent document description's created date.
+    """
+    counts = Counter()
+    value_expr = spec.get("value", "string(.)")
+    for item in node.xpath(spec["select"]):
+        if not isinstance(item, etree._Element):
+            continue
+        text = str(_xpath(item, value_expr) or "").strip()
+        if len(text) >= 4 and text[:4].isdigit():
+            counts[text[:4]] += 1
+    return dict(sorted(counts.items()))
+
+
 def _date_range(node, select: str) -> dict[str, str | None]:
     values = []
     for text in _texts(node, select):
@@ -154,6 +172,8 @@ def _eval_metrics(node, metrics: list[dict[str, Any]]) -> dict[str, Any]:
             result[spec["id"]] = _group(node, spec)
         elif typ == "year_counts":
             result[spec["id"]] = _year_counts(node, spec["select"])
+        elif typ == "year_counts_by_node":
+            result[spec["id"]] = _year_counts_by_node(node, spec)
         elif typ == "date_range":
             result[spec["id"]] = _date_range(node, spec["select"])
         elif typ == "numeric_stats":
@@ -480,10 +500,6 @@ def run_test(test: dict[str, Any], extraction_root: str | Path, standard_registr
         "status": "not_run",
         "source_xml": test["source_xml"],
     }
-    if test["legacy"]["job_enabled"] == 0:
-        result["status"] = "disabled_by_legacy_source"
-        return result
-
     missing = [name for name in _required_sources(test) if not (extraction_root / name).is_file()]
     if missing:
         result["status"] = "source_missing"
@@ -559,12 +575,15 @@ def _select_catalog_tests(
                 "reason": "excluded_by_execution_profile",
             })
             continue
-        if not include_disabled and test["legacy"]["job_enabled"] == 0:
+        # a16.1: legacy job_enabled is retained as source metadata only.
+        # DWM materializes every defined test unless a future definition uses
+        # an explicit DWM execution disable flag.
+        if not include_disabled and test.get("dwm_execution", {}).get("enabled") is False:
             excluded.append({
                 "test_id": test["test_id"],
                 "legacy_job_id": test.get("legacy", {}).get("job_id"),
                 "lifecycle_role": lifecycle_role,
-                "reason": "disabled_by_legacy_source",
+                "reason": "disabled_by_dwm_definition",
             })
             continue
         selected.append(test)

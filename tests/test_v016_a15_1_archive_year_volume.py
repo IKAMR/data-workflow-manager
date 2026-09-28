@@ -99,7 +99,7 @@ class V016A151ArchiveYearVolumeTests(unittest.TestCase):
         main = (ROOT / "main.py").read_text(encoding="utf-8")
         version = (ROOT / "version.py").read_text(encoding="utf-8")
         self.assertIn("from gui.persistent_app_a15_1 import run_gui", main)
-        self.assertIn('VERSION = "0.1.6-a15"', version)
+        self.assertRegex(version, r'VERSION = \"0\.1\.6-a(?:1[5-9]|[2-9][0-9]+)\"')
 
 
 if __name__ == "__main__":

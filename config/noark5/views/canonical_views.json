@@ -317,8 +317,8 @@
         {
           "id": "folder_created_per_year",
           "label": "Mapper/saker per år",
-          "source_test": "kdrs.c09_r4",
-          "source_path": "per_year",
+          "source_test": "kdrs.c09",
+          "source_path": "created_per_year",
           "value_type": "distribution",
           "presentation_order": 10,
           "visible_for": [
@@ -329,9 +329,9 @@
         },
         {
           "id": "journal_date_per_year",
-          "label": "Registreringer/journalposter per år",
-          "source_test": "kdrs.c16_01_r7",
-          "source_path": "per_year",
+          "label": "Journalposter per år",
+          "source_test": "kdrs.c16",
+          "source_path": "journalpost_journal_date_per_year",
           "value_type": "distribution",
           "presentation_order": 20,
           "visible_for": [
@@ -357,7 +357,7 @@
           "id": "document_object_created_per_year",
           "label": "Dokumentobjekter per år",
           "source_test": "kdrs.c24",
-          "source_path": "document_object_parent_created_counts",
+          "source_path": "document_object_parent_created_per_year",
           "value_type": "distribution",
           "presentation_order": 40,
           "visible_for": [
