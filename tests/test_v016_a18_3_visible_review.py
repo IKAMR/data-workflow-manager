@@ -17,17 +17,16 @@ class A183VisibleReviewTests(unittest.TestCase):
         self.assertIn('text="Kommentar…"', source)
 
     def test_runtime_and_version_wiring(self):
-        main = (ROOT / "main.py").read_text(encoding="utf-8")
         version = (ROOT / "version.py").read_text(encoding="utf-8")
 
-        # a18.3 remains part of the runtime chain, while newer a18.x
-        # increments are valid successors.
+        # a18.3 remains part of the runtime chain. The consolidated a18 milestone
+        # and all later alpha milestones are valid successors.
         chain = (ROOT / "gui" / "persistent_app_a18_4.py").read_text(encoding="utf-8")
         self.assertIn("from .persistent_app_a18_3 import WorkflowApp as A18_3WorkflowApp", chain)
 
-        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a18\.(\d+)"', version)
+        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a(\d+)(?:\.(\d+))?"', version)
         self.assertIsNotNone(match)
-        self.assertGreaterEqual(int(match.group(1)), 3)
+        self.assertGreaterEqual(int(match.group(1)), 18)
 
 
 if __name__ == "__main__":

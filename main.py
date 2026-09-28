@@ -90,5 +90,15 @@ from gui.persistent_app_a18_7 import run_gui
 from gui.persistent_app_a18_8 import run_gui
 from gui.persistent_app_a18_9 import run_gui
 
+from gui.persistent_app_a19_1 import run_gui
+
+from gui.persistent_app_a19_2 import run_gui
+
+from gui.persistent_app_a19_3 import run_gui
+
+from gui.persistent_app_a19_4 import run_gui
+
+from gui.persistent_app_a19_5 import run_gui
+
 if __name__ == "__main__":
     run_gui()

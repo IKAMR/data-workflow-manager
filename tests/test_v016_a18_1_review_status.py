@@ -48,11 +48,10 @@ class A181ReviewStatusTests(unittest.TestCase):
                 )
 
     def test_runtime_and_version_wiring(self):
-        main = (ROOT / "main.py").read_text(encoding="utf-8")
         version = (ROOT / "version.py").read_text(encoding="utf-8")
         chain = (ROOT / "gui" / "persistent_app_a18_2.py").read_text(encoding="utf-8")
         self.assertIn("from .persistent_app_a18_1 import WorkflowApp as A18_1WorkflowApp", chain)
-        self.assertRegex(version, r'VERSION = \"0\.1\.6-a(?:18(?:\.[1-9][0-9]*)?|1[9-9]|[2-9][0-9]+)\"')
+        self.assertRegex(version, r'VERSION = "0\.1\.6-a(?:18(?:\.\d+)?|(?:1[9-9]|[2-9][0-9]+)(?:\.\d+)?)"')
 
     def test_gui_exposes_period_review(self):
         source = (ROOT / "gui" / "depot_result_center_a18_1.py").read_text(encoding="utf-8")
