@@ -1,0 +1,185 @@
+{
+  "knowledge_format_version": 1,
+  "knowledge_id": "noark5-depot-presentation-and-assessment",
+  "purpose": "Machine-readable starting point for depot presentation, archive-part detail, assessment candidates and advisory AI over canonical Noark 5 results.",
+  "sources": {
+    "xpath_catalog": "config/noark5/tests/xpath_catalog_2026_05_26.json",
+    "u1_u2_coverage": "config/noark5/analysis/u1_u2_coverage_2026_05_26.json",
+    "legacy_regression": "config/noark5/analysis/legacy_regression_contract.json",
+    "standard_values": "config/noark5/standards/noark5_standard_values.json",
+    "documentation": "docs/NOARK5-DEPOT-PRESENTATION-AND-ASSESSMENT.md"
+  },
+  "catalog_facts": {
+    "defined_tests": 60,
+    "legacy_regression_tests": 59,
+    "supported_noark_versions": ["3.1", "4.0", "5.0"],
+    "u1_u2_raw_data_coverage": "complete_in_individual_canonical_analyses"
+  },
+  "principles": {
+    "canonical_results_are_primary": true,
+    "u1_u2_are_reference_not_presentation_template": true,
+    "views_do_not_recalculate_source_data": true,
+    "observed_values_are_preserved": true,
+    "absence_is_first_class_evidence": true,
+    "status_is_historical_evidence": true,
+    "no_automatic_status_repair": true,
+    "original_extract_is_read_only_evidence": true,
+    "assessment_is_separate_from_observation": true,
+    "ai_is_advisory_only": true
+  },
+  "surfaces": {
+    "overview": {
+      "role": "whole_extraction_orientation_and_attention",
+      "default_content": [
+        "identity",
+        "core_counts",
+        "technical_status",
+        "correspondence_profile",
+        "archive_part_health",
+        "compact_period_summary",
+        "dynamic_review_points",
+        "navigation"
+      ],
+      "avoid": [
+        "full_fact_profile",
+        "three_full_year_histograms",
+        "all_raw_test_metrics"
+      ]
+    },
+    "archive_parts": {
+      "role": "aggregated_and_per_archive_part_analysis",
+      "all_archive_parts_is_valid_default": true,
+      "scrollable_detail_profile": true,
+      "same_structure_for_selected_archive_part": true,
+      "detail_should_exceed_legacy_u1_u2_readability": true
+    }
+  },
+  "domains": [
+    {
+      "id": "folder_case",
+      "label": "Mappe / sak",
+      "color_role": "blue",
+      "source_tests": ["kdrs.c08", "kdrs.c09", "kdrs.c12", "kdrs.c13"],
+      "key_metrics": ["folder_count", "folder_type_counts", "status_counts", "created_per_year", "case_date_range", "folder_closed_date_range", "without_subfolder_or_registration", "without_specialization"]
+    },
+    {
+      "id": "registration_journalpost",
+      "label": "Registrering / journalpost",
+      "color_role": "yellow",
+      "source_tests": ["kdrs.c14", "kdrs.c15", "kdrs.c16", "kdrs.c20"],
+      "key_metrics": ["registration_count", "type_counts", "journalpost_count", "journalpost_type_counts", "journal_status_counts", "main_document_count", "non_main_document_count", "journal_date_per_year", "archived_date_range"]
+    },
+    {
+      "id": "document_chain",
+      "label": "Dokument",
+      "color_role": "purple",
+      "source_tests": ["kdrs.c19", "kdrs.c21", "kdrs.c22", "kdrs.c23", "kdrs.c24", "kdrs.c25"],
+      "key_metrics": ["registration_without_document_description", "document_description_count", "relation_type_counts", "document_type_counts", "without_object_count", "status_counts", "document_object_count", "variant_format_counts", "version_number_counts", "created_date_range"]
+    },
+    {
+      "id": "format_medium_size",
+      "label": "Format, medium og størrelse",
+      "source_tests": ["kdrs.c02", "kdrs.c24"],
+      "key_metrics": ["document_medium_counts", "format_counts", "format_details_counts", "variant_format_counts", "file_size_stats", "file_size_buckets"]
+    },
+    {
+      "id": "correspondence_parties",
+      "label": "Korrespondanseparter",
+      "source_tests": ["kdrs.f05"],
+      "key_metrics": ["correspondence_party_count", "parent_type_counts", "correspondence_party_type_counts"]
+    },
+    {
+      "id": "classification_structure",
+      "label": "Arkivstruktur og klassifikasjon",
+      "source_tests": ["kdrs.c05", "kdrs.c06", "kdrs.c07", "kdrs.c08", "kdrs.c10", "kdrs.c11", "kdrs.c11_01", "kdrs.c12", "kdrs.c13"],
+      "key_metrics": ["classification_system_count", "class_count", "level_1", "level_2", "level_3", "level_4", "empty_class_count", "class_with_subclass_and_folder", "folder_without_content"]
+    },
+    {
+      "id": "access_screening_grading",
+      "label": "Tilgang, skjerming og gradering",
+      "source_tests": ["kdrs.f08", "kdrs.f09"],
+      "key_metrics": ["screening_count", "access_restriction_counts", "screening_metadata_counts", "screening_document_counts", "grading_value_counts_v50"]
+    },
+    {
+      "id": "preservation_disposal_deletion",
+      "label": "Bevaring, kassasjon og sletting",
+      "source_tests": ["kdrs.f10", "kdrs.f11", "kdrs.f13"],
+      "key_metrics": ["disposal_decision_count", "disposal_decision_value_counts", "performed_disposal_count", "deletion_count", "deletion_type_counts"]
+    },
+    {
+      "id": "conversion",
+      "label": "Konvertering",
+      "source_tests": ["kdrs.f12"],
+      "key_metrics": ["conversion_count", "converted_from_format_counts", "converted_to_format_counts", "conversion_tool_counts"]
+    },
+    {
+      "id": "part_note_reference_precedent",
+      "label": "Parter, merknader, kryssreferanser og presedens",
+      "source_tests": ["kdrs.f01", "kdrs.f02", "kdrs.f03", "kdrs.f04"],
+      "key_metrics": ["sakspart_count_v31_v40", "part_count_v50", "note_count", "cross_reference_children", "precedent_count"]
+    },
+    {
+      "id": "writeoff_document_flow",
+      "label": "Avskrivning og dokumentflyt",
+      "source_tests": ["kdrs.f06", "kdrs.f07"],
+      "key_metrics": ["writeoff_method_count", "method_counts", "journalpost_with_method", "reference_to_other_journalpost", "document_flow_count"]
+    },
+    {
+      "id": "journals_change_log",
+      "label": "Journalfiler og endringslogg",
+      "source_tests": ["kdrs.h01", "kdrs.h02", "kdrs.h03", "kdrs.h04", "kdrs.h05", "kdrs.h06", "kdrs.h07", "kdrs.i01", "kdrs.i02", "kdrs.j01"],
+      "scope": "primarily_whole_extraction",
+      "key_metrics": ["journal_registration_count", "journal_date_per_year", "journal_date_range", "screened_journal_registration_count", "change_count", "change_date_range", "changes_per_year"]
+    },
+    {
+      "id": "business_specific_metadata",
+      "label": "Virksomhetsspesifikke metadata",
+      "source_tests": ["kdrs.l02"],
+      "key_metrics": ["count", "mappe", "sakspart", "part", "basisregistrering", "registrering", "dokumentbeskrivelse"]
+    }
+  ],
+  "status_fields": [
+    {"id": "archive_status", "value_set": "M050_arkivstatus", "source_test": "kdrs.c01"},
+    {"id": "archive_part_status", "value_set": "M051_arkivdelstatus", "source_test": "kdrs.c02"},
+    {"id": "case_status", "value_set": "M052_saksstatus", "source_test": "kdrs.c13"},
+    {"id": "journal_status", "value_set": "M053_journalstatus", "source_test": "kdrs.c15"},
+    {"id": "document_status", "value_set": "M054_dokumentstatus", "source_test": "kdrs.c23"}
+  ],
+  "absence_states": [
+    "source_missing",
+    "element_count_zero",
+    "field_missing_on_observed_element",
+    "empty_value",
+    "not_applicable_for_version_or_scope",
+    "result_not_materialized_or_not_run",
+    "result_present_but_not_in_current_presentation"
+  ],
+  "dynamic_overview_candidates": [
+    "outlying_years",
+    "document_descriptions_without_objects",
+    "registrations_without_document_descriptions",
+    "high_unfinished_status_share",
+    "disposal_decisions_present",
+    "performed_disposal_present",
+    "deletions_present",
+    "business_specific_metadata_present",
+    "significant_screening_or_grading",
+    "cross_file_date_or_count_deviation",
+    "missing_data_basis"
+  ],
+  "period_model": {
+    "dimensions": ["declared", "observed", "assessed"],
+    "assessed_start_end_markers": true,
+    "remote_outliers_remain_visible": true,
+    "outliers_are_not_automatic_errors": true
+  },
+  "ai_advisory": {
+    "candidate_provider": "Ollama/local model",
+    "purpose": "first_pass_summary_and_attention_prioritization",
+    "inputs": "materialized canonical results and explicit assessment context",
+    "may": ["summarize", "identify_absence", "highlight_unusual_distribution", "describe_status_patterns", "prioritize_review_points", "cite_result_evidence"],
+    "must_not": ["modify_source", "change_status_values", "auto_accept_or_reject_extraction", "hide_raw_observations", "replace_human_assessment"],
+    "provenance_fields": ["provider_model", "timestamp", "input_result_set", "evidence_references", "suggestion", "human_disposition"]
+  },
+  "design_reference": "docs/design-reference/noark5/07-resultatvisninger-oversikt-arkivdeler-target.png"
+}

@@ -205,3 +205,27 @@ Når en eksisterende verdi splittes i flere semantiske roller, må alle steder s
 Ved raffinering av en datamodell bør praktisk test eksplisitt kontrollere både lagring og identitets-/matchingsemantikk.
 
 **Metodikkstatus:** Til senere samlet vurdering.
+
+### MO-011 – Visuelle sprang bør utforskes med målbilde før implementering
+
+**Oppstått:** v0.1.6-a18–a20
+
+**Observasjon:**
+Små inkrementer er effektive for funksjonell utvikling, men kan gjøre GUI-et gradvis bedre uten at større muligheter i informasjonsarkitektur og visuell kommunikasjon blir oppdaget. I resultatvisningene ga eksplisitte før/etter-målbilder og designstudier et tydelig sprang i kvalitet og gjorde det mulig å diskutere retning før kode ble endret.
+
+**Mulig generell læring:**
+Utviklingsagenten bør være kreativ og proaktiv når eksisterende data åpner for en vesentlig bedre visualisering. Ved betydelige visuelle forbedringsmuligheter bør den foreslå eller lage et målbilde/mockup før implementering. Samtidig skal vesentlige endringer i struktur, informasjonsarkitektur, arbeidsflyt eller funksjonell rolle alltid avklares med brukeren før de implementeres. Eksisterende fungerende løsning skal ikke forkastes bare fordi et nytt design ser bedre ut.
+
+**Metodikkstatus:** Kandidat til senere samlet vurdering i `IKAMR/incremental-ai-development-method`.
+
+### MO-012 – Designreferanser er varig prosjektkunnskap, ikke engangsillustrasjoner
+
+**Oppstått:** v0.1.6-a18–a20
+
+**Observasjon:**
+Flere GUI-målbilder ble sentrale i senere diskusjoner om Oversikt, Arkivdeler, periodeprofil og detaljert faktaprofil. Når slike bilder bare finnes i samtalehistorikken, må retningen gjenoppdages og forklares på nytt.
+
+**Mulig generell læring:**
+Godkjente eller viktige konseptbilder bør lagres i prosjektets repository sammen med kort dokumentasjon av hensikt, status og forholdet til nyere/eldre målbilder. De skal være eksplisitt utviklingsgrunnlag, men ikke behandles som uforanderlig spesifikasjon. Nyere beslutninger kan presisere eller erstatte deler av eldre bilder uten å slette historikken.
+
+**Metodikkstatus:** Kandidat til senere samlet vurdering i `IKAMR/incremental-ai-development-method`.

@@ -132,3 +132,16 @@ Det er ønskelig å kunne dokumentere status per målbilde, for eksempel:
 
 Eventuelle bevisste avvik fra målbildene bør dokumenteres i relevant
 utviklingsnotat eller release-dokumentasjon.
+
+## Utvidede målbilder fra a18–a20
+
+Følgende målbilder viderefører de seks opprinnelige referansebildene og dokumenterer retningen som ble etablert gjennom praktisk GUI-arbeid i a18–a20:
+
+7. `noark5/07-oversikt-visuell-modernisering-a18.png` – før/etter-referanse for modernisering av Oversikt: statuskort, grafisk resultatfordeling og komprimert informasjonsstruktur. Bildet er historisk designreferanse; senere målbilder presiserer rollefordelingen mellom Oversikt og Arkivdeler.
+8. `noark5/08-arkivdeler-periodeprofil-lang-periode.png` – designstudie for tre separate årsprofiler (mappe/sak, registrering/journalpost og dokument), vurderte ytterår, uteliggende år og eksempel på langt årsspenn 1998–2021.
+9. `noark5/09-arkivdel-detaljert-faktaprofil-a20.png` – målbilde for valgt arkivdel: tydelig identitet/status, periodeprofil og en stor scrollbar detaljert faktaprofil med status- og fordelingsdata.
+10. `noark5/10-oversikt-og-arkivdeler-rollefordeling.png` – gjeldende hovedreferanse for rollefordelingen: Oversikt er beslutnings-/orienteringsbildet for hele uttrekket; Arkivdeler er analyseflaten for totalen og enkeltarkivdeler.
+
+### Prioritet mellom målbildene
+
+Målbildene er utviklingsgrunnlag, ikke uforanderlige skjermspesifikasjoner. Når de overlapper, skal nyere målbilders informasjonsarkitektur normalt veie tyngst, mens gode elementer fra eldre bilder beholdes når de fortsatt passer. Vesentlige endringer i struktur eller rollefordeling skal drøftes før implementering; visuelle forbedringer som ikke endrer struktur kan foreslås proaktivt, gjerne som bilde/mockup før kodeendring.

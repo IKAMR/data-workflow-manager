@@ -1,7 +1,15 @@
 from pathlib import Path
+import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _assert_version_at_least(testcase, version_text, alpha, sub=0):
+    match = re.search(r'VERSION = "0\.1\.6-a(\d+)(?:\.(\d+))?"', version_text)
+    testcase.assertIsNotNone(match)
+    actual = (int(match.group(1)), int(match.group(2) or 0))
+    testcase.assertGreaterEqual(actual, (alpha, sub))
 
 
 class A193OpenOverlayTests(unittest.TestCase):
@@ -9,7 +17,7 @@ class A193OpenOverlayTests(unittest.TestCase):
         main = (ROOT / "main.py").read_text(encoding="utf-8")
         version = (ROOT / "version.py").read_text(encoding="utf-8")
         self.assertIn("from gui.persistent_app_a19_3 import run_gui", main)
-        self.assertRegex(version, r'VERSION = \"0\.1\.6-a19(?:\.(?:[3-9]|[1-9][0-9]+))?\"')
+        _assert_version_at_least(self, version, 19, 3)
 
     def test_main_window_has_real_indeterminate_loading_overlay(self):
         source = (ROOT / "gui/persistent_app_a19_3.py").read_text(encoding="utf-8")

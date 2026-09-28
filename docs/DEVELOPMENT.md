@@ -11,10 +11,11 @@ Følgende nummererte liste er en arbeidsrekkefølge, ikke kapittelnummerering i 
 5. Les `docs/DEFINITIONS.md` ved endringer som berører begreper og lagdeling.
 6. Les `docs/TESTING.md` ved endringer som krever ny eller endret validering.
 7. Les `docs/CODE-MAP.md` for å finne riktig lag og dataflyt.
-8. Les `docs/RUNTIME-ENVIRONMENTS.md` ved endringer i installasjon, oppstart, filstier, brukerdata, eksterne programmer, packaging, server/worker eller plattformstøtte.
-9. Les `docs/SHARED-DEVELOPMENT.md` og `docs/SHARED-ROADMAP.md` før generiske workflow-/depotendringer som også kan være relevante for SIARD Workflow Manager.
-10. Les `docs/METHOD-OBSERVATIONS.md` ved start og avslutning av et utviklingsincrement. Nye erfaringer som kan ha generell verdi for utviklingsmetodikken registreres der uten at metodikk-repositoriet automatisk endres.
-11. Behandle dokumentert arkitektur som målbildet. Kontroller samtidig den faktiske koden før endringer gjøres.
+8. Les `docs/NOARK5-DEPOT-PRESENTATION-AND-ASSESSMENT.md` ved endringer i Noark 5 Resultatvisninger, Oversikt, Arkivdeler, depotvurdering, vurderingspunkter eller KI-assistert førstegjennomgang.
+9. Les `docs/RUNTIME-ENVIRONMENTS.md` ved endringer i installasjon, oppstart, filstier, brukerdata, eksterne programmer, packaging, server/worker eller plattformstøtte.
+10. Les `docs/SHARED-DEVELOPMENT.md` og `docs/SHARED-ROADMAP.md` før generiske workflow-/depotendringer som også kan være relevante for SIARD Workflow Manager.
+11. Les `docs/METHOD-OBSERVATIONS.md` ved start og avslutning av et utviklingsincrement. Nye erfaringer som kan ha generell verdi for utviklingsmetodikken registreres der uten at metodikk-repositoriet automatisk endres.
+12. Behandle dokumentert arkitektur som målbildet. Kontroller samtidig den faktiske koden før endringer gjøres.
 
 ## AI-assistert samarbeids- og leveransekontrakt
 
@@ -22,6 +23,8 @@ Denne kontrakten er obligatorisk ved AI-assistert utvikling av prosjektet og ska
 
 1. **GitHub er delt baseline.** AI leser gjeldende offentlig repository-tilstand og relevante dokumenter før arbeid starter. Etter at brukeren har commitet og pushet, er den pushede tilstanden ny autoritativ baseline.
 2. **Dialog før endring.** Bruker og AI avklarer behov, scope og ønsket adferd før et nytt increment implementeres. Nye tanker skal ikke automatisk utvide scope.
+   - **Vesentlige strukturendringer skal alltid diskuteres før implementasjon.** AI skal ikke flytte, erstatte eller omorganisere etablerte hovedflater, arbeidsflyter eller informasjonsstruktur uten at retningen først er avklart med brukeren.
+   - **Visuell kreativitet er ønsket innen avklart struktur.** Når AI ser en reell mulighet for en betydelig visuell forbedring, skal forbedringen foreslås proaktivt. Når et bilde/målbilde vil gjøre valget vesentlig enklere å vurdere, skal AI foreslå å lage et slikt bilde før implementasjon. Små, reversible presentasjonsforbedringer kan fortsatt gjøres inkrementelt innen avtalt scope.
 3. **AI endrer ikke Git-historikken.** AI committer eller pusher ikke med mindre brukeren uttrykkelig ber om det. Brukeren eier lokal working tree, commit og push.
 4. **Kun delta siden forrige leveranse.** Hver ny ZIP eller fillesleveranse skal normalt inneholde bare filer som er nye eller endret **siden forrige ZIP/leveranse i samme increment**. En fix etter en tidligere leveranse skal derfor bare inneholde fix-deltaet, ikke hele det kumulative incrementet, med mindre brukeren uttrykkelig ber om en komplett/kumulativ pakke.
 5. **Repository-relative stier.** ZIP-delta skal bevare repository-relative stier og være klare til å kopieres over working tree.

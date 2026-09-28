@@ -17,7 +17,12 @@
     "observations_separate_from_assessment": true,
     "generic_observed_values_preserved": true,
     "version_specific_rules_must_be_explicit": true,
-    "do_not_assume_rules_across_versions": true
+    "do_not_assume_rules_across_versions": true,
+    "original_extract_is_read_only_evidence": true,
+    "status_is_historical_evidence": true,
+    "absence_is_first_class_evidence": true,
+    "no_automatic_status_repair": true,
+    "ai_assessment_is_advisory_only": true
   },
   "sources": {
     "registry": "config/noark5/standards/sources.json"
@@ -61,7 +66,8 @@
       "config/noark5/analysis/u1_total.json",
       "config/noark5/analysis/u1_u2_core_arkiv_arkivdel.json",
       "config/noark5/analysis/u1_u2_coverage_2026_05_26.json",
-      "config/noark5/analysis/legacy_regression_contract.json"
+      "config/noark5/analysis/legacy_regression_contract.json",
+      "config/noark5/analysis/depot_presentation_knowledge.json"
     ],
     "standards": [
       "config/noark5/standards/noark5_standard_values.json",
@@ -100,6 +106,7 @@
   "documentation": [
     "docs/NOARK5-PROFILE-ARCHITECTURE.md",
     "docs/NOARK5-ANALYSIS-MODEL.md",
+    "docs/NOARK5-DEPOT-PRESENTATION-AND-ASSESSMENT.md",
     "docs/NOARK5-STANDARD-VALUES.md",
     "docs/NOARK5-TERMINOLOGY-NOTE.md",
     "docs/NOARK5-U1-U2-COVERAGE-MAPPING.md",
@@ -130,7 +137,8 @@
   "future": {
     "view_model": "config/noark5/views/",
     "external_creator_control": "separate comparison layer; not XPath test logic",
-    "report_generation": "a26 consumes canonical views/compositions; reports must not recalculate source data"
+    "report_generation": "a26 consumes canonical views/compositions; reports must not recalculate source data",
+    "advisory_local_ai": "consume materialized canonical results; never mutate source or replace human depot assessment"
   },
   "specification_knowledge": {
     "coverage": "config/noark5/standards/specification_coverage.json",
@@ -146,7 +154,9 @@
   },
   "presentation": {
     "profiles": "config/noark5/views/presentation_profiles.json",
-    "rule": "Presentation profiles consume composed views and do not change canonical calculations."
+    "knowledge": "config/noark5/analysis/depot_presentation_knowledge.json",
+    "design_reference": "docs/design-reference/noark5/07-resultatvisninger-oversikt-arkivdeler-target.png",
+    "rule": "Presentation profiles consume composed views and do not change canonical calculations. Depot presentation preserves observed values and separates observation from assessment."
   },
   "presentation_profiles": "config/noark5/views/presentation_profiles.json"
 }

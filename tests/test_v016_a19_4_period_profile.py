@@ -1,9 +1,17 @@
 from pathlib import Path
+import re
 import unittest
 
 from gui.depot_result_center_a19_4 import _period_profile_layout
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _assert_version_at_least(testcase, version_text, alpha, sub=0):
+    match = re.search(r'VERSION = "0\.1\.6-a(\d+)(?:\.(\d+))?"', version_text)
+    testcase.assertIsNotNone(match)
+    actual = (int(match.group(1)), int(match.group(2) or 0))
+    testcase.assertGreaterEqual(actual, (alpha, sub))
 
 
 class A194PeriodProfileTests(unittest.TestCase):
@@ -30,7 +38,7 @@ class A194PeriodProfileTests(unittest.TestCase):
         source = (ROOT / "gui/persistent_app_a19_4.py").read_text(encoding="utf-8")
         self.assertIn("from gui.persistent_app_a19_3 import run_gui", main)
         self.assertIn("from gui.persistent_app_a19_4 import run_gui", main)
-        self.assertRegex(version, r'VERSION = "0\.1\.6-a19(?:\.\d+)?"')
+        _assert_version_at_least(self, version, 19, 4)
         self.assertIn("A19_3WorkflowApp", source)
         self.assertIn("DepotResultCenterDialogA19_4", source)
 

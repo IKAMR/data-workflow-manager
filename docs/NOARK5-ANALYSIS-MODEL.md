@@ -291,3 +291,95 @@ I tillegg er workflow-tooltipen gjort eksplisitt transient:
 - har en kort auto-hide som sikkerhetsnett dersom knappen flyttes eller erstattes mens musepekeren står over den.
 
 Dette retter GUI-feilen der blant annet `Flytt operasjonen ned` kunne bli liggende som et løst overlay over kjøreloggen.
+
+## a20 – analysegrunnlag for resultatvisninger og depotvurdering
+
+Denne delen samler faglige føringer som er etablert gjennom gjennomgang av Noark 5-analyser, historiske XPath/U1/U2-resultater og praktisk arbeid med resultatvisningene. Den skal være startkunnskap ved videre utvikling, slik at samme grunnanalyse ikke må gjøres på nytt for hver GUI-endring.
+
+### Informasjonshierarki
+
+Resultatvisningene skal skille mellom rask orientering og detaljert analyse:
+
+- **Oversikt** gjelder hele uttrekket og skal raskt vise identitet/kontekst, nøkkeltall, samlet kontrollstatus, korrespondanseprofil, arkivdelstatus, periodebilde, sentrale vurderingspunkter og tydelige innganger til videre arbeid.
+- **Arkivdeler – Alle arkivdeler** er en aggregert analyseflate. Den kan vise mer detaljerte fordelinger og tre separate årsprofiler for mappe/sak, registrering/journalpost og dokument, samt full faktaprofil.
+- **Arkivdeler – valgt arkivdel** bruker samme visuelle og analytiske modell, men avgrenser alle relevante data til én arkivdel.
+- **Per år, Kontroller og Vurderingspunkter** er drill-down og skal ikke erstattes av sammendraget.
+
+Oversikt og «Alle arkivdeler» skal derfor ikke være kopier. Oversikt svarer primært på «hva er dette uttrekket, hvordan ser det ut, og hva krever oppmerksomhet?». Arkivdeler svarer på «hvordan er innholdet faktisk fordelt, totalt og per arkivdel, og hvilke detaljer forklarer bildet?».
+
+### Kandidater som skal løftes frem
+
+Følgende datapunkter har høy informasjonsverdi og bør være direkte tilgjengelige i sammendrag/faktaprofil når datagrunnlaget finnes:
+
+- arkiv og arkivdeler, med arkiv bare fremhevet når flere arkiv forekommer eller når det ellers er analytisk relevant
+- mapper totalt, saker og andre mappetyper
+- registreringer totalt, journalposter og andre registreringstyper
+- journalposttype/korrespondanseprofil: inngående, utgående, notat og andre/uklassifiserte
+- dokumentbeskrivelser og dokumentobjekter, med forholdet mellom dem
+- hoveddokument/vedlegg og andre dokumenttyper når tilgjengelig
+- filformat og medium
+- skjerming
+- kassasjon og kassasjonsvedtak
+- sletting/utført kassasjon der datagrunnlaget finnes
+- korrespondanseparter
+- mappetilknytninger og arkivstruktur
+- periodeinformasjon og observerte ytterår
+- statusfordelinger for relevante Noark-elementer
+- manglende eller ikke representerte elementer/felt som er relevante for forventet uttrekk.
+
+Den nederste faktaprofilen i Arkivdeler kan være scrollbar og omfattende. Det er ønskelig at brukeren kan gå gjennom hele omfanget uten at detaljene forstyrrer den raske orienteringen øverst.
+
+### Status er faglig evidens – ikke et krav om «perfekt» uttrekk
+
+Status på mapper/saker, registreringer/journalposter og dokumentrelaterte elementer skal analyseres som faktisk innhold. Eksempler er under arbeid, ferdig, journalført, avsluttet, utgår og andre statusverdier som finnes i aktuell Noark-versjon/datamodell.
+
+DWM skal ikke bygge på en forutsetning om at et historisk uttrekk må fremstå perfekt ved at kildedata før uttrekk manipuleres til «riktig» status. Et uferdig eller feilført element i produksjonssystemet kan være historisk sant og dermed viktig bevaringsevidens. Depotanalysen skal derfor synliggjøre statusfordeling, uvanlige kombinasjoner og mulige avvik uten å forutsette at sannheten burde vært omskrevet før uttrekket ble produsert.
+
+Dette gjelder valg som gjøres av arkivskaper, systemleverandør eller konsulent **før** uttrekket skapes, pakkes og leveres til depot. DWM analyserer det mottatte uttrekket; programmet skal ikke ukritisk tolke et «glansbilde» som høyere kvalitet enn et uttrekk som troverdig bevarer uferdige eller problematiske historiske forhold.
+
+### Fravær er også informasjon
+
+Analysen skal ikke bare telle hva som finnes. Den skal også gjøre relevant fravær synlig. «0» kan bety flere ting og må tolkes i kontekst: elementtypen kan være legitimt ubrukt, datagrunnlaget kan mangle, uttrekket kan være mangelfullt, eller verdien kan være forventet ut fra system-/arkivkontekst men ikke forekomme.
+
+Fremtidig analyse bør derfor kunne skille mellom minst:
+
+- observert og telt
+- observert med verdi 0
+- ikke tilgjengelig i datagrunnlaget
+- ikke relevant for dette uttrekket
+- forventet, men ikke funnet
+- krever menneskelig vurdering.
+
+Dette er særlig viktig når resultatene senere brukes av KI-assistert analyse.
+
+### Periodeprofil og vurderte ytterår
+
+Periodeprofilen skal vise observerte årsfordelinger separat for mappe/sak, registrering/journalpost og dokument. Vurdert start- og sluttår skal være synlige markører knyttet til uttrekkets/arkivdelens faglige fasit og flytte seg når vurderte ytterår endres.
+
+Tekniske eller migreringsskapte år utenfor den vurderte perioden skal ikke skjules. De skal vises som uteliggende år, eksempelvis en konsentrasjon i 2099, og periodens visuelle brudd skal gjøre det tydelig at verdien ligger utenfor hovedforløpet. Tilsvarende kan en konsentrasjon i et teknisk avslutningsår (f.eks. 2020/2021) være analytisk interessant selv om vurdert faglig sluttår er 2019.
+
+Profilen skal støtte både korte og lange tidsrom og skal skalere med vindu/skriftstørrelse. «Per år» beholdes som detaljvisning selv om sammendraget får gode grafer.
+
+### Analyse fremfor bare validering
+
+Målet er ikke bare å avgjøre pass/fail mot en spesifikasjon. Resultatene skal hjelpe depotbrukeren å forstå materialet: mengde, struktur, fordeling, hull, uvanlige verdier, migreringsspor, status, periodisering og forhold som bør vurderes før rapport/aksept.
+
+Automatiske funn skal derfor formuleres som evidens og vurderingsgrunnlag. De skal ikke automatisk bli påstand om feil, manipulasjon eller krav om nytt uttrekk.
+
+### Lokal KI / Ollama som planlagt analysetillegg
+
+En lokal KI-tjeneste, eksempelvis Ollama etter samme overordnede prinsipp som i SIARD Workflow Manager, er en aktuell fremtidig komponent for førstehåndsanalyse av allerede materialiserte resultater. KI skal ikke erstatte deterministiske analyser eller være nødvendig for å produsere kanoniske resultater.
+
+Aktuelle oppgaver er å:
+
+- oppsummere omfang og særtrekk
+- peke på uvanlige fordelinger, perioder og statuser
+- forklare mulig betydning av manglende datapunkter
+- foreslå hvilke forhold brukeren bør undersøke nærmere
+- sammenholde flere evidenskilder uten å endre råresultatene.
+
+KI-resultat skal være et eget vurderingslag med sporbarhet til datagrunnlaget og tydelig skilles fra deterministiske kontroller og menneskets endelige depotvurdering. Begrensede lokale ressurser skal være en normal driftsforutsetning.
+
+### Prinsipp for videre utvidelse
+
+Når nye datapunkter vurderes for GUI-et, skal vi først undersøke om de allerede finnes som individuelle/kanoniske analyser. Ny presentasjon skal primært gjenbruke eksisterende resultater. Dersom nødvendig informasjon bare finnes i historiske XPath/U1/U2-resultater, skal den så langt mulig materialiseres som et generelt, strukturert resultat før den bygges inn i viewet.
