@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "extraction_types": [
+    {
+      "id": "noark5",
+      "label": "Noark 5",
+      "profile_id": "noark5",
+      "candidate_kind": "directory",
+      "case_sensitive": false,
+      "match": {
+        "required_files_all": [
+          "arkivstruktur.xml"
+        ],
+        "required_directories_any": [
+          "dokument",
+          "dokumenter"
+        ]
+      },
+      "prune_directories": [
+        "dokument",
+        "dokumenter"
+      ],
+      "list_reader": "robocopy_noark5",
+      "job_name": "parent_name",
+      "source_root": {
+        "strategy": "ancestor_before_sequence",
+        "sequence": [
+          "content",
+          "sip",
+          "content"
+        ],
+        "fallback": "parent"
+      }
+    },
+    {
+      "id": "siard",
+      "label": "SIARD",
+      "profile_id": "siard",
+      "candidate_kind": "file",
+      "case_sensitive": false,
+      "match": {
+        "extensions": [
+          ".siard"
+        ]
+      },
+      "prune_directories": [],
+      "list_reader": "path_lines",
+      "job_name": "stem",
+      "source_root": {
+        "strategy": "parent"
+      }
+    }
+  ]
+}

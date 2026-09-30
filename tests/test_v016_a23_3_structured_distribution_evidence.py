@@ -21,9 +21,11 @@ class A233StructuredDistributionEvidenceTests(unittest.TestCase):
 
     def test_version_is_a233(self):
         source = (ROOT / "version.py").read_text(encoding="utf-8")
-        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a23(?:\.(\d+))?"', source)
+        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a(\d+)(?:\.(\d+))?"', source)
         self.assertIsNotNone(match)
-        self.assertTrue(match.group(1) is None or int(match.group(1)) >= 3)
+        alpha = int(match.group(1))
+        increment = int(match.group(2) or 0)
+        self.assertTrue(alpha > 23 or (alpha == 23 and increment >= 3))
 
     def test_three_distribution_controls_have_structured_visual_evidence(self):
         source = CENTER.read_text(encoding="utf-8")

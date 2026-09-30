@@ -21,9 +21,11 @@ class A237DocumentDetailEvidenceTests(unittest.TestCase):
 
     def test_version_is_a237_or_newer(self):
         source = (ROOT / "version.py").read_text(encoding="utf-8")
-        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a23(?:\.(\d+))?"', source)
+        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a(\d+)(?:\.(\d+))?"', source)
         self.assertIsNotNone(match)
-        self.assertTrue(match.group(1) is None or int(match.group(1)) >= 7)
+        alpha = int(match.group(1))
+        increment = int(match.group(2) or 0)
+        self.assertTrue(alpha > 23 or (alpha == 23 and increment >= 7))
 
     def test_four_document_controls_have_structured_distribution_evidence(self):
         source = CENTER.read_text(encoding="utf-8")

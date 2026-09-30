@@ -13,7 +13,11 @@ class A235MoreStructuredEvidenceTests(unittest.TestCase):
 
     def test_version(self):
         source = (ROOT / "version.py").read_text(encoding="utf-8")
-        self.assertRegex(source, r'VERSION\s*=\s*"0\.1\.6-a23(?:\.\d+)?"')
+        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a(\d+)(?:\.(\d+))?"', source)
+        self.assertIsNotNone(match)
+        alpha = int(match.group(1))
+        increment = int(match.group(2) or 0)
+        self.assertTrue(alpha > 23 or (alpha == 23 and increment >= 0))
 
     def test_journalstatus_has_structured_evidence(self):
         source = CENTER.read_text(encoding="utf-8")

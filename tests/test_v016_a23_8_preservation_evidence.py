@@ -21,9 +21,11 @@ class A238PreservationEvidenceTests(unittest.TestCase):
 
     def test_version_is_a238_or_newer(self):
         source = (ROOT / "version.py").read_text(encoding="utf-8")
-        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a23(?:\.(\d+))?"', source)
+        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a(\d+)(?:\.(\d+))?"', source)
         self.assertIsNotNone(match)
-        self.assertTrue(match.group(1) is None or int(match.group(1)) >= 8)
+        alpha = int(match.group(1))
+        increment = int(match.group(2) or 0)
+        self.assertTrue(alpha > 23 or (alpha == 23 and increment >= 8))
 
     def test_four_preservation_controls_have_structured_evidence(self):
         source = CENTER.read_text(encoding="utf-8")
