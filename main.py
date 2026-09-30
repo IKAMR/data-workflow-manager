@@ -121,6 +121,20 @@ from gui.persistent_app_a21_17 import run_gui
 from gui.persistent_app_a22_1 import run_gui
 from gui.persistent_app_a22_2 import run_gui
 from gui.persistent_app_a22_3 import run_gui
+from gui.persistent_app_a23_1 import run_gui
+from gui.persistent_app_a23_2 import run_gui
+from gui.persistent_app_a23_4 import run_gui
+from gui.persistent_app_a23_5 import run_gui
+from gui.persistent_app_a23_6 import run_gui
+from gui.persistent_app_a23_7 import run_gui
+from gui.persistent_app_a23_8 import run_gui
+from gui.persistent_app_a23_9 import run_gui
+from gui.persistent_app_a23_10 import run_gui
+from gui.persistent_app_a23_11 import run_gui
+from gui.persistent_app_a23_12 import run_gui
+from gui.persistent_app_a23_13 import run_gui
+from gui.persistent_app_a23_14 import run_gui
+from gui.persistent_app_a23_15 import run_gui
 
 if __name__ == "__main__":
     run_gui()

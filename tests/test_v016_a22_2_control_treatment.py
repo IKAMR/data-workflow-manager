@@ -13,10 +13,9 @@ class A222ControlTreatmentTests(unittest.TestCase):
 
     def test_version(self):
         text = (ROOT / "version.py").read_text(encoding="utf-8")
-        self.assertRegex(
-            text,
-            r'VERSION\s*=\s*"0\.1\.6-a22(?:\.(?:[2-9]|[1-9][0-9]+)(?:\.[0-9]+)?)?"'
-        )
+        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a(\d+)(?:\.\d+)*"', text)
+        self.assertIsNotNone(match)
+        self.assertGreaterEqual(int(match.group(1)), 22)
 
     def test_control_treatment_is_separate_sidecar(self):
         source = CENTER.read_text(encoding="utf-8")
