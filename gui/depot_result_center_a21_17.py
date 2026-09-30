@@ -276,16 +276,21 @@ class DepotResultCenterDialogA21_17(DepotResultCenterDialogA21_15):
             render()
 
         for col, (key, title) in enumerate(columns):
-            label = ctk.CTkLabel(
+            # Use actual header buttons rather than click-bound labels.  This restores
+            # reliable sorting for the right-most Antall column on Windows while
+            # preserving the compact visual style.
+            label = ctk.CTkButton(
                 headers,
                 text=title,
+                command=lambda k=key: set_sort(k),
                 anchor="e" if key == "count" else "w",
+                height=26,
+                fg_color="transparent",
+                hover_color=theme.CARD_BORDER,
                 text_color=theme.TEXT_MAIN,
                 font=theme.font(theme.SMALL_SIZE, weight="bold"),
-                cursor="hand2",
             )
-            label.grid(row=0, column=col, sticky="ew", padx=(6, 6), pady=(0, 4))
-            label.bind("<Button-1>", lambda event, k=key: set_sort(k), add="+")
+            label.grid(row=0, column=col, sticky="ew", padx=(2, 2), pady=(0, 4))
             header_labels[key] = label
 
         search_var.trace_add("write", render)

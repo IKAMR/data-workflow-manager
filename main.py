@@ -118,5 +118,9 @@ from gui.persistent_app_a21_14 import run_gui
 from gui.persistent_app_a21_15 import run_gui
 from gui.persistent_app_a21_16 import run_gui
 from gui.persistent_app_a21_17 import run_gui
+from gui.persistent_app_a22_1 import run_gui
+from gui.persistent_app_a22_2 import run_gui
+from gui.persistent_app_a22_3 import run_gui
+
 if __name__ == "__main__":
     run_gui()
