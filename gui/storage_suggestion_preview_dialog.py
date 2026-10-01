@@ -100,12 +100,22 @@ class StorageSuggestionPreviewDialog(ctk.CTkToplevel):
             selectable = bool(preview.fillable)
             var = ctk.BooleanVar(value=selectable)
             self._vars.append((job, var))
-            check = ctk.CTkCheckBox(
-                scroll, text="", variable=var, width=28,
-                state="normal" if selectable else "disabled",
-                command=self._update_count,
-            )
-            check.grid(row=row_no, column=0, padx=(10, 8), pady=10, sticky="nw")
+
+            if selectable:
+                marker = ctk.CTkCheckBox(
+                    scroll, text="", variable=var, width=28,
+                    command=self._update_count,
+                )
+            else:
+                marker = ctk.CTkLabel(
+                    scroll,
+                    text="ⓘ",
+                    width=28,
+                    font=theme.font(theme.SMALL_SIZE, "bold"),
+                    text_color=theme.TEXT_MUTED,
+                    anchor="center",
+                )
+            marker.grid(row=row_no, column=0, padx=(10, 8), pady=10, sticky="nw")
 
             if preview.fillable:
                 detail = " | ".join(

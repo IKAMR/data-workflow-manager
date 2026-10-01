@@ -83,9 +83,11 @@ class A254ArkadeSelectedImportTests(unittest.TestCase):
         self.assertIn("import_selected_arkade5_results", app)
         self.assertIn("from gui.persistent_app_a25_4 import run_gui", main)
         import re
-        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a25(?:\.(\d+))?"', version)
+        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a(\d+)(?:\.(\d+))?"', version)
         self.assertIsNotNone(match)
-        self.assertTrue(match.group(1) is None or int(match.group(1)) >= 4)
+        alpha = int(match.group(1))
+        increment = int(match.group(2) or 0)
+        self.assertTrue(alpha > 25 or (alpha == 25 and increment >= 4))
 
 
 if __name__ == "__main__":

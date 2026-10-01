@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -21,7 +22,11 @@ class A256ImportedStatusIconTests(unittest.TestCase):
         main = (ROOT / 'main.py').read_text(encoding='utf-8')
         version = (ROOT / 'version.py').read_text(encoding='utf-8')
         self.assertIn('from gui.persistent_app_a25_6 import run_gui', main)
-        self.assertRegex(version, r'VERSION\s*=\s*"0\.1\.6-a25(?:\.(?:6|[7-9]|[1-9]\d+))?"')
+        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a(\d+)(?:\.(\d+))?"', version)
+        self.assertIsNotNone(match)
+        alpha = int(match.group(1))
+        increment = int(match.group(2) or 0)
+        self.assertTrue(alpha > 25 or (alpha == 25 and increment >= 6))
 
 if __name__ == '__main__':
     unittest.main()

@@ -18,11 +18,13 @@ class JobBatchActionDialog(ctk.CTkToplevel):
         *,
         on_fill_storage_suggestions: Callable[[tuple[Job, ...]], None],
         on_discover_arkade5_results: Callable[[tuple[Job, ...]], None] | None = None,
+        on_run_arkade5: Callable[[tuple[Job, ...]], None] | None = None,
     ) -> None:
         super().__init__(master)
         self._jobs = tuple(jobs)
         self._on_fill_storage_suggestions = on_fill_storage_suggestions
         self._on_discover_arkade5_results = on_discover_arkade5_results
+        self._on_run_arkade5 = on_run_arkade5
         self._vars: list[tuple[Job, ctk.BooleanVar]] = []
 
         self.title("Handlinger for jobber")
@@ -104,7 +106,17 @@ class JobBatchActionDialog(ctk.CTkToplevel):
             hover_color=theme.BLUE,
             command=self._run_discover_arkade5_results,
         )
-        self._arkade_button.grid(row=0, column=5, sticky="e")
+        self._arkade_button.grid(row=0, column=5, padx=(0, 8), sticky="e")
+
+        self._arkade_run_button = ctk.CTkButton(
+            toolbar,
+            text="Kjør Arkade 5…",
+            width=150,
+            fg_color=theme.BLUE_DIM,
+            hover_color=theme.BLUE,
+            command=self._run_arkade5,
+        )
+        self._arkade_run_button.grid(row=0, column=6, sticky="e")
 
         self._action_status = ctk.CTkLabel(
             self,
@@ -193,6 +205,9 @@ class JobBatchActionDialog(ctk.CTkToplevel):
         self._arkade_button.configure(
             state=state if self._on_discover_arkade5_results is not None else "disabled"
         )
+        self._arkade_run_button.configure(
+            state=state if self._on_run_arkade5 is not None else "disabled"
+        )
 
     def _run_fill_storage_suggestions(self) -> None:
         selected = self._selected()
@@ -219,3 +234,9 @@ class JobBatchActionDialog(ctk.CTkToplevel):
             self._action_status.configure(text="Arkade 5-søket er ferdig.")
         finally:
             self._update_count()
+
+    def _run_arkade5(self) -> None:
+        selected = self._selected()
+        if not selected or self._on_run_arkade5 is None:
+            return
+        self._on_run_arkade5(selected)

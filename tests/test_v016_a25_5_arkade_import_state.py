@@ -94,7 +94,12 @@ class A255ArkadeImportStateTests(unittest.TestCase):
         main = Path("main.py").read_text(encoding="utf-8")
         version = Path("version.py").read_text(encoding="utf-8")
         self.assertIn("from gui.persistent_app_a25_5 import run_gui", main)
-        self.assertRegex(version, r'VERSION\s*=\s*"0\.1\.6-a25(?:\.(?:5|[6-9]|[1-9]\d+))?"')
+        import re
+        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a(\d+)(?:\.(\d+))?"', version)
+        self.assertIsNotNone(match)
+        alpha = int(match.group(1))
+        increment = int(match.group(2) or 0)
+        self.assertTrue(alpha > 25 or (alpha == 25 and increment >= 5))
 
 
 if __name__ == "__main__":

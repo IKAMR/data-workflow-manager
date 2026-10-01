@@ -5,6 +5,7 @@ import re
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
+from noark5_workflow.core.work_paths import resolve_dwm_work_root
 from typing import Callable, Iterable
 
 from app.storage_layouts import suggest_storage_roles
@@ -501,16 +502,20 @@ def classify_arkade5_discovery_import_state(
 
 def _list_arkade5_imports(work_operations: Path):
     from noark5_workflow.external_evidence.arkade5 import list_arkade5_imports
-    return list_arkade5_imports(work_operations)
+    return list_arkade5_imports(resolve_dwm_work_root(work_operations))
 
 
 def _import_arkade5_report(*args, **kwargs):
     from noark5_workflow.external_evidence.arkade5 import import_arkade5_report
+    if "work_operations" in kwargs:
+        kwargs["work_operations"] = resolve_dwm_work_root(kwargs["work_operations"])
     return import_arkade5_report(*args, **kwargs)
 
 
 def _attach_arkade5_pronom_evidence(*args, **kwargs):
     from noark5_workflow.external_evidence.arkade5_pronom import attach_arkade5_pronom_evidence
+    if "work_operations" in kwargs:
+        kwargs["work_operations"] = resolve_dwm_work_root(kwargs["work_operations"])
     return attach_arkade5_pronom_evidence(*args, **kwargs)
 
 

@@ -65,10 +65,11 @@ class A251ArkadeBatchDiscoveryTests(unittest.TestCase):
         main = Path("main.py").read_text(encoding="utf-8")
         version = Path("version.py").read_text(encoding="utf-8")
         self.assertIn("from gui.persistent_app_a25_1 import run_gui", main)
-        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a25(?:\.(\d+))?"', version)
+        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a(\d+)(?:\.(\d+))?"', version)
         self.assertIsNotNone(match)
-        increment = int(match.group(1) or 0)
-        self.assertTrue(match.group(1) is None or int(match.group(1)) >= 1)
+        alpha = int(match.group(1))
+        increment = int(match.group(2) or 0)
+        self.assertTrue(alpha > 25 or (alpha == 25 and increment >= 1))
 
 
 if __name__ == "__main__":

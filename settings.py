@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import json
@@ -52,6 +51,8 @@ DEFAULT_CONFIG = {
     "batch_execution_mode": "auto",
     "batch_max_workers": 0,
     "last_report_output_dir": "",
+    "arkade5_cli_path": "",
+    "arkade5_output_subfolder": "arkade5_<ver>",
 }
 
 def load_config() -> dict:

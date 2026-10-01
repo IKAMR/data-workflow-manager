@@ -53,9 +53,11 @@ class A253ReviewBeforeApplyTests(unittest.TestCase):
         version = Path("version.py").read_text(encoding="utf-8")
         self.assertIn("from gui.persistent_app_a25_3 import run_gui", main)
         import re
-        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a25(?:\.(\d+))?"', version)
+        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a(\d+)(?:\.(\d+))?"', version)
         self.assertIsNotNone(match)
-        self.assertTrue(match.group(1) is None or int(match.group(1)) >= 3)
+        alpha = int(match.group(1))
+        increment = int(match.group(2) or 0)
+        self.assertTrue(alpha > 25 or (alpha == 25 and increment >= 3))
 
 
 if __name__ == "__main__":
