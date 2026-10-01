@@ -35,9 +35,9 @@ class A245SelectionDialogRenderingTests(unittest.TestCase):
 
     def test_version_is_a245(self):
         version = (ROOT / "version.py").read_text(encoding="utf-8")
-        locked = re.search(r'VERSION\s*=\s*"0\.1\.6-a24"', version)
-        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a24\.(\d+)"', version)
-        self.assertTrue(locked is not None or (match is not None and int(match.group(1)) >= 5))
+        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a(\d+)(?:\.(\d+))?"', version)
+        self.assertIsNotNone(match)
+        self.assertGreaterEqual(int(match.group(1)), 24)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -61,11 +62,13 @@ class A246JobBatchActionsTests(unittest.TestCase):
         self.assertIn('Fyll mappeforslag', source)
         self.assertIn('Valgt:', source)
 
-    def test_runtime_and_version_are_locked_a24(self):
+    def test_runtime_preserves_a24_and_version_has_not_regressed(self):
         main = Path('main.py').read_text(encoding='utf-8')
         version = Path('version.py').read_text(encoding='utf-8')
         self.assertIn('from gui.persistent_app_a24_5 import run_gui', main)
-        self.assertIn('VERSION = "0.1.6-a24"', version)
+        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a(\d+)(?:\.(\d+))?"', version)
+        self.assertIsNotNone(match)
+        self.assertGreaterEqual(int(match.group(1)), 24)
 
 
 if __name__ == '__main__':

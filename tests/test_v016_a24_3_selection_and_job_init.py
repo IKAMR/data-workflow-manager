@@ -41,9 +41,9 @@ class A243SelectionAndJobInitTests(unittest.TestCase):
         main = (ROOT / "main.py").read_text(encoding="utf-8")
         version = (ROOT / "version.py").read_text(encoding="utf-8")
         self.assertIn("from gui.persistent_app_a24_3 import run_gui", main)
-        locked = re.search(r'VERSION\s*=\s*"0\.1\.6-a24"', version)
-        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a24\.(\d+)"', version)
-        self.assertTrue(locked is not None or (match is not None and int(match.group(1)) >= 3))
+        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a(\d+)(?:\.(\d+))?"', version)
+        self.assertIsNotNone(match)
+        self.assertGreaterEqual(int(match.group(1)), 24)
 
 
 if __name__ == "__main__":

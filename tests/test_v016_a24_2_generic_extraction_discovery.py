@@ -63,7 +63,9 @@ class A242GenericExtractionDiscoveryTests(unittest.TestCase):
         main = (ROOT / "main.py").read_text(encoding="utf-8")
         version = (ROOT / "version.py").read_text(encoding="utf-8")
         self.assertIn("from gui.persistent_app_a24_2 import run_gui", main)
-        self.assertRegex(version, r'VERSION\s*=\s*"0\.1\.6-a24(?:\.(?:[2-9]|[1-9][0-9]+))?"')
+        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a(\d+)(?:\.(\d+))?"', version)
+        self.assertIsNotNone(match)
+        self.assertGreaterEqual(int(match.group(1)), 24)
 
 
 if __name__ == "__main__":
