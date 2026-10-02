@@ -41,6 +41,7 @@ class Noark5ControlOverviewDialog(ctk.CTkToplevel):
         self.overview_json = Path(overview_json)
         self.overview_html = Path(overview_html) if overview_html else None
         self.model = load_control_overview(self.overview_json)
+        self.selected_row = None
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(3, weight=1)
@@ -120,10 +121,51 @@ class Noark5ControlOverviewDialog(ctk.CTkToplevel):
             hover_color=theme.BUTTON_HOVER,
         ).grid(row=0, column=4, padx=(0, 10), pady=10)
 
-        self.rows_frame = ctk.CTkScrollableFrame(self)
-        self.rows_frame.grid(row=3, column=0, sticky="nsew", padx=18, pady=(0, 10))
+        self.workspace = ctk.CTkFrame(self, fg_color="transparent")
+        self.workspace.grid(row=3, column=0, sticky="nsew", padx=18, pady=(0, 10))
+        self.workspace.grid_columnconfigure(0, weight=0)
+        self.workspace.grid_columnconfigure(1, weight=1)
+        self.workspace.grid_columnconfigure(2, weight=0)
+        self.workspace.grid_rowconfigure(0, weight=1)
+
+        self.control_tree = ctk.CTkScrollableFrame(
+            self.workspace,
+            fg_color=theme.PANEL_BG_DARK,
+            corner_radius=8,
+        )
+        self.control_tree.grid(row=0, column=0, sticky="ns", padx=(0, 10), pady=0)
+        self.control_tree.grid_columnconfigure(0, weight=1)
+
+        self.main_panel = ctk.CTkFrame(self.workspace, fg_color=theme.PANEL_BG_DARK, corner_radius=8)
+        self.main_panel.grid(row=0, column=1, sticky="nsew", padx=(0, 10), pady=0)
+        self.main_panel.grid_columnconfigure(0, weight=1)
+
+        self.rows_frame = ctk.CTkScrollableFrame(self.main_panel, fg_color="transparent")
+        self.rows_frame.grid(row=0, column=0, sticky="nsew", padx=8, pady=8)
         for column, weight in enumerate((0, 2, 0, 0, 0, 0, 0, 0, 0)):
             self.rows_frame.grid_columnconfigure(column, weight=weight)
+
+        self.detail_frame = ctk.CTkFrame(self.workspace, fg_color=theme.PANEL_BG_DARK, corner_radius=8)
+        self.detail_frame.grid(row=0, column=2, sticky="ns", padx=(0, 0), pady=0)
+        self.detail_frame.grid_columnconfigure(0, weight=1)
+
+        self.detail_title = ctk.CTkLabel(
+            self.detail_frame,
+            text="Kontroller",
+            anchor="w",
+            font=theme.font(theme.SMALL_SIZE, "bold"),
+        )
+        self.detail_title.grid(row=0, column=0, sticky="ew", padx=14, pady=(14, 8))
+
+        self.detail_body = ctk.CTkLabel(
+            self.detail_frame,
+            text="Velg en kontroll for å se kontekst og vurdering.",
+            anchor="nw",
+            justify="left",
+            text_color=theme.TEXT_MUTED,
+            wraplength=280,
+        )
+        self.detail_body.grid(row=1, column=0, sticky="ew", padx=14, pady=(0, 14))
 
         bottom = ctk.CTkFrame(self, fg_color="transparent")
         bottom.grid(row=4, column=0, sticky="ew", padx=18, pady=(0, 18))
@@ -161,8 +203,38 @@ class Noark5ControlOverviewDialog(ctk.CTkToplevel):
             search=self.search_entry.get(),
         )
 
+    def _select_row(self, row: dict | None) -> None:
+        self.selected_row = row
+        if row is None:
+            self.detail_title.configure(text="Kontroller")
+            self.detail_body.configure(
+                text="Velg en kontroll for å se kontekst og vurdering.",
+                text_color=theme.TEXT_MUTED,
+            )
+            return
+
+        status = str(row.get("control_status") or "UKJENT")
+        name = str(row.get("name") or row.get("job_id") or "Kontroll")
+        source = str(row.get("source_extraction") or "")
+        message = str(row.get("control_message") or "Ingen statusmelding registrert.")
+        summary = (
+            f"{name}\n\n"
+            f"Status: {status}\n"
+            f"Kilde: {source or 'Ukjent'}\n\n"
+            f"Faglig vurdering\n{message}"
+        )
+        self.detail_title.configure(text=name)
+        self.detail_body.configure(
+            text=summary,
+            text_color=theme.TEXT,
+            justify="left",
+            wraplength=280,
+        )
+
     def _refresh_rows(self) -> None:
         for child in self.rows_frame.winfo_children():
+            child.destroy()
+        for child in self.control_tree.winfo_children():
             child.destroy()
 
         headers = (
@@ -178,7 +250,23 @@ class Noark5ControlOverviewDialog(ctk.CTkToplevel):
             ).grid(row=0, column=col, sticky="ew", padx=6, pady=(4, 8))
 
         rows = self._filtered_rows()
+        if rows:
+            self.selected_row = rows[0]
+        else:
+            self.selected_row = None
+
         for index, row in enumerate(rows, start=1):
+            button = ctk.CTkButton(
+                self.control_tree,
+                text=f"{row.get('control_status', 'UKJENT')} · {row.get('name', row.get('job_id', 'Kontroll'))}",
+                anchor="w",
+                fg_color=theme.BUTTON_BG,
+                hover_color=theme.BUTTON_HOVER,
+                command=lambda r=row: self._select_row(r),
+                width=220,
+            )
+            button.grid(row=index, column=0, sticky="ew", padx=8, pady=(0, 6))
+
             values = (
                 row.get("job_id"),
                 row.get("name"),
@@ -236,6 +324,7 @@ class Noark5ControlOverviewDialog(ctk.CTkToplevel):
         self.count_var.set(
             f"Viser {len(rows)} av {len(self.model.get('jobs') or [])} jobb(er)"
         )
+        self._select_row(self.selected_row)
 
     def _open_report(self, path: Path | None) -> None:
         if path is None or not path.is_file():

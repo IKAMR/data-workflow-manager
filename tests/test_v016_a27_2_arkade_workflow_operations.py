@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 
 from noark5_workflow.app import build_registry
+from noark5_workflow.core.job import Job, JobStatus
 from app.operation_metadata import display_category, short_name
 from app.workflow_sequence import load_workflow_sequences
 
@@ -25,9 +26,79 @@ class V016A272ArkadeWorkflowOperationTests(unittest.TestCase):
 
     def test_default_sequences_are_unchanged_in_a272(self):
         catalog = load_workflow_sequences()
-        for sequence in catalog.for_profile("noark5"):
-            self.assertNotIn("arkade5_noark5_test", sequence.operation_ids)
-            self.assertNotIn("arkade5_pronom_analysis", sequence.operation_ids)
+        standard = catalog.get("noark5_standard")
+        self.assertEqual(
+            standard.operation_ids,
+            (
+                "metadata_inventory",
+                "validate_xml_schema",
+                "analyse_arkivstruktur",
+                "run_noark5_xpath_tests_2026",
+                "import_arkade5_reports",
+                "compose_noark5_views",
+                "build_noark5_depot_report",
+            ),
+        )
+
+    def test_predefined_sequences_have_exact_contents_and_order(self):
+        catalog = load_workflow_sequences()
+
+        standard_arkade = catalog.get("noark5_standard_arkade")
+        self.assertEqual(
+            standard_arkade.operation_ids,
+            (
+                "metadata_inventory",
+                "validate_xml_schema",
+                "analyse_arkivstruktur",
+                "run_noark5_xpath_tests_2026",
+                "arkade5_noark5_test",
+                "arkade5_pronom_analysis",
+                "compose_noark5_views",
+                "build_noark5_depot_report",
+            ),
+        )
+
+        dwm_only = catalog.get("noark5_dwm_only")
+        self.assertEqual(
+            dwm_only.operation_ids,
+            (
+                "metadata_inventory",
+                "validate_xml_schema",
+                "analyse_arkivstruktur",
+                "run_noark5_xpath_tests_2026",
+                "compose_noark5_views",
+                "build_noark5_depot_report",
+            ),
+        )
+
+        arkade_only = catalog.get("noark5_arkade_only")
+        self.assertEqual(
+            arkade_only.operation_ids,
+            (
+                "arkade5_noark5_test",
+                "arkade5_pronom_analysis",
+            ),
+        )
+
+    def test_new_sequences_can_be_applied_to_job_without_breaking_cursor_contract(self):
+        catalog = load_workflow_sequences()
+        for sequence_id in (
+            "noark5_standard_arkade",
+            "noark5_dwm_only",
+            "noark5_arkade_only",
+        ):
+            sequence = catalog.get(sequence_id)
+            job = Job(
+                job_id="JOB-1",
+                profile_id="noark5",
+                workflow_ids=["legacy_operation"],
+                status=JobStatus.WAITING,
+                next_operation_index=3,
+            )
+            job.set_workflow(sequence.operation_ids)
+            self.assertEqual(job.workflow_ids, list(sequence.operation_ids))
+            self.assertEqual(job.status, JobStatus.READY)
+            self.assertEqual(job.next_operation_index, 0)
 
     def test_operations_reuse_a26_arkade_runner_and_auto_import(self):
         source = (ROOT / "noark5_workflow" / "operations" / "run_arkade5_cli.py").read_text(encoding="utf-8")
@@ -54,7 +125,7 @@ class V016A272ArkadeWorkflowOperationTests(unittest.TestCase):
         version = (ROOT / "version.py").read_text(encoding="utf-8")
         self.assertIn("from gui.persistent_app_a27_2 import run_gui", main)
         self.assertIn("class WorkflowApp(A27_1WorkflowApp)", runtime)
-        self.assertIn('VERSION = "0.1.6-a27"', version)
+        self.assertIn('VERSION = "0.1.6-a28"', version)
 
 
 if __name__ == "__main__":
