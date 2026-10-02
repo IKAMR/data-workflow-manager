@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import unittest
@@ -52,6 +51,8 @@ class ProfileRegistryA12Tests(unittest.TestCase):
                 "analyse_noark5_u1",
                 "run_noark5_xpath_tests_2026",
                 "run_noark5_xpath_regression_2026",
+                "arkade5_noark5_test",
+                "arkade5_pronom_analysis",
                 "import_arkade5_reports",
                 "compose_noark5_views",
                 "build_noark5_depot_report",

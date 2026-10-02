@@ -95,7 +95,7 @@ class V016A267LiveCliStatusTests(unittest.TestCase):
 
     def test_version_is_a267(self):
         version = (ROOT / "version.py").read_text(encoding="utf-8")
-        self.assertRegex(version, r'VERSION\s*=\s*"0\.1\.6-a26(?:\.(?:7|[89]|[1-9]\d+))?"')
+        self.assertRegex(version, r'VERSION\s*=\s*"0\.1\.6-a(?:(?:26|2[7-9]|[3-9]\d|[1-9]\d{2,})(?:\.\d+)?)"')
 
 
 if __name__ == "__main__":

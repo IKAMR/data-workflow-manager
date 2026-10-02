@@ -153,6 +153,8 @@ from gui.persistent_app_a26_6 import run_gui
 from gui.persistent_app_a26_7 import run_gui
 from gui.persistent_app_a26_8 import run_gui
 from gui.persistent_app_a26_9 import run_gui
+from gui.persistent_app_a27_1 import run_gui
+from gui.persistent_app_a27_2 import run_gui
 
 if __name__ == "__main__":
     run_gui()

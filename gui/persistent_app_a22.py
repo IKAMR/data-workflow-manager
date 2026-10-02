@@ -7,6 +7,7 @@ from tkinter import messagebox
 import customtkinter as ctk
 
 from version import APP_NAME
+from noark5_workflow.core.job import JobStatus
 from settings import save_config
 from noark5_workflow.core.result_invalidation import (
     current_stale_operation_ids,
@@ -69,7 +70,6 @@ class WorkflowApp(A21WorkflowApp):
         self.info_panel = InfoPanel(self, on_close=self._hide_info_panel)
         self.info_panel.grid(row=1, column=2, padx=(0, 10), pady=4, sticky="nsew")
 
-        # Reuse the established header rather than creating a second top bar.
         header = None
         for candidate in self.grid_slaves(row=0):
             if isinstance(candidate, ctk.CTkFrame):
@@ -147,7 +147,6 @@ class WorkflowApp(A21WorkflowApp):
             )
             return
 
-        # Preserve workflow order, while freshness identity remains operation_id.
         ordered = [oid for oid in job.workflow_ids if oid in set(stale_ids)]
         labels = []
         for operation_id in ordered:
@@ -259,13 +258,18 @@ class WorkflowApp(A21WorkflowApp):
             f"{job.job_id}\n\n"
             f"Kjør bare operasjon {position} av {total} på nytt:\n{name}\n\n"
             f"Stabil operasjons-ID: {operation_id}\n\n"
-            "Workflowens fullført-/cursorstatus endres ikke. Nye råresultater lagres "
-            "med ny result_id, mens tidligere råresultater beholdes.\n\n"
+            "Workflowens fullført-/cursorstatus endres normalt ikke. Hvis dette er "
+            "operasjonen som workflowen stoppet på og gjenkjøringen lykkes, markeres "
+            "den som fullført og workflowen klargjøres for fortsettelse fra neste operasjon.\n\n"
             "Kjøre valgt operasjon på nytt?",
         ):
             return
 
         known_result_ids = {item.result_id for item in operation_results(job, operation_id)}
+        failed_cursor_repair = (
+            job.status == JobStatus.FAILED
+            and int(job.next_operation_index or 0) == (position - 1)
+        )
 
         self._selective_rerun_running = True
         self.cancel_requested = False
@@ -285,6 +289,30 @@ class WorkflowApp(A21WorkflowApp):
                 cancelled_cb=lambda: self.cancel_requested,
                 state_cb=self._runner_state_changed,
             )
+
+            if outcome.ok and failed_cursor_repair:
+                job.mark_operation_completed(position - 1)
+                if job.next_operation_index < total:
+                    job.status = JobStatus.READY
+                    job.message = (
+                        f"Feilet operasjon rettet - fortsett fra operasjon "
+                        f"{job.next_operation_index + 1}"
+                    )
+                    self._job_log(
+                        job,
+                        f"FEIL RETTET: operasjon {position}/{total} - {name}. "
+                        f"Workflow kan fortsette fra operasjon {job.next_operation_index + 1}/{total}.",
+                    )
+                else:
+                    job.status = JobStatus.OK
+                    job.progress = 1.0
+                    job.message = "Workflow fullført etter vellykket gjenkjøring"
+                    self._job_log(
+                        job,
+                        f"FEIL RETTET: siste operasjon {position}/{total} - {name}. "
+                        "Workflow er fullført.",
+                    )
+
             if outcome.persist_recommended and self.job_list_path is not None:
                 self._write_job_list(self.job_list_path)
 
@@ -298,13 +326,21 @@ class WorkflowApp(A21WorkflowApp):
                 else None
             )
 
-            final = (
-                f"Selektiv gjenkjøring fullført: {name}"
-                if outcome.ok
-                else f"Selektiv gjenkjøring feilet: {name}"
-            )
+            if outcome.ok and failed_cursor_repair and job.next_operation_index < total:
+                final = (
+                    f"Operasjon {position}/{total} rettet: {name} - "
+                    f"fortsett fra {job.next_operation_index + 1}/{total}"
+                )
+            else:
+                final = (
+                    f"Selektiv gjenkjøring fullført: {name}"
+                    if outcome.ok
+                    else f"Selektiv gjenkjøring feilet: {name}"
+                )
+
             self._selective_rerun_running = False
             self.after(0, lambda: self.status_bar.set_status(final))
+            self.after(0, self.workflow_panel.refresh)
             if candidate is not None:
                 self.after(
                     0,
@@ -393,7 +429,6 @@ class WorkflowApp(A21WorkflowApp):
                 "Resultatet ble kjørt og lagret, men valg av gjeldende "
                 f"resultatversjon kunne ikke registreres.\n\n{exc}",
             )
-
 
 
 def run_gui() -> None:

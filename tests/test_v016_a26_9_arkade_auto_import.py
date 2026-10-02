@@ -90,7 +90,7 @@ class V016A269ArkadeAutoImportTests(unittest.TestCase):
         self.assertIn("from gui.persistent_app_a26_9 import run_gui", main)
         self.assertIn("import_arkade5_run_outputs", runtime)
         self.assertIn("Automatisk import:", dialog)
-        self.assertIn('VERSION = "0.1.6-a26"', version)
+        self.assertRegex(version, r'VERSION\s*=\s*"0\.1\.6-a(?:(?:26|2[7-9]|[3-9]\d|[1-9]\d{2,})(?:\.\d+)?)"')
 
 
 if __name__ == "__main__":

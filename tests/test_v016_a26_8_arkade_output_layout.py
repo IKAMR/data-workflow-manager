@@ -98,7 +98,6 @@ class V016A268ArkadeOutputLayoutTests(unittest.TestCase):
             self.assertEqual(request.manifest_path.name, "manifest.json")
             self.assertEqual(plan.output_dir, job.work_operations / "arkade5_v2.13.1" / "noark5")
 
-
     def test_setup_exposes_output_subfolder_setting(self):
         settings = (ROOT / "settings.py").read_text(encoding="utf-8")
         dialog = (ROOT / "gui" / "settings_dialog_a26_8.py").read_text(encoding="utf-8")
@@ -113,7 +112,7 @@ class V016A268ArkadeOutputLayoutTests(unittest.TestCase):
         version = (ROOT / "version.py").read_text(encoding="utf-8")
         self.assertIn("from gui.persistent_app_a26_8 import run_gui", main)
         self.assertIn("class WorkflowApp(A26_7WorkflowApp)", runtime)
-        self.assertRegex(version, r'VERSION\s*=\s*"0\.1\.6-a26(?:\.(?:8|9|[1-9]\d+))?"')
+        self.assertRegex(version, r'VERSION\s*=\s*"0\.1\.6-a(?:(?:26|2[7-9]|[3-9]\d|[1-9]\d{2,})(?:\.\d+)?)"')
 
 
 if __name__ == "__main__":

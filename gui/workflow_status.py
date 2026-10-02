@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from noark5_workflow.core.job import JobStatus
+from noark5_workflow.core.result_selection import operation_results
 
 
 @dataclass(frozen=True)
@@ -31,12 +32,32 @@ def status_spec(key: str) -> WorkflowStatusSpec:
     return STATUS_SPECS.get(str(key or ""), STATUS_SPECS["not_run"])
 
 
+def _latest_recorded_result_status(job, operation_id: str) -> str | None:
+    """Return ok/failed from the newest persisted raw result, when available.
+
+    Selective re-runs deliberately preserve the workflow cursor and overall
+    job status. The per-operation icon must therefore use the newest operation
+    result when a failed cursor operation has later been re-run successfully.
+    """
+    try:
+        items = operation_results(job, operation_id)
+    except Exception:
+        return None
+    if not items:
+        return None
+    return "ok" if bool(items[-1].ok) else "failed"
+
+
 def operation_status_key(job, operation_id: str, stale_ids=()) -> str:
     """Return a compact visual status for one workflow operation.
 
     Identity is always operation_id; workflow position is only used to interpret
     the current execution cursor. Stale state has priority because a technically
     completed operation must not look current when its upstream result changed.
+
+    A selective re-run does not move the workflow cursor. If the cursor still
+    points at a previously failed operation, the newest persisted raw result for
+    that operation is authoritative for the operation icon.
     """
     if operation_id in set(stale_ids or ()):
         return "stale"
@@ -51,7 +72,8 @@ def operation_status_key(job, operation_id: str, stale_ids=()) -> str:
     if status == JobStatus.OK:
         return "ok"
     if status == JobStatus.FAILED and index == cursor:
-        return "failed"
+        recorded = _latest_recorded_result_status(job, operation_id)
+        return recorded or "failed"
     if status == JobStatus.RUNNING and index == cursor:
         return "running"
     if index < cursor:
