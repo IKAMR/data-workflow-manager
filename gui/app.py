@@ -14,6 +14,7 @@ from app.work_output_layout import effective_work_operations
 from noark5_workflow.app import build_registry
 from noark5_workflow.core.context import OperationContext
 from noark5_workflow.core.job import Job, JobBatch, JobStatus
+from noark5_workflow.core.job_runner import JobRunner
 from noark5_workflow.core.output_lock import OutputLock, OutputLockedError
 from noark5_workflow.core.workflow import Workflow
 from noark5_workflow.executors.local import LocalExecutor
@@ -52,6 +53,7 @@ class WorkflowApp(ctk.CTk):
         self.batch_running = False
         self.batch_cancel_requested = False
         self.settings = load_config()
+        self.job_runner = JobRunner(self.registry, self.executor, self.settings)
         theme.FontRegistry.set_offset(int(self.settings.get("font_offset", 0)))
 
         self._build_ui()
@@ -98,6 +100,7 @@ class WorkflowApp(ctk.CTk):
         self.left_splitter.bind("<Leave>", lambda _event: self.left_splitter.configure(fg_color=theme.PANEL_BG_DARK if not self._left_dragging else theme.BLUE_DIM))
 
         self.workflow_panel = WorkflowPanel(left, self.registry, self.workflow, self._run_workflow)
+        self.workflow_panel.on_rerun = self._rerun_selected_operation
         self.workflow_panel.grid(row=2, column=0, padx=0, pady=0, sticky="nsew")
 
         left.bind("<Configure>", self._sync_left_split_after_resize)
@@ -364,7 +367,13 @@ class WorkflowApp(ctk.CTk):
             self.jobs_window.refresh()
             return
         self.jobs_window = JobsWindow(
-            self, self.jobs, self._open_job, self._create_job, self._start_all_jobs, self._stop_batch
+            self,
+            self.jobs,
+            self._open_job,
+            self._create_job,
+            self._start_all_jobs,
+            self._start_selected_jobs,
+            self._stop_batch,
         )
         self.jobs_window.update_idletasks()
         self.jobs_window.lift()
@@ -415,6 +424,57 @@ class WorkflowApp(ctk.CTk):
             return
         job.profile_id = "noark5"
         job.set_workflow(sequence.operation_ids)
+
+    def _bulk_assign_default_noark5_workflow(self, jobs: list[Job] | tuple[Job, ...], *, include_empty_only: bool = True) -> list[Job]:
+        sequence = configured_sequence(self.settings, profile_id="noark5")
+        if sequence is None:
+            return []
+
+        assigned: list[Job] = []
+        for job in jobs:
+            if job.profile_id is None:
+                job.profile_id = "noark5"
+            if include_empty_only and job.workflow_ids:
+                continue
+            job.profile_id = "noark5"
+            job.set_workflow(sequence.operation_ids)
+            assigned.append(job)
+            self._apply_effective_work_operations(job)
+        return assigned
+
+    def _normalise_interrupted_job_state(self, jobs: list[Job] | tuple[Job, ...]) -> list[Job]:
+        normalised: list[Job] = []
+        for job in jobs:
+            if job.status == JobStatus.RUNNING:
+                job.status = JobStatus.WAITING
+                job.message = "Kjøring avbrutt - gjenopptar fra nåværende cursor"
+                normalised.append(job)
+            elif job.status == JobStatus.WAITING:
+                normalised.append(job)
+            elif job.status == JobStatus.READY:
+                normalised.append(job)
+            elif job.status == JobStatus.FAILED and job.workflow_ids:
+                normalised.append(job)
+        return normalised
+
+    def _eligible_batch_jobs(self, jobs: list[Job] | tuple[Job, ...]) -> list[Job]:
+        eligible: list[Job] = []
+        seen: set[str] = set()
+        for job in self._normalise_interrupted_job_state(jobs):
+            if job.job_id in seen:
+                continue
+            seen.add(job.job_id)
+            if job.status in {JobStatus.READY, JobStatus.WAITING}:
+                eligible.append(job)
+                continue
+            if job.status == JobStatus.FAILED and job.workflow_ids:
+                eligible.append(job)
+                continue
+            if job.status == JobStatus.RUNNING:
+                job.status = JobStatus.WAITING
+                job.message = "Kjøring avbrutt - gjenopptar fra nåværende cursor"
+                eligible.append(job)
+        return eligible
 
     def _create_job(self, source_root: Path) -> Job:
         job = self.jobs.new_job(source_root)
@@ -665,11 +725,23 @@ class WorkflowApp(ctk.CTk):
 
         threading.Thread(target=worker, daemon=True).start()
 
-    def _start_all_jobs(self) -> None:
+    def _start_selected_jobs(self) -> None:
+        if self.jobs_window is not None and self.jobs_window.winfo_exists():
+            jobs = self.jobs_window._selected_jobs_for_run()
+            if not jobs:
+                messagebox.showwarning(APP_NAME, "Velg minst én jobb før du starter en delkjøring.")
+                return
+            self._start_batch_jobs(jobs)
+            return
+        messagebox.showwarning(APP_NAME, "Jobbliste må være åpen for å starte valgte jobber.")
+
+    def _start_batch_jobs(self, jobs: tuple[Job, ...] | list[Job]) -> None:
         if self.batch_running:
             return
-        if len(self.jobs) == 0:
-            messagebox.showwarning(APP_NAME, "Det finnes ingen jobber å kjøre.")
+        jobs = list(jobs)
+        runnable = self._eligible_batch_jobs(jobs)
+        if not runnable:
+            messagebox.showwarning(APP_NAME, "Det finnes ingen kjørbare jobber å starte. Ferdige jobber blir ikke kjørt på nytt.")
             return
         self._capture_job_operation_params(self.current_job)
         self.batch_running = True
@@ -677,23 +749,26 @@ class WorkflowApp(ctk.CTk):
         self.workflow_panel.run_button.configure(state="disabled")
         if self.jobs_window is not None and self.jobs_window.winfo_exists():
             self.jobs_window.set_batch_running(True)
-        self.log_panel.append("BATCH START: kjører alle jobber sekvensielt")
+        self.log_panel.append(f"BATCH START: kjører {len(runnable)} aktuelt kjørbare jobb(er) sekvensielt")
 
         def worker() -> None:
-            jobs = self.jobs.jobs()
-            for job in jobs:
+            for job in runnable:
                 if self.batch_cancel_requested:
                     if job.status == JobStatus.READY:
                         job.status = JobStatus.SKIPPED
                         job.message = "Ikke startet - batch avbrutt"
                     continue
-                # Re-running a batch is explicit: reset terminal status before execution.
-                job.status = JobStatus.READY
-                job.progress = 0.0
+                if job.status in {JobStatus.OK, JobStatus.SKIPPED}:
+                    continue
+                if job.status == JobStatus.FAILED and not job.workflow_ids:
+                    continue
+                if job.status in {JobStatus.FAILED, JobStatus.READY, JobStatus.WAITING}:
+                    job.status = JobStatus.READY
+                    job.progress = 0.0
                 self.after(0, lambda j=job: self._open_job(j))
                 self._execute_job(job, batch_mode=True)
 
-            counts = self.jobs.counts()
+            counts = {status: sum(1 for job in jobs if job.status == status) for status in JobStatus}
             summary = (
                 f"BATCH FERDIG: totalt={len(jobs)}, ferdig={counts[JobStatus.OK]}, "
                 f"feil={counts[JobStatus.FAILED]}, hoppet over={counts[JobStatus.SKIPPED]}"
@@ -705,6 +780,40 @@ class WorkflowApp(ctk.CTk):
             if self.jobs_window is not None and self.jobs_window.winfo_exists():
                 self.after(0, lambda: self.jobs_window.set_batch_running(False))
                 self.after(0, self.jobs_window.schedule_refresh)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _start_all_jobs(self) -> None:
+        self._start_batch_jobs(tuple(self.jobs.jobs()))
+
+    def _rerun_selected_operation(self, operation_id: str) -> None:
+        if self.batch_running:
+            messagebox.showwarning(APP_NAME, "En kjøring er allerede aktiv.")
+            return
+        job = self.current_job
+        if job is None:
+            messagebox.showwarning(APP_NAME, "Åpne en jobb før en operasjon kjøres på nytt.")
+            return
+        if operation_id not in job.workflow_ids:
+            messagebox.showwarning(APP_NAME, "Operasjonen finnes ikke i aktiv jobb.")
+            return
+
+        self.cancel_requested = False
+        self.workflow_panel.run_button.configure(state="disabled")
+        self.status_bar.set_status(f"Selektiv gjenkjøring: {job.job_id} - {operation_id}")
+
+        def worker() -> None:
+            outcome = self.job_runner.run_operation(
+                job,
+                operation_id,
+                progress_cb=lambda value, message: self._progress_callback_for_job(job, value, message),
+                log_cb=lambda msg: self._job_log(job, msg),
+                cancelled_cb=lambda: self.cancel_requested,
+            )
+            final = "Selektiv gjenkjøring fullført" if outcome.ok else "Selektiv gjenkjøring feilet"
+            self.after(0, lambda: self.status_bar.set_status(final))
+            self.after(0, lambda: self.workflow_panel.run_button.configure(state="normal"))
+            self.after(0, lambda: self.workflow_panel.refresh())
 
         threading.Thread(target=worker, daemon=True).start()
 
