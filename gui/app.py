@@ -113,10 +113,17 @@ class WorkflowApp(ctk.CTk):
         self.status_bar = StatusBar(self)
         self.status_bar.grid(row=2, column=0, columnspan=2, sticky="ew")
 
-    def _apply_left_source_height(self) -> None:
+    def _coerce_left_source_height(self, value: int | float) -> int:
         total = max(200, int(self.left.winfo_height()) if self.left.winfo_exists() else 520)
-        height = max(90, min(total - 180, self._left_source_height))
-        self._left_source_height = height
+        minimum = 90
+        maximum = max(minimum, total - 180)
+        return max(minimum, min(int(value), maximum))
+
+    def _apply_left_source_height(self) -> None:
+        if not hasattr(self, "left") or not self.left.winfo_exists():
+            return
+        self._left_source_height = self._coerce_left_source_height(self._left_source_height)
+        height = self._left_source_height
         self.left.grid_rowconfigure(0, minsize=height)
         self.left.grid_rowconfigure(1, minsize=8)
         self.left.grid_rowconfigure(2, weight=1)
@@ -128,6 +135,9 @@ class WorkflowApp(ctk.CTk):
     def _sync_left_split_after_resize(self, _event=None) -> None:
         if self._left_dragging:
             return
+        saved = self.settings.get("left_source_height")
+        if isinstance(saved, (int, float)):
+            self._left_source_height = self._coerce_left_source_height(int(saved))
         self._apply_left_source_height()
 
     def _start_left_drag(self, event) -> None:
@@ -140,16 +150,15 @@ class WorkflowApp(ctk.CTk):
         if not self._left_dragging:
             return
         delta = int(event.y_root) - self._left_split_start_y
-        total = max(200, int(self.left.winfo_height()))
         new_height = self._left_split_start_height + delta
-        new_height = max(90, min(total - 180, new_height))
-        self._left_source_height = new_height
+        self._left_source_height = self._coerce_left_source_height(new_height)
         self._apply_left_source_height()
 
     def _end_left_drag(self, _event=None) -> None:
         self._left_dragging = False
         self.left_splitter.configure(fg_color=theme.PANEL_BG)
         try:
+            self._left_source_height = self._coerce_left_source_height(self._left_source_height)
             self.settings["left_source_height"] = int(self._left_source_height)
             save_config({"left_source_height": int(self._left_source_height)})
         except Exception:
@@ -339,9 +348,6 @@ class WorkflowApp(ctk.CTk):
         return self.current_job
 
     def _open_job(self, job: Job) -> None:
-        if self.batch_running:
-            messagebox.showwarning(APP_NAME, "Vent til batch-kjøringen er ferdig eller stopp den først.")
-            return
         self._capture_job_operation_params(self.current_job)
         self.current_job = job
         self.workflow.clear()
@@ -351,7 +357,10 @@ class WorkflowApp(ctk.CTk):
         self.workflow_panel.refresh()
         self.source_panel.set_path(str(job.source_root))
         self._refresh_active_job_label()
-        self.status_bar.set_status(f"Åpnet {job.job_id}: {job.name}")
+        if self.batch_running:
+            self.status_bar.set_status(f"Kjører {job.job_id}: {job.name}")
+        else:
+            self.status_bar.set_status(f"Åpnet {job.job_id}: {job.name}")
         self._show_job_log(job)
 
     def _font_scale(self, delta: int) -> None:
@@ -427,7 +436,7 @@ class WorkflowApp(ctk.CTk):
         job.progress = max(0.0, min(1.0, float(value)))
         self.after(0, lambda: self.status_bar.set_status(message or f"{job.job_id}: {value:.0%}"))
         if self.jobs_window is not None and self.jobs_window.winfo_exists():
-            self.after(0, self.jobs_window.refresh)
+            self.after(0, self.jobs_window.schedule_refresh)
 
     def _configure_operation_for_job(self, job: Job, operation_id: str):
         operation = self.registry.get(operation_id)
@@ -450,7 +459,8 @@ class WorkflowApp(ctk.CTk):
         job.message = "Workflow startet"
         self._job_log(job, "Workflow startet")
         if self.jobs_window is not None and self.jobs_window.winfo_exists():
-            self.after(0, self.jobs_window.refresh)
+            self.after(0, lambda: self._open_job(job))
+            self.after(0, self.jobs_window.schedule_refresh)
 
         output_lock = None
         try:
@@ -489,7 +499,7 @@ class WorkflowApp(ctk.CTk):
                 job.progress = index / total
                 job.message = result.message
                 if self.jobs_window is not None and self.jobs_window.winfo_exists():
-                    self.after(0, self.jobs_window.refresh)
+                    self.after(0, self.jobs_window.schedule_refresh)
                 if not result.ok:
                     break
 
@@ -512,7 +522,7 @@ class WorkflowApp(ctk.CTk):
             if output_lock is not None:
                 output_lock.release()
             if self.jobs_window is not None and self.jobs_window.winfo_exists():
-                self.after(0, self.jobs_window.refresh)
+                self.after(0, self.jobs_window.schedule_refresh)
 
     def _run_workflow(self) -> None:
         if self.batch_running:
@@ -568,6 +578,7 @@ class WorkflowApp(ctk.CTk):
                 # Re-running a batch is explicit: reset terminal status before execution.
                 job.status = JobStatus.READY
                 job.progress = 0.0
+                self.after(0, lambda j=job: self._open_job(j))
                 self._execute_job(job, batch_mode=True)
 
             counts = self.jobs.counts()
@@ -581,7 +592,7 @@ class WorkflowApp(ctk.CTk):
             self.after(0, lambda: self.workflow_panel.run_button.configure(state="normal"))
             if self.jobs_window is not None and self.jobs_window.winfo_exists():
                 self.after(0, lambda: self.jobs_window.set_batch_running(False))
-                self.after(0, self.jobs_window.refresh)
+                self.after(0, self.jobs_window.schedule_refresh)
 
         threading.Thread(target=worker, daemon=True).start()
 

@@ -18,6 +18,7 @@ DEFAULT_CONFIG = {
     "enabled_log_sinks": ["text_run_log", "premis"],
     "operation_visibility": 2,
     "appearance_mode": "dark",
+    "left_source_height": 170,
     "font_offset": 0,
     "restore_main_window_position": True,
     "restore_main_window_size": True,

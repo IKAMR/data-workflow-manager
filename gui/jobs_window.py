@@ -46,11 +46,12 @@ class JobsWindow(ctk.CTkToplevel):
         self.get_active_job_id = get_active_job_id or (lambda: None)
         self.settings = load_config()
         self._batch_running = False
+        self._refresh_scheduled = False
         self.title("Jobber - Noark 5 Workflow Manager")
         self.geometry("1480x780")
         self.minsize(1120, 640)
         self.configure(fg_color=theme.APP_BG)
-        self.transient(master)
+        self.resizable(True, True)
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(3, weight=1)
@@ -233,10 +234,22 @@ class JobsWindow(ctk.CTkToplevel):
         self._open(job)
 
     def _open(self, job: Job) -> None:
-        if self._batch_running:
-            return
         self.on_open_job(job)
-        self.destroy()
+        if not self._batch_running:
+            self.destroy()
+
+    def schedule_refresh(self) -> None:
+        if not self.winfo_exists():
+            return
+        if self._refresh_scheduled:
+            return
+        self._refresh_scheduled = True
+        self.after(80, self._flush_refresh)
+
+    def _flush_refresh(self) -> None:
+        self._refresh_scheduled = False
+        if self.winfo_exists():
+            self.refresh()
 
     def refresh(self) -> None:
         path = self.get_list_path()
@@ -346,7 +359,7 @@ class JobsWindow(ctk.CTkToplevel):
             fg_color=theme.BUTTON_BG, hover_color=theme.BUTTON_HOVER
         ).grid(row=0, column=7, padx=2)
         ctk.CTkButton(
-            top, text="Åpne", width=70, height=27, state=state,
+            top, text="Åpne", width=70, height=27, state="normal",
             command=lambda j=job: self._open(j),
             fg_color=theme.BUTTON_BG, hover_color=theme.BUTTON_HOVER
         ).grid(row=0, column=8, padx=(2, 0))
