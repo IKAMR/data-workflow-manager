@@ -67,7 +67,7 @@ class V016A271JobListContextTests(unittest.TestCase):
 
     def test_version_is_a271_or_newer_a27_increment(self):
         version = (ROOT / "version.py").read_text(encoding="utf-8")
-        self.assertRegex(version, r'VERSION\s*=\s*"0\.1\.6-a34(?:\.\d+)?"')
+        self.assertRegex(version, r'VERSION\s*=\s*"0\.1\.6-a35(?:\.\d+)?"')
 
 
 if __name__ == "__main__":
