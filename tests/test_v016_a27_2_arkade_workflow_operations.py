@@ -126,7 +126,7 @@ class V016A272ArkadeWorkflowOperationTests(unittest.TestCase):
         version = (ROOT / "version.py").read_text(encoding="utf-8")
         self.assertIn("from gui.persistent_app_a27_2 import run_gui", main)
         self.assertIn("class WorkflowApp(A27_1WorkflowApp)", runtime)
-        self.assertIn('VERSION = "0.1.6-a28"', version)
+        self.assertIn('VERSION = "0.1.6-a34"', version)
 
 
 if __name__ == "__main__":

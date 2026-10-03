@@ -19,6 +19,7 @@ DEFAULT_CONFIG = {
     "operation_visibility": 2,
     "appearance_mode": "dark",
     "left_source_height": 170,
+    "bottom_panel_height": 220,
     "font_offset": 0,
     "restore_main_window_position": True,
     "restore_main_window_size": True,
