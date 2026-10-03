@@ -20,14 +20,15 @@
       "sequence_id": "noark5_standard_arkade",
       "name": "Noark 5 – standard + Arkade",
       "profile_id": "noark5",
-      "description": "Standardløype med Arkade 5 Noark 5-test og PRONOM-analyse lagt inn før resultatvisninger og depotrapport.",
+      "description": "Standardløype med Arkade 5 Noark 5-test og PRONOM-analyse lagt inn før individuelle Noark 5-testresultater, import av Arkade-rapporter, visninger og depotrapport.",
       "operation_ids": [
         "metadata_inventory",
         "validate_xml_schema",
         "analyse_arkivstruktur",
-        "run_noark5_xpath_tests_2026",
         "arkade5_noark5_test",
         "arkade5_pronom_analysis",
+        "run_noark5_xpath_tests_2026",
+        "import_arkade5_reports",
         "compose_noark5_views",
         "build_noark5_depot_report"
       ]
