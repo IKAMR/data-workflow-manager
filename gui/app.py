@@ -10,6 +10,7 @@ from tkinter import filedialog, messagebox
 import customtkinter as ctk
 
 from app.job_workflow_policy import configured_sequence
+from app.work_output_layout import effective_work_operations
 from noark5_workflow.app import build_registry
 from noark5_workflow.core.context import OperationContext
 from noark5_workflow.core.job import Job, JobBatch, JobStatus
@@ -41,6 +42,8 @@ class WorkflowApp(ctk.CTk):
         self.registry = build_registry()
         self.workflow = Workflow()
         self.jobs = JobBatch()
+        if not hasattr(self.jobs, "output_subfolder_rule"):
+            self.jobs.output_subfolder_rule = ""
         self.current_job: Job | None = None
         self.jobs_window: JobsWindow | None = None
         self.executor = LocalExecutor()
@@ -102,19 +105,47 @@ class WorkflowApp(ctk.CTk):
         right = ctk.CTkFrame(self, fg_color=theme.APP_BG, corner_radius=0)
         right.grid(row=1, column=1, padx=(5, 10), pady=4, sticky="nsew")
         right.grid_columnconfigure(0, weight=1)
-        right.grid_rowconfigure(1, weight=1)
+        right.grid_rowconfigure(0, weight=0)
+        right.grid_rowconfigure(1, weight=0)
+        right.grid_rowconfigure(2, weight=1)
+        self.right = right
 
         self.operations_panel = OperationsPanel(right, self.registry, self._add_operation)
         self.operations_panel.grid(row=0, column=0, padx=0, pady=(0, 8), sticky="ew")
 
+        self._bottom_panel_height = max(30, min(360, int(self.settings.get("bottom_panel_height", 220))))
+        self._bottom_dragging = False
+        self._bottom_split_start_y = 0
+        self._bottom_split_start_height = 0
+
+        self.bottom_splitter = ctk.CTkFrame(
+            right,
+            height=10,
+            fg_color=theme.PANEL_BG_DARK,
+            border_width=1,
+            border_color=theme.BLUE_DIM,
+            cursor="sb_v_double_arrow",
+            corner_radius=5,
+        )
+        self.bottom_splitter.grid(row=1, column=0, padx=0, pady=0, sticky="ew")
+        self.bottom_splitter.bind("<ButtonPress-1>", self._start_bottom_drag)
+        self.bottom_splitter.bind("<B1-Motion>", self._drag_bottom_split)
+        self.bottom_splitter.bind("<ButtonRelease-1>", self._end_bottom_drag)
+        self.bottom_splitter.bind("<Button-1>", self._start_bottom_drag)
+        self.bottom_splitter.bind("<Enter>", lambda _event: self.bottom_splitter.configure(fg_color=theme.BLUE_DIM))
+        self.bottom_splitter.bind("<Leave>", lambda _event: self.bottom_splitter.configure(fg_color=theme.PANEL_BG_DARK if not self._bottom_dragging else theme.BLUE_DIM))
+
         self.log_panel = LogPanel(right)
-        self.log_panel.grid(row=1, column=0, padx=0, pady=0, sticky="nsew")
+        self.log_panel.grid(row=2, column=0, padx=0, pady=0, sticky="nsew")
+        self._apply_bottom_panel_height()
+        right.bind("<Configure>", self._sync_bottom_split_after_resize)
 
         self.status_bar = StatusBar(self)
         self.status_bar.grid(row=2, column=0, columnspan=2, sticky="ew")
 
     def _coerce_left_source_height(self, value: int | float) -> int:
-        total = max(200, int(self.left.winfo_height()) if self.left.winfo_exists() else 520)
+        panel = self.__dict__.get("left")
+        total = max(200, int(panel.winfo_height()) if panel is not None and panel.winfo_exists() else 520)
         minimum = 90
         maximum = max(minimum, total - 180)
         return max(minimum, min(int(value), maximum))
@@ -133,11 +164,10 @@ class WorkflowApp(ctk.CTk):
             pass
 
     def _sync_left_split_after_resize(self, _event=None) -> None:
-        if self._left_dragging:
+        if self.__dict__.get("_left_dragging", False):
             return
-        saved = self.settings.get("left_source_height")
-        if isinstance(saved, (int, float)):
-            self._left_source_height = self._coerce_left_source_height(int(saved))
+        current = self.__dict__.get("_left_source_height", self.settings.get("left_source_height", 170))
+        self._left_source_height = self._coerce_left_source_height(current)
         self._apply_left_source_height()
 
     def _start_left_drag(self, event) -> None:
@@ -147,7 +177,7 @@ class WorkflowApp(ctk.CTk):
         self.left_splitter.configure(fg_color=theme.BLUE_DIM)
 
     def _drag_left_split(self, event) -> None:
-        if not self._left_dragging:
+        if not self.__dict__.get("_left_dragging", False):
             return
         delta = int(event.y_root) - self._left_split_start_y
         new_height = self._left_split_start_height + delta
@@ -161,6 +191,58 @@ class WorkflowApp(ctk.CTk):
             self._left_source_height = self._coerce_left_source_height(self._left_source_height)
             self.settings["left_source_height"] = int(self._left_source_height)
             save_config({"left_source_height": int(self._left_source_height)})
+        except Exception:
+            pass
+
+    def _coerce_bottom_panel_height(self, value: int | float) -> int:
+        panel = self.__dict__.get("right")
+        total = max(180, int(panel.winfo_height()) if panel is not None and panel.winfo_exists() else 420)
+        minimum = 30
+        maximum = max(minimum, total - 120)
+        return max(minimum, min(int(value), maximum))
+
+    def _apply_bottom_panel_height(self) -> None:
+        if not hasattr(self, "right") or not self.right.winfo_exists():
+            return
+        self._bottom_panel_height = self._coerce_bottom_panel_height(self._bottom_panel_height)
+        height = self._bottom_panel_height
+        self.right.grid_rowconfigure(0, weight=0)
+        self.right.grid_rowconfigure(1, minsize=8)
+        self.right.grid_rowconfigure(2, minsize=height)
+        self.right.grid_rowconfigure(2, weight=1)
+        try:
+            self.log_panel.configure(height=height)
+        except Exception:
+            pass
+
+    def _sync_bottom_split_after_resize(self, _event=None) -> None:
+        if self.__dict__.get("_bottom_dragging", False):
+            return
+        current = self.__dict__.get("_bottom_panel_height", self.settings.get("bottom_panel_height", 220))
+        self._bottom_panel_height = self._coerce_bottom_panel_height(current)
+        self._apply_bottom_panel_height()
+
+    def _start_bottom_drag(self, event) -> None:
+        self._bottom_dragging = True
+        self._bottom_split_start_y = int(event.y_root)
+        self._bottom_split_start_height = self._bottom_panel_height
+        self.bottom_splitter.configure(fg_color=theme.BLUE_DIM)
+
+    def _drag_bottom_split(self, event) -> None:
+        if not self.__dict__.get("_bottom_dragging", False):
+            return
+        delta = int(event.y_root) - self._bottom_split_start_y
+        new_height = self._bottom_split_start_height - delta
+        self._bottom_panel_height = self._coerce_bottom_panel_height(new_height)
+        self._apply_bottom_panel_height()
+
+    def _end_bottom_drag(self, _event=None) -> None:
+        self._bottom_dragging = False
+        self.bottom_splitter.configure(fg_color=theme.PANEL_BG)
+        try:
+            self._bottom_panel_height = self._coerce_bottom_panel_height(self._bottom_panel_height)
+            self.settings["bottom_panel_height"] = int(self._bottom_panel_height)
+            save_config({"bottom_panel_height": int(self._bottom_panel_height)})
         except Exception:
             pass
 
@@ -251,15 +333,42 @@ class WorkflowApp(ctk.CTk):
             font=theme.font(theme.SMALL_SIZE), fg_color=theme.BUTTON_BG,
         ).grid(row=0, column=9, padx=(2, 10), pady=8)
 
+    def _get_app_work_subfolder(self) -> str:
+        value = self.settings.get("app_work_subfolder", "dwm")
+        return str(value if value is not None else "dwm").strip()
+
+    def _job_position(self, job: Job) -> int:
+        for index, candidate in enumerate(self.jobs.jobs(), start=1):
+            if candidate.job_id == job.job_id:
+                return index
+        return 1
+
+    def _apply_effective_work_operations(self, job: Job | None) -> None:
+        if job is None:
+            return
+        rule = str(getattr(self.jobs, "output_subfolder_rule", "") or "")
+        job._effective_work_operations = effective_work_operations(
+            job.work_operations,
+            self._get_app_work_subfolder(),
+            rule,
+            job,
+            self._job_position(job),
+        )
+
     def _open_jobs(self) -> None:
         self._capture_job_operation_params(self.current_job)
         if self.jobs_window is not None and self.jobs_window.winfo_exists():
             self.jobs_window.focus()
+            self.jobs_window.lift()
+            self.jobs_window.focus_force()
             self.jobs_window.refresh()
             return
         self.jobs_window = JobsWindow(
             self, self.jobs, self._open_job, self._create_job, self._start_all_jobs, self._stop_batch
         )
+        self.jobs_window.update_idletasks()
+        self.jobs_window.lift()
+        self.jobs_window.focus_force()
 
     def _capture_job_operation_params(self, job: Job | None) -> None:
         if not job:
@@ -310,6 +419,7 @@ class WorkflowApp(ctk.CTk):
     def _create_job(self, source_root: Path) -> Job:
         job = self.jobs.new_job(source_root)
         self._apply_default_noark5_workflow(job)
+        self._apply_effective_work_operations(job)
         return job
 
     def _refresh_active_job_label(self) -> None:
@@ -344,6 +454,7 @@ class WorkflowApp(ctk.CTk):
         if self.workflow.operation_ids():
             self.current_job.set_workflow(self.workflow.operation_ids())
         self._apply_default_noark5_workflow(self.current_job)
+        self._apply_effective_work_operations(self.current_job)
         self._refresh_active_job_label()
         return self.current_job
 
@@ -354,6 +465,7 @@ class WorkflowApp(ctk.CTk):
         for operation_id in job.workflow_ids:
             self.workflow.add(operation_id)
         self._apply_job_operation_params(job)
+        self._apply_effective_work_operations(job)
         self.workflow_panel.refresh()
         self.source_panel.set_path(str(job.source_root))
         self._refresh_active_job_label()
