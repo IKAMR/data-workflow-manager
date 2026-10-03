@@ -18,7 +18,9 @@ class SourcePanel(ctk.CTkFrame):
         self.settings=load_config()
         self._location_dialog=None
         self._location_dialog_open=False
-        self.grid_columnconfigure(0,weight=1); self.grid_rowconfigure(3,weight=1)
+        self.grid_columnconfigure(0,weight=1)
+        self.grid_rowconfigure(3,weight=1)
+        self.bind("<Configure>", lambda event: self._apply_info_height(), add="+")
         self.title_label=ctk.CTkLabel(self,text="SOURCE",font=theme.font(theme.SECTION_SIZE,"bold"),
                                       text_color=theme.TEXT_MUTED)
         self.title_label.grid(row=0,column=0,padx=10,pady=(10,5),sticky="w")
@@ -27,8 +29,9 @@ class SourcePanel(ctk.CTkFrame):
         self.browse_button=ctk.CTkButton(self,text="Bla gjennom...",command=self._browse,height=30,
                                          font=theme.font(theme.SMALL_SIZE))
         self.browse_button.grid(row=2,column=0,padx=10,pady=(4,8),sticky="ew")
-        self.info=ctk.CTkTextbox(self,height=180,wrap="word",font=theme.font(theme.SMALL_SIZE))
+        self.info=ctk.CTkTextbox(self,height=120,wrap="word",font=theme.font(theme.SMALL_SIZE))
         self.info.grid(row=3,column=0,padx=10,pady=(0,10),sticky="nsew")
+        self._apply_info_height()
         self._set_text("Velg Source – uttrekksmappe. Velg profil for formatspesifikk gjenkjenning.")
 
     def set_profile(self, profile_id: str | None) -> None:
@@ -171,6 +174,13 @@ class SourcePanel(ctk.CTkFrame):
         lines.append(f"[OK] {extraction.documents_dir.name}/" if extraction.documents_dir else "[--] dokument/dokumenter/")
         if extraction.business_metadata_files: lines.append(f"[OK] Virksomhetsspesifikke metadata: {len(extraction.business_metadata_files)}")
         self._set_text("\n".join(lines))
+
+    def _apply_info_height(self) -> None:
+        try:
+            current_height = max(80, min(220, int(self.winfo_height() * 0.42)))
+            self.info.configure(height=max(80, min(220, current_height)))
+        except Exception:
+            self.info.configure(height=120)
 
     def _set_text(self,text:str)->None:
         self.info.configure(state="normal"); self.info.delete("1.0","end"); self.info.insert("1.0",text); self.info.configure(state="disabled")

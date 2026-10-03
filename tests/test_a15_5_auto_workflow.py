@@ -46,6 +46,16 @@ class A155AutoWorkflowTests(unittest.TestCase):
         text = (ROOT / "settings.py").read_text(encoding="utf-8")
         self.assertIn('"noark5_discovery_workflow": "noark5_standard"', text)
 
+    def test_settings_exposes_default_noark5_sequence_selector(self):
+        text = (ROOT / "gui" / "settings_dialog.py").read_text(encoding="utf-8")
+        self.assertIn("Standard workflow for nye Noark 5-jobber", text)
+        self.assertIn("noark5_workflow_labels", text)
+
+    def test_new_jobs_auto_apply_default_noark5_sequence(self):
+        text = (ROOT / "gui" / "app.py").read_text(encoding="utf-8")
+        self.assertIn('configured_sequence(self.settings, profile_id="noark5")', text)
+        self.assertIn('job.set_workflow(sequence.operation_ids)', text)
+
 
 if __name__ == "__main__":
     unittest.main()

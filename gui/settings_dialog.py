@@ -7,6 +7,7 @@ import customtkinter as ctk
 
 from app.operation_metadata import VISIBILITY_LABELS, visibility_label, visibility_value
 from app.settings_portable import export_settings, import_settings, reset_settings
+from app.workflow_sequences import noark5_workflow_labels
 from app.work_output_layout import AppWorkSubfolderError, validate_app_work_subfolder
 from app.workspace import run_log_dir, setup_dir, job_list_dir
 from settings import save_config
@@ -50,6 +51,19 @@ class SettingsDialog(ctk.CTkToplevel):
         self.job_list_dir_var = ctk.StringVar(value=str(self.settings.get("job_list_dir", "")))
         self.app_work_subfolder_var = ctk.StringVar(
             value=str(self.settings.get("app_work_subfolder", "dwm"))
+        )
+        self.noark5_workflow_labels = noark5_workflow_labels(settings=self.settings)
+        self._workflow_ids_by_label = {
+            label: key for key, label in self.noark5_workflow_labels.items()
+        }
+        current_workflow = str(
+            self.settings.get("noark5_discovery_workflow", "noark5_standard")
+        )
+        self.noark5_workflow_var = ctk.StringVar(
+            value=self.noark5_workflow_labels.get(
+                current_workflow,
+                self.noark5_workflow_labels.get("none", "Ingen automatisk workflow"),
+            )
         )
 
         row = 0
@@ -261,6 +275,27 @@ class SettingsDialog(ctk.CTkToplevel):
         row += 1
         ctk.CTkLabel(
             body,
+            text="Standard workflow for nye Noark 5-jobber",
+            font=theme.font(theme.NORMAL_SIZE),
+        ).grid(row=row, column=0, padx=12, pady=8, sticky="w")
+        ctk.CTkOptionMenu(
+            body,
+            variable=self.noark5_workflow_var,
+            values=list(self._workflow_ids_by_label),
+            font=theme.font(theme.NORMAL_SIZE),
+        ).grid(row=row, column=1, padx=12, pady=8, sticky="ew")
+
+        row += 1
+        ctk.CTkLabel(
+            body,
+            text="Velg hvilken Noark 5-workflow nye jobber får automatisk når de opprettes. Standard er standardløypen.",
+            font=theme.font(theme.SMALL_SIZE),
+            text_color=theme.TEXT_MUTED,
+        ).grid(row=row, column=0, columnspan=2, padx=12, pady=(0, 16), sticky="w")
+
+        row += 1
+        ctk.CTkLabel(
+            body,
             text="App-undermappe i Work",
             font=theme.font(theme.NORMAL_SIZE),
         ).grid(row=row, column=0, padx=12, pady=8, sticky="w")
@@ -329,6 +364,19 @@ class SettingsDialog(ctk.CTkToplevel):
         self.setup_dir_var.set(str(settings.get("setup_dir", "")))
         self.job_list_dir_var.set(str(settings.get("job_list_dir", "")))
         self.app_work_subfolder_var.set(str(settings.get("app_work_subfolder", "dwm")))
+        self.noark5_workflow_labels = noark5_workflow_labels(settings=settings)
+        self._workflow_ids_by_label = {
+            label: key for key, label in self.noark5_workflow_labels.items()
+        }
+        current_workflow = str(
+            settings.get("noark5_discovery_workflow", "noark5_standard")
+        )
+        self.noark5_workflow_var.set(
+            self.noark5_workflow_labels.get(
+                current_workflow,
+                self.noark5_workflow_labels.get("none", "Ingen automatisk workflow"),
+            )
+        )
 
     def _backend_changed(self, value: str) -> None:
         state = "normal" if value == "server" else "disabled"
@@ -351,6 +399,9 @@ class SettingsDialog(ctk.CTkToplevel):
                 "run_log_dir": self.run_log_dir_var.get().strip(),
                 "setup_dir": self.setup_dir_var.get().strip(),
                 "job_list_dir": self.job_list_dir_var.get().strip(),
+                "noark5_discovery_workflow": self._workflow_ids_by_label.get(
+                    self.noark5_workflow_var.get(), "none"
+                ),
                 "app_work_subfolder": validate_app_work_subfolder(
                     self.app_work_subfolder_var.get()
                 ),

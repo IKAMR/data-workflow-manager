@@ -252,6 +252,7 @@ class WorkflowPanel(ctk.CTkFrame):
         self.items = ctk.CTkScrollableFrame(self, fg_color=theme.PANEL_BG_DARK, corner_radius=8)
         self.items.grid(row=1, column=0, padx=4, pady=0, sticky="nsew")
         self.items.grid_columnconfigure(0, weight=1)
+        self._update_items_height(0)
         run_row = ctk.CTkFrame(self, fg_color="transparent")
         run_row.grid(row=2, column=0, padx=4, pady=(10, 6), sticky="ew")
         run_row.grid_columnconfigure(0, weight=1)
@@ -332,6 +333,11 @@ class WorkflowPanel(ctk.CTkFrame):
         self.save_project_button.grid(row=0, column=1, padx=(3, 0), sticky="ew")
         self.refresh()
 
+    def _update_items_height(self, count: int) -> None:
+        visible = min(max(count, 0), 8)
+        height = 180 if visible == 0 else min(340, max(150, visible * 32 + 18))
+        self.items.configure(height=height)
+
     def add(self, operation_id: str) -> bool:
         added = self.workflow.add(operation_id)
         self.refresh()
@@ -369,6 +375,7 @@ class WorkflowPanel(ctk.CTkFrame):
         for child in self.items.winfo_children():
             child.destroy()
         ids = self.workflow.operation_ids()
+        self._update_items_height(len(ids))
         checkpoints = set(self.checkpoint_ids_provider()) if self.checkpoint_ids_provider else set()
         stale_ids = set(self.stale_ids_provider()) if self.stale_ids_provider else set()
         self.regenerate_stale_button.configure(

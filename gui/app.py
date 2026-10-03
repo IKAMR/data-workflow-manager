@@ -9,6 +9,7 @@ from tkinter import filedialog, messagebox
 
 import customtkinter as ctk
 
+from app.job_workflow_policy import configured_sequence
 from noark5_workflow.app import build_registry
 from noark5_workflow.core.context import OperationContext
 from noark5_workflow.core.job import Job, JobBatch, JobStatus
@@ -63,13 +64,40 @@ class WorkflowApp(ctk.CTk):
         left.grid(row=1, column=0, padx=(10, 5), pady=4, sticky="nsew")
         left.grid_propagate(False)
         left.grid_columnconfigure(0, weight=1)
-        left.grid_rowconfigure(1, weight=1)
+        left.grid_rowconfigure(0, weight=0)
+        left.grid_rowconfigure(1, weight=0)
+        left.grid_rowconfigure(2, weight=1)
+        self.left = left
+        self._left_source_height = max(100, min(240, int(self.settings.get("left_source_height", 170))))
+        self._left_dragging = False
+        self._left_split_start_y = 0
+        self._left_split_start_height = 0
 
         self.source_panel = SourcePanel(left, self._source_changed)
-        self.source_panel.grid(row=0, column=0, padx=0, pady=(0, 8), sticky="nsew")
+        self.source_panel.grid(row=0, column=0, padx=0, pady=(0, 0), sticky="nsew")
+        self._apply_left_source_height()
+
+        self.left_splitter = ctk.CTkFrame(
+            left,
+            height=10,
+            fg_color=theme.PANEL_BG_DARK,
+            border_width=1,
+            border_color=theme.BLUE_DIM,
+            cursor="sb_v_double_arrow",
+            corner_radius=5,
+        )
+        self.left_splitter.grid(row=1, column=0, padx=0, pady=0, sticky="ew")
+        self.left_splitter.bind("<ButtonPress-1>", self._start_left_drag)
+        self.left_splitter.bind("<B1-Motion>", self._drag_left_split)
+        self.left_splitter.bind("<ButtonRelease-1>", self._end_left_drag)
+        self.left_splitter.bind("<Button-1>", self._start_left_drag)
+        self.left_splitter.bind("<Enter>", lambda _event: self.left_splitter.configure(fg_color=theme.BLUE_DIM))
+        self.left_splitter.bind("<Leave>", lambda _event: self.left_splitter.configure(fg_color=theme.PANEL_BG_DARK if not self._left_dragging else theme.BLUE_DIM))
 
         self.workflow_panel = WorkflowPanel(left, self.registry, self.workflow, self._run_workflow)
-        self.workflow_panel.grid(row=1, column=0, padx=0, pady=0, sticky="nsew")
+        self.workflow_panel.grid(row=2, column=0, padx=0, pady=0, sticky="nsew")
+
+        left.bind("<Configure>", self._sync_left_split_after_resize)
 
         right = ctk.CTkFrame(self, fg_color=theme.APP_BG, corner_radius=0)
         right.grid(row=1, column=1, padx=(5, 10), pady=4, sticky="nsew")
@@ -84,6 +112,48 @@ class WorkflowApp(ctk.CTk):
 
         self.status_bar = StatusBar(self)
         self.status_bar.grid(row=2, column=0, columnspan=2, sticky="ew")
+
+    def _apply_left_source_height(self) -> None:
+        total = max(200, int(self.left.winfo_height()) if self.left.winfo_exists() else 520)
+        height = max(90, min(total - 180, self._left_source_height))
+        self._left_source_height = height
+        self.left.grid_rowconfigure(0, minsize=height)
+        self.left.grid_rowconfigure(1, minsize=8)
+        self.left.grid_rowconfigure(2, weight=1)
+        try:
+            self.source_panel.configure(height=height)
+        except Exception:
+            pass
+
+    def _sync_left_split_after_resize(self, _event=None) -> None:
+        if self._left_dragging:
+            return
+        self._apply_left_source_height()
+
+    def _start_left_drag(self, event) -> None:
+        self._left_dragging = True
+        self._left_split_start_y = int(event.y_root)
+        self._left_split_start_height = self._left_source_height
+        self.left_splitter.configure(fg_color=theme.BLUE_DIM)
+
+    def _drag_left_split(self, event) -> None:
+        if not self._left_dragging:
+            return
+        delta = int(event.y_root) - self._left_split_start_y
+        total = max(200, int(self.left.winfo_height()))
+        new_height = self._left_split_start_height + delta
+        new_height = max(90, min(total - 180, new_height))
+        self._left_source_height = new_height
+        self._apply_left_source_height()
+
+    def _end_left_drag(self, _event=None) -> None:
+        self._left_dragging = False
+        self.left_splitter.configure(fg_color=theme.PANEL_BG)
+        try:
+            self.settings["left_source_height"] = int(self._left_source_height)
+            save_config({"left_source_height": int(self._left_source_height)})
+        except Exception:
+            pass
 
     def _build_header(self) -> None:
         header = ctk.CTkFrame(self, fg_color=theme.APP_BG, height=theme.HEADER_HEIGHT, corner_radius=0)
@@ -217,10 +287,21 @@ class WorkflowApp(ctk.CTk):
         for entry in job.log_entries:
             self.log_panel.append(entry, timestamp=False)
 
+    def _apply_default_noark5_workflow(self, job: Job | None) -> None:
+        if job is None:
+            return
+        if job.workflow_ids:
+            return
+        sequence = configured_sequence(self.settings, profile_id="noark5")
+        if sequence is None:
+            return
+        job.profile_id = "noark5"
+        job.set_workflow(sequence.operation_ids)
+
     def _create_job(self, source_root: Path) -> Job:
-        # A new job starts with an empty workflow. Reuse/copy of another job's
-        # workflow must be an explicit user action in a later version.
-        return self.jobs.new_job(source_root)
+        job = self.jobs.new_job(source_root)
+        self._apply_default_noark5_workflow(job)
+        return job
 
     def _refresh_active_job_label(self) -> None:
         if not self.current_job:
@@ -250,7 +331,10 @@ class WorkflowApp(ctk.CTk):
             self.current_job = existing
             self._refresh_active_job_label()
             return existing
-        self.current_job = self.jobs.new_job(path, workflow_ids=self.workflow.operation_ids())
+        self.current_job = self.jobs.new_job(path)
+        if self.workflow.operation_ids():
+            self.current_job.set_workflow(self.workflow.operation_ids())
+        self._apply_default_noark5_workflow(self.current_job)
         self._refresh_active_job_label()
         return self.current_job
 
