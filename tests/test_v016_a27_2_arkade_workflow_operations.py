@@ -108,13 +108,13 @@ class V016A272ArkadeWorkflowOperationTests(unittest.TestCase):
         self.assertIn("Source - extraction må være definert", source)
         self.assertIn("Arkade 5 CLI må være konfigurert", source)
 
-    def test_runtime_is_a272_and_version_is_final_a27(self):
+    def test_runtime_is_a272_and_version_is_current_a37(self):
         main = (ROOT / "main.py").read_text(encoding="utf-8")
         runtime = (ROOT / "gui" / "persistent_app_a27_2.py").read_text(encoding="utf-8")
         version = (ROOT / "version.py").read_text(encoding="utf-8")
         self.assertIn("from gui.persistent_app_a27_2 import run_gui", main)
         self.assertIn("class WorkflowApp(A27_1WorkflowApp)", runtime)
-        self.assertIn('VERSION = "0.1.6-a36"', version)
+        self.assertIn('VERSION = "0.1.6-a37"', version)
 
 
 if __name__ == "__main__":

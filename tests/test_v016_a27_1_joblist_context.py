@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -60,9 +61,11 @@ class V016A271JobListContextTests(unittest.TestCase):
         main = (ROOT / "main.py").read_text(encoding="utf-8")
         self.assertIn("from gui.persistent_app_a27_1 import run_gui", main)
 
-    def test_version_is_a271_or_newer_a27_increment(self):
+    def test_version_is_a271_or_newer_v016_alpha(self):
         version = (ROOT / "version.py").read_text(encoding="utf-8")
-        self.assertRegex(version, r'VERSION\s*=\s*"0\.1\.6-a36(?:\.\d+)?"')
+        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a(\d+)(?:\.\d+)?"', version)
+        self.assertIsNotNone(match, version)
+        self.assertGreaterEqual(int(match.group(1)), 27)
 
 
 if __name__ == "__main__":

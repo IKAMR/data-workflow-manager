@@ -7,9 +7,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class V016A36RuntimeTests(unittest.TestCase):
-    def test_a272_delegates_to_a36_runtime(self):
+    def test_a272_delegates_to_current_runtime_after_a37(self):
         source = (ROOT / "gui" / "persistent_app_a27_2.py").read_text(encoding="utf-8")
-        self.assertIn("persistent_app_a36_runtime", source)
+        self.assertIn("persistent_app_a37_runtime", source)
         self.assertIn("CurrentWorkflowApp()", source)
 
     def test_runtime_extends_complete_a272_feature_chain(self):
