@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import unittest
 from pathlib import Path
 
@@ -42,10 +41,8 @@ class V016A272ArkadeWorkflowOperationTests(unittest.TestCase):
 
     def test_predefined_sequences_have_exact_contents_and_order(self):
         catalog = load_workflow_sequences()
-
-        standard_arkade = catalog.get("noark5_standard_arkade")
         self.assertEqual(
-            standard_arkade.operation_ids,
+            catalog.get("noark5_standard_arkade").operation_ids,
             (
                 "metadata_inventory",
                 "validate_xml_schema",
@@ -58,10 +55,8 @@ class V016A272ArkadeWorkflowOperationTests(unittest.TestCase):
                 "build_noark5_depot_report",
             ),
         )
-
-        dwm_only = catalog.get("noark5_dwm_only")
         self.assertEqual(
-            dwm_only.operation_ids,
+            catalog.get("noark5_dwm_only").operation_ids,
             (
                 "metadata_inventory",
                 "validate_xml_schema",
@@ -71,22 +66,15 @@ class V016A272ArkadeWorkflowOperationTests(unittest.TestCase):
                 "build_noark5_depot_report",
             ),
         )
-
-        arkade_only = catalog.get("noark5_arkade_only")
         self.assertEqual(
-            arkade_only.operation_ids,
-            (
-                "arkade5_noark5_test",
-                "arkade5_pronom_analysis",
-            ),
+            catalog.get("noark5_arkade_only").operation_ids,
+            ("arkade5_noark5_test", "arkade5_pronom_analysis"),
         )
 
     def test_new_sequences_can_be_applied_to_job_without_breaking_cursor_contract(self):
         catalog = load_workflow_sequences()
         for sequence_id in (
-            "noark5_standard_arkade",
-            "noark5_dwm_only",
-            "noark5_arkade_only",
+            "noark5_standard_arkade", "noark5_dwm_only", "noark5_arkade_only",
         ):
             sequence = catalog.get(sequence_id)
             job = Job(
@@ -126,7 +114,7 @@ class V016A272ArkadeWorkflowOperationTests(unittest.TestCase):
         version = (ROOT / "version.py").read_text(encoding="utf-8")
         self.assertIn("from gui.persistent_app_a27_2 import run_gui", main)
         self.assertIn("class WorkflowApp(A27_1WorkflowApp)", runtime)
-        self.assertIn('VERSION = "0.1.6-a28"', version)
+        self.assertIn('VERSION = "0.1.6-a36"', version)
 
 
 if __name__ == "__main__":

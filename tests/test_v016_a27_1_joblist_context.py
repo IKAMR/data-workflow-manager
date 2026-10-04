@@ -13,7 +13,6 @@ class V016A271JobListContextTests(unittest.TestCase):
     def test_single_job_is_still_a_job_list_context(self):
         job = SimpleNamespace(job_id="JOB-001")
         context = JobListContext.from_runtime_state([job], job, None)
-
         self.assertEqual(context.job_count, 1)
         self.assertTrue(context.is_single_job)
         self.assertFalse(context.is_saved)
@@ -25,11 +24,8 @@ class V016A271JobListContextTests(unittest.TestCase):
     def test_multi_job_context_tracks_active_position(self):
         jobs = [SimpleNamespace(job_id=f"JOB-{number:03d}") for number in range(1, 4)]
         context = JobListContext.from_runtime_state(
-            jobs,
-            jobs[1],
-            Path("lists/client-a.json"),
+            jobs, jobs[1], Path("lists/client-a.json"),
         )
-
         self.assertEqual(context.job_count, 3)
         self.assertFalse(context.is_single_job)
         self.assertTrue(context.is_saved)
@@ -42,7 +38,6 @@ class V016A271JobListContextTests(unittest.TestCase):
         listed = SimpleNamespace(job_id="JOB-001")
         foreign = SimpleNamespace(job_id="JOB-999")
         context = JobListContext.from_runtime_state([listed], foreign, None)
-
         self.assertFalse(context.has_consistent_active_job)
         self.assertIsNone(context.active_position)
         with self.assertRaisesRegex(ValueError, "tilhører ikke"):
@@ -67,7 +62,7 @@ class V016A271JobListContextTests(unittest.TestCase):
 
     def test_version_is_a271_or_newer_a27_increment(self):
         version = (ROOT / "version.py").read_text(encoding="utf-8")
-        self.assertRegex(version, r'VERSION\s*=\s*"0\.1\.6-a28(?:\.\d+)?"')
+        self.assertRegex(version, r'VERSION\s*=\s*"0\.1\.6-a36(?:\.\d+)?"')
 
 
 if __name__ == "__main__":

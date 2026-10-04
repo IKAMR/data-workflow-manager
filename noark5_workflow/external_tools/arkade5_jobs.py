@@ -40,7 +40,9 @@ def _job_source(job) -> Path | None:
 
 
 def _job_work(job) -> Path | None:
-    value = getattr(job, "work_operations", None)
+    value = getattr(job, "_effective_work_operations", None)
+    if value is None:
+        value = getattr(job, "work_operations", None)
     return Path(value) if value is not None else None
 
 
@@ -56,12 +58,6 @@ def _version_token(version: str) -> str:
 
 
 def resolve_arkade5_output_subfolder(settings: Mapping[str, object], version: str) -> str:
-    """Resolve the user-configured Arkade output subfolder.
-
-    ``<ver>`` expands to the detected version including the leading ``v``.
-    The result is deliberately one relative folder name below Work - operations;
-    Arkade's own output layout is then kept intact below operation folders.
-    """
     template = str(
         settings.get("arkade5_output_subfolder", DEFAULT_ARKADE5_OUTPUT_SUBFOLDER)
         or DEFAULT_ARKADE5_OUTPUT_SUBFOLDER
@@ -127,12 +123,6 @@ def build_arkade5_plan(
     jobs: Iterable[object],
     operations: Sequence[str],
 ) -> tuple[Arkade5PlannedRun, ...]:
-    """Create Arkade 5 CLI invocations for selected DWM jobs.
-
-    The configured Arkade folder is one level below each job's Work - operations.
-    DWM only adds ``noark5`` and ``pronom`` to keep the two Arkade operations
-    separate. Arkade itself owns the structure and filenames below those folders.
-    """
     selected_ops = tuple(op for op in operations if op in ARKADE5_OPERATIONS)
     if not selected_ops:
         return ()
@@ -211,6 +201,7 @@ def run_arkade5_plan(
     *,
     on_progress: Callable[[int, int, Arkade5PlannedRun, str], None] | None = None,
     on_output: Callable[[int, int, Arkade5PlannedRun, str, str], None] | None = None,
+    cancelled_cb: Callable[[], bool] | None = None,
 ) -> Arkade5BatchRunSummary:
     cli = configured_arkade5_cli(settings)
     if cli is None:
@@ -219,6 +210,8 @@ def run_arkade5_plan(
     rows: list[Arkade5JobRun] = []
     total = len(plans)
     for index, plan in enumerate(plans, start=1):
+        if cancelled_cb is not None and cancelled_cb():
+            break
         if on_progress:
             on_progress(index, total, plan, "starter")
 
@@ -226,9 +219,6 @@ def run_arkade5_plan(
         if plan.processing_dir is not None:
             plan.processing_dir.mkdir(parents=True, exist_ok=True)
 
-        # Capture the report paths that existed before this exact run.  After
-        # Arkade returns, DWM can therefore identify only the reports created
-        # by this invocation instead of rediscovering/importing older reports.
         reports_before: set[str] = set()
         if plan.operation == ARKADE5_NOARK5:
             try:
@@ -243,9 +233,6 @@ def run_arkade5_plan(
             except Exception:
                 reports_before = set()
 
-        # Arkade owns output_dir. All DWM-owned execution evidence follows the
-        # global App-undermappe i Work rule and therefore stays outside the
-        # external tool's native output tree.
         evidence_id = _safe(plan.run_id)
         dwm_dir = (
             resolve_dwm_work_root(plan.work_operations, settings=settings)
@@ -261,31 +248,41 @@ def run_arkade5_plan(
             if on_output is not None:
                 on_output(index, total, plan, stream_name, text)
 
-        result = run_external_cli(
-            ExternalCliRequest(
-                executable=cli,
-                args=plan.args,
-                stdout_path=stdout_path,
-                stderr_path=stderr_path,
-                manifest_path=manifest_path,
-                tool_id="arkade5",
-                operation_id=plan.operation,
-                job_id=plan.job_id,
-                run_id=plan.run_id,
-                metadata={
-                    "tool_version": plan.tool_version,
-                    "source_extraction": str(plan.source),
-                    "work_operations": str(plan.work_operations),
-                    "arkade_output_dir": str(plan.output_dir),
-                    "arkade_processing_dir": str(plan.processing_dir or ""),
-                },
-            ),
-            on_output=_output if on_output is not None else None,
+        request = ExternalCliRequest(
+            executable=cli,
+            args=plan.args,
+            stdout_path=stdout_path,
+            stderr_path=stderr_path,
+            manifest_path=manifest_path,
+            tool_id="arkade5",
+            operation_id=plan.operation,
+            job_id=plan.job_id,
+            run_id=plan.run_id,
+            metadata={
+                "tool_version": plan.tool_version,
+                "source_extraction": str(plan.source),
+                "work_operations": str(plan.work_operations),
+                "arkade_output_dir": str(plan.output_dir),
+                "arkade_processing_dir": str(plan.processing_dir or ""),
+            },
         )
+        if cancelled_cb is None:
+            result = run_external_cli(
+                request,
+                on_output=_output if on_output is not None else None,
+            )
+        else:
+            result = run_external_cli(
+                request,
+                on_output=_output if on_output is not None else None,
+                cancelled_cb=cancelled_cb,
+            )
         message = "Fullført" if result.ok else (
+            "Avbrutt" if result.cancelled else
             result.launch_error or
             ("Timeout" if result.timed_out else f"Exit code {result.exit_code}")
         )
+
         generated_reports: tuple[Path, ...] = ()
         if result.ok and plan.operation == ARKADE5_NOARK5:
             try:

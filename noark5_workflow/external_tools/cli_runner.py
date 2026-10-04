@@ -17,13 +17,6 @@ from typing import Any, Callable, Mapping, Sequence
 
 @dataclass(frozen=True)
 class ExternalCliRequest:
-    """Description of one external CLI invocation.
-
-    The command is always executed as an argv sequence with ``shell=False``.
-    This keeps quoting rules out of the runner and makes adapters responsible
-    for providing one argument per item.
-    """
-
     executable: str | Path
     args: Sequence[str | Path] = field(default_factory=tuple)
     cwd: str | Path | None = None
@@ -54,6 +47,7 @@ class ExternalCliRunResult:
     stdout: str
     stderr: str
     timed_out: bool = False
+    cancelled: bool = False
     launch_error: str = ""
     cwd: str | None = None
     encoding: str = ""
@@ -68,11 +62,9 @@ class ExternalCliRunResult:
 
     @property
     def command_display(self) -> str:
-        """Human-readable command for diagnostics only."""
         return shlex.join(self.argv)
 
     def manifest(self) -> dict[str, Any]:
-        """Return a structured, non-secret execution manifest."""
         return {
             "schema_version": 1,
             "runner": "dwm.external_cli",
@@ -88,6 +80,7 @@ class ExternalCliRunResult:
             "duration_seconds": self.duration_seconds,
             "exit_code": self.exit_code,
             "timed_out": self.timed_out,
+            "cancelled": self.cancelled,
             "launch_error": self.launch_error or None,
             "encoding": self.encoding,
             "stdout": _stream_manifest(self.stdout, self.stdout_path),
@@ -140,7 +133,6 @@ def _write_manifest(path_value: str | Path | None, payload: dict[str, Any]) -> s
 
 
 def _reader_thread(stream, stream_name: str, event_queue: queue.Queue) -> None:
-    """Read one text pipe line-by-line without blocking the other pipe."""
     try:
         for line in iter(stream.readline, ""):
             event_queue.put((stream_name, line))
@@ -156,14 +148,8 @@ def run_external_cli(
     request: ExternalCliRequest,
     *,
     on_output: Callable[[str, str], None] | None = None,
+    cancelled_cb: Callable[[], bool] | None = None,
 ) -> ExternalCliRunResult:
-    """Run one external command and capture reproducible execution evidence.
-
-    ``on_output`` receives ``("stdout"|"stderr", line)`` while the child
-    process is running. The callback is observational only: complete stdout
-    and stderr are still captured and written to their normal evidence files.
-    """
-
     argv = request.argv()
     cwd = str(Path(request.cwd)) if request.cwd is not None else None
     encoding = _effective_encoding(request.encoding)
@@ -178,6 +164,7 @@ def run_external_cli(
     stdout_parts: list[str] = []
     stderr_parts: list[str] = []
     timed_out = False
+    cancelled = False
     launch_error = ""
 
     try:
@@ -204,6 +191,14 @@ def run_external_cli(
 
         closed_streams: set[str] = set()
         while len(closed_streams) < 2 or process.poll() is None:
+            if cancelled_cb is not None and cancelled_cb() and process.poll() is None:
+                cancelled = True
+                process.terminate()
+                try:
+                    process.wait(timeout=2.0)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+
             if (
                 request.timeout_seconds is not None
                 and time.monotonic() - started_monotonic >= request.timeout_seconds
@@ -230,7 +225,6 @@ def run_external_cli(
                 try:
                     on_output(stream_name, line)
                 except Exception:
-                    # A GUI/status callback must never make the external process fail.
                     pass
 
         process_return_code = int(process.wait())
@@ -238,7 +232,6 @@ def run_external_cli(
         for reader in readers:
             reader.join(timeout=1.0)
 
-        # Drain any lines queued between process termination and reader exit.
         while True:
             try:
                 stream_name, line = events.get_nowait()
@@ -283,7 +276,7 @@ def run_external_cli(
     stderr_path = _write_text(request.stderr_path, stderr)
 
     result = ExternalCliRunResult(
-        ok=(not timed_out and not launch_error and exit_code == 0),
+        ok=(not timed_out and not cancelled and not launch_error and exit_code == 0),
         argv=argv,
         started_at=started_at,
         finished_at=finished_at,
@@ -292,6 +285,7 @@ def run_external_cli(
         stdout=stdout,
         stderr=stderr,
         timed_out=timed_out,
+        cancelled=cancelled,
         launch_error=launch_error,
         cwd=cwd,
         encoding=encoding,

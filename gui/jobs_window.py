@@ -24,12 +24,13 @@ class JobsWindow(ctk.CTkToplevel):
         on_open_job: Callable[[Job], None],
         on_create_job: Callable[[Path], Job],
         on_start_all: Callable[[], None],
-        on_stop: Callable[[], None],
-        on_new_list: Callable[[], bool],
-        on_open_list: Callable[[], bool],
-        on_save_list: Callable[[], bool],
-        on_save_list_as: Callable[[], bool],
-        get_list_path: Callable[[], Path | None],
+        on_start_selected: Callable[[], None] | None = None,
+        on_stop: Callable[[], None] | None = None,
+        on_new_list: Callable[[], bool] | None = None,
+        on_open_list: Callable[[], bool] | None = None,
+        on_save_list: Callable[[], bool] | None = None,
+        on_save_list_as: Callable[[], bool] | None = None,
+        get_list_path: Callable[[], Path | None] | None = None,
         get_active_job_id: Callable[[], str | None] | None = None,
     ) -> None:
         super().__init__(master)
@@ -37,16 +38,18 @@ class JobsWindow(ctk.CTkToplevel):
         self.on_open_job = on_open_job
         self.on_create_job = on_create_job
         self.on_start_all = on_start_all
-        self.on_stop = on_stop
-        self.on_new_list = on_new_list
-        self.on_open_list = on_open_list
-        self.on_save_list = on_save_list
-        self.on_save_list_as = on_save_list_as
-        self.get_list_path = get_list_path
+        self.on_start_selected = on_start_selected or on_start_all
+        self.on_stop = on_stop or (lambda: None)
+        self.on_new_list = on_new_list or (lambda: False)
+        self.on_open_list = on_open_list or (lambda: False)
+        self.on_save_list = on_save_list or (lambda: False)
+        self.on_save_list_as = on_save_list_as or (lambda: False)
+        self.get_list_path = get_list_path or (lambda: None)
         self.get_active_job_id = get_active_job_id or (lambda: None)
         self.settings = load_config()
         self._batch_running = False
         self._refresh_scheduled = False
+        self._selected_job_ids: set[str] = {job.job_id for job in self.batch.jobs()}
         self.title("Jobber - Noark 5 Workflow Manager")
         self.geometry("1480x780")
         self.minsize(1120, 640)
@@ -111,6 +114,11 @@ class JobsWindow(ctk.CTkToplevel):
             fg_color=theme.BLUE_DIM, hover_color=theme.BLUE,
         )
         self.start_all_button.pack(side="left", padx=6)
+        self.start_selected_button = ctk.CTkButton(
+            buttons, text="Start valgte", command=self.on_start_selected, width=110,
+            fg_color=theme.BLUE_DIM, hover_color=theme.BLUE,
+        )
+        self.start_selected_button.pack(side="left", padx=6)
         self.stop_button = ctk.CTkButton(
             buttons, text="Stopp", command=self.on_stop, width=80, state="disabled",
             fg_color=theme.BUTTON_BG, hover_color=theme.BUTTON_HOVER,
@@ -148,6 +156,25 @@ class JobsWindow(ctk.CTkToplevel):
                   if running else "Scheduler: lokal / sekvensiell   |   Worker: Lokal (denne PC-en)"),
             text_color=theme.BLUE if running else theme.TEXT_MUTED,
         )
+        self.start_selected_button.configure(state="disabled" if running or not self._selected_job_ids else "normal")
+
+    def _selected_job_ids_for_run(self) -> set[str]:
+        selected = self._selected_job_ids if isinstance(self._selected_job_ids, set) else set()
+        return set(selected)
+
+    def _selected_jobs_for_run(self) -> tuple[Job, ...]:
+        selected = self._selected_job_ids_for_run()
+        return tuple(job for job in self.batch.jobs() if job.job_id in selected)
+
+    def _select_all(self) -> None:
+        self._selected_job_ids = {job.job_id for job in self.batch.jobs()}
+        if self.winfo_exists():
+            self.refresh()
+
+    def _clear_selection(self) -> None:
+        self._selected_job_ids = set()
+        if self.winfo_exists():
+            self.refresh()
 
     def _new_list(self) -> None:
         if not self._batch_running and self.on_new_list():
@@ -168,6 +195,13 @@ class JobsWindow(ctk.CTkToplevel):
     def _persist_list_change(self) -> None:
         if self.get_list_path() is not None:
             self.on_save_list()
+
+    def _toggle_selection(self, job_id: str) -> None:
+        if job_id in self._selected_job_ids:
+            self._selected_job_ids.remove(job_id)
+        else:
+            self._selected_job_ids.add(job_id)
+        self.refresh()
 
     def _move_up(self, job: Job) -> None:
         if self._batch_running:
@@ -268,13 +302,32 @@ class JobsWindow(ctk.CTkToplevel):
                 font=theme.font(theme.NORMAL_SIZE), text_color=theme.TEXT_MUTED, justify="center",
             ).grid(row=0, column=0, padx=20, pady=80)
         else:
-            for row, job in enumerate(jobs):
+            selection_bar = ctk.CTkFrame(self.list_frame, fg_color="transparent")
+            selection_bar.grid(row=0, column=0, padx=5, pady=(4, 6), sticky="ew")
+            selection_bar.grid_columnconfigure(1, weight=1)
+            ctk.CTkButton(
+                selection_bar, text="Velg alle", width=110,
+                command=self._select_all,
+                fg_color=theme.BUTTON_BG, hover_color=theme.BUTTON_HOVER,
+            ).grid(row=0, column=0, padx=(0, 6), sticky="w")
+            ctk.CTkButton(
+                selection_bar, text="Tøm valg", width=110,
+                command=self._clear_selection,
+                fg_color=theme.BUTTON_BG, hover_color=theme.BUTTON_HOVER,
+            ).grid(row=0, column=1, padx=(0, 6), sticky="w")
+            ctk.CTkLabel(
+                selection_bar,
+                text=f"Valgt: {len(self._selected_job_ids_for_run())} av {len(jobs)}",
+                font=theme.font(theme.SMALL_SIZE, "bold"),
+                text_color=theme.TEXT_SUB,
+            ).grid(row=0, column=2, sticky="e")
+            for row, job in enumerate(jobs, start=1):
                 self._row(
-                    row,
+                    row - 1,
                     job,
                     active=(job.job_id == active_job_id),
-                    can_move_up=(row > 0),
-                    can_move_down=(row < len(jobs) - 1),
+                    can_move_up=(row > 1),
+                    can_move_down=(row < len(jobs)),
                 )
 
         counts = self.batch.counts()
@@ -311,6 +364,16 @@ class JobsWindow(ctk.CTkToplevel):
         top.grid(row=0, column=0, columnspan=2, padx=8, pady=(7, 0), sticky="ew")
         top.grid_columnconfigure(1, weight=1)
 
+        selected = job.job_id in self._selected_job_ids_for_run()
+        check = ctk.CTkCheckBox(
+            top,
+            text="",
+            width=20,
+            variable=ctk.BooleanVar(value=selected),
+            command=lambda jid=job.job_id: self._toggle_selection(jid),
+        )
+        check.grid(row=0, column=0, padx=(0, 8), sticky="w")
+
         id_text = f"{job.job_id}  • AKTIV" if active else job.job_id
         id_color = theme.BLUE if active else theme.TEXT_SUB
         ctk.CTkLabel(
@@ -322,7 +385,7 @@ class JobsWindow(ctk.CTkToplevel):
             top, text=job.name, anchor="w",
             font=theme.font(theme.SMALL_SIZE, "bold"),
             text_color=theme.BLUE if active else theme.TEXT_SUB,
-        ).grid(row=0, column=1, sticky="ew")
+        ).grid(row=0, column=2, sticky="ew")
 
         status_text = job.status.value
         if job.status == JobStatus.READY and job.message == _CHANGED_AFTER_RUN:
@@ -331,14 +394,14 @@ class JobsWindow(ctk.CTkToplevel):
         ctk.CTkLabel(
             top, text=status_text, width=185, anchor="w",
             font=theme.font(theme.SMALL_SIZE), text_color=status_color
-        ).grid(row=0, column=2, padx=8, sticky="w")
+        ).grid(row=0, column=3, padx=8, sticky="w")
         ctk.CTkLabel(
             top, text=f"{job.progress:.0%}", width=55, font=theme.font(theme.SMALL_SIZE)
-        ).grid(row=0, column=3, padx=8)
+        ).grid(row=0, column=4, padx=8)
         ctk.CTkLabel(
             top, text=job.worker, width=145, anchor="w",
             font=theme.font(theme.SMALL_SIZE)
-        ).grid(row=0, column=4, padx=8, sticky="w")
+        ).grid(row=0, column=5, padx=8, sticky="w")
 
         state = "disabled" if self._batch_running else "normal"
         ctk.CTkButton(
@@ -346,23 +409,23 @@ class JobsWindow(ctk.CTkToplevel):
             state=state if can_move_up else "disabled",
             command=lambda j=job: self._move_up(j),
             fg_color=theme.BUTTON_BG, hover_color=theme.BUTTON_HOVER
-        ).grid(row=0, column=5, padx=(6, 2))
+        ).grid(row=0, column=6, padx=(6, 2))
         ctk.CTkButton(
             top, text="↓", width=32, height=27,
             state=state if can_move_down else "disabled",
             command=lambda j=job: self._move_down(j),
             fg_color=theme.BUTTON_BG, hover_color=theme.BUTTON_HOVER
-        ).grid(row=0, column=6, padx=2)
+        ).grid(row=0, column=7, padx=2)
         ctk.CTkButton(
             top, text="Slett", width=58, height=27, state=state,
             command=lambda j=job: self._delete(j),
             fg_color=theme.BUTTON_BG, hover_color=theme.BUTTON_HOVER
-        ).grid(row=0, column=7, padx=2)
+        ).grid(row=0, column=8, padx=2)
         ctk.CTkButton(
             top, text="Åpne", width=70, height=27, state="normal",
             command=lambda j=job: self._open(j),
             fg_color=theme.BUTTON_BG, hover_color=theme.BUTTON_HOVER
-        ).grid(row=0, column=8, padx=(2, 0))
+        ).grid(row=0, column=9, padx=(2, 0))
 
         details = ctk.CTkFrame(card, fg_color="transparent")
         details.grid(row=1, column=0, columnspan=2, padx=8, pady=(2, 7), sticky="ew")

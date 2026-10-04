@@ -15,10 +15,6 @@ from noark5_workflow.external_tools.arkade5_jobs import (
 
 
 class _Arkade5WorkflowOperation(BaseOperation):
-    # Arkade workflow operations must participate in the normal append-only
-    # raw-result history. This is required for result-version handling and for
-    # the workflow UI to show the latest selective re-run status independently
-    # of the preserved overall workflow cursor.
     raw_result_record = True
     arkade_operation: str = ""
 
@@ -73,9 +69,13 @@ class _Arkade5WorkflowOperation(BaseOperation):
                 plans,
                 on_progress=on_progress,
                 on_output=on_output,
+                cancelled_cb=ctx.cancelled,
             )
         except Exception as exc:
             return OperationResult(False, f"Arkade 5 kunne ikke kjøres: {exc}")
+
+        if ctx.cancelled():
+            return OperationResult(False, "Arkade 5-kjøringen ble avbrutt av bruker.")
 
         run = summary.runs[0] if summary.runs else None
         if run is None or not run.ok:

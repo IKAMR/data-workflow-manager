@@ -49,7 +49,7 @@ class JobRunner:
             output_root=job.output_root,
             work_root=job.work_root,
             work_content=job.work_content,
-            work_operations=job.work_operations,
+            work_operations=(getattr(job, "_effective_work_operations", None) or job.work_operations),
             archive_root=job.archive_root,
             settings=self.settings,
             progress_cb=progress_cb,
@@ -84,8 +84,6 @@ class JobRunner:
             )
 
     def continue_job(self, job: Job, *, progress_cb=None, log_cb=None, cancelled_cb=None, state_cb=None) -> JobRunOutcome:
-        # Availability is a hard precondition for continuation. Check it before
-        # cursor/status validation and before run() can mutate execution state.
         self._ensure_source_available(job)
         if job.status != JobStatus.WAITING:
             raise JobContinueError(f"Jobben kan ikke fortsettes fra status: {job.status.value}")
@@ -114,13 +112,6 @@ class JobRunner:
         cancelled_cb=None,
         state_cb=None,
     ) -> JobRunOutcome:
-        """Run exactly one existing workflow operation without moving the job cursor.
-
-        This is a selective re-run, not a partial workflow resume. The Job's
-        overall status/progress/cursor are deliberately preserved. Raw results
-        are still persisted by the executor and therefore receive a new
-        result_id while earlier raw results remain append-only history.
-        """
         if operation_id not in job.workflow_ids:
             raise ValueError(f"Operasjonen finnes ikke i jobbens workflow: {operation_id}")
 
@@ -195,13 +186,12 @@ class JobRunner:
             state_changed()
             return JobRunOutcome(True, False)
 
-        # READY + partial cursor is reserved for an append-only workflow
-        # extension. It is not checkpoint continuation.
         failed_retry = (
             job.status == JobStatus.FAILED
             and 0 < int(job.next_operation_index or 0) < len(op_ids)
             and str(job.message or "").startswith("Fortsettelse feilet - prøv igjen fra operasjon ")
         )
+        # READY + partial cursor is a valid resumable state after interrupted execution.
         start_index = (
             job.next_operation_index
             if job.status in {JobStatus.WAITING, JobStatus.READY} or failed_retry
@@ -216,6 +206,7 @@ class JobRunner:
             start_index = 0
             job.next_operation_index = 0
             job.progress = 0.0
+
         resuming = start_index > 0
         job.status = JobStatus.RUNNING
         job.message = (
@@ -231,6 +222,7 @@ class JobRunner:
                 output_lock = OutputLock(job.output_root, job.job_id)
                 output_lock.acquire()
                 log(f"Utdata låst: {job.output_root}")
+
             ctx = self._context_for_job(
                 job,
                 progress_cb=progress_cb,
@@ -246,7 +238,8 @@ class JobRunner:
                     job.message = "Avbrutt"
                     log("AVBRUTT før neste operasjon")
                     state_changed()
-                    return JobRunOutcome(False, False)
+                    return JobRunOutcome(False, zero_index > start_index)
+
                 operation = self._configure_operation_for_job(job, op_id)
                 self._sync_dias_output(job, op_id, operation, log)
                 log(f"START: {operation.definition.name}")
@@ -259,13 +252,25 @@ class JobRunner:
                     log(json.dumps(result.data, ensure_ascii=False, indent=2))
                 log(f"{'OK' if result.ok else 'FEIL'}: {operation.definition.name}")
                 job.message = result.message
+
+                if cancelled_cb and cancelled_cb():
+                    job.status = JobStatus.SKIPPED
+                    job.next_operation_index = zero_index
+                    job.progress = zero_index / total
+                    job.message = f"Avbrutt under {operation.definition.name}"
+                    log(job.message)
+                    state_changed()
+                    return JobRunOutcome(False, True)
+
                 if not result.ok:
                     job.next_operation_index = zero_index
                     job.progress = zero_index / total
                     state_changed()
                     break
+
                 job.mark_operation_completed(zero_index)
                 state_changed()
+
                 checkpoint_allowed = bool(getattr(operation, "allow_checkpoint", True))
                 if checkpoint_allowed and job.has_checkpoint(op_id) and zero_index < total - 1:
                     job.status = JobStatus.WAITING
@@ -273,6 +278,7 @@ class JobRunner:
                     log(job.message)
                     state_changed()
                     return JobRunOutcome(True, True)
+
             if all_ok:
                 job.status = JobStatus.OK
                 job.progress = 1.0
@@ -290,13 +296,19 @@ class JobRunner:
             return JobRunOutcome(all_ok, True)
         except OutputLockedError as exc:
             job.status = JobStatus.FAILED
-            job.message = (f"Fortsettelse feilet - prøv igjen fra operasjon {start_index + 1}" if resuming else str(exc))
+            job.message = (
+                f"Fortsettelse feilet - prøv igjen fra operasjon {start_index + 1}"
+                if resuming else str(exc)
+            )
             log(f"FEIL: {exc}")
             state_changed()
             return JobRunOutcome(False, False)
         except Exception as exc:
             job.status = JobStatus.FAILED
-            job.message = (f"Fortsettelse feilet - prøv igjen fra operasjon {start_index + 1}" if resuming else str(exc))
+            job.message = (
+                f"Fortsettelse feilet - prøv igjen fra operasjon {start_index + 1}"
+                if resuming else str(exc)
+            )
             log(f"FEIL: {exc}")
             state_changed()
             return JobRunOutcome(False, False)
