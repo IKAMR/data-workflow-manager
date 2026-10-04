@@ -3,7 +3,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from noark5_workflow.analysis.xml_schema_validation import resolve_local_schema, validate_xml_against_xsd, write_validation_report
+from noark5_workflow.analysis.xml_schema_validation import (
+    XmlSchemaValidationCancelled,
+    resolve_local_schema,
+    validate_xml_against_xsd,
+    write_validation_report,
+)
 from noark5_workflow.core.artifact_identity import artifact_run_dir, write_artifact_manifest
 from noark5_workflow.core.context import OperationContext
 from noark5_workflow.core.operation import BaseOperation, ExecutionTarget, OperationDefinition
@@ -11,6 +16,7 @@ from noark5_workflow.core.result import OperationResult
 from noark5_workflow.sources.noark5_extraction import Noark5Extraction
 
 DEFINITION_PATH = Path(__file__).resolve().parents[2] / "config" / "noark5" / "xml_schema_validation.json"
+
 
 class ValidateXmlSchemaOperation(BaseOperation):
     definition = OperationDefinition(
@@ -35,20 +41,35 @@ class ValidateXmlSchemaOperation(BaseOperation):
         }
 
     def can_run(self, ctx: OperationContext) -> tuple[bool, str]:
-        extraction=ctx.source or Noark5Extraction.detect(ctx.extraction_root)
-        if not extraction.metadata_files.get("arkivstruktur"): return False,"arkivstruktur.xml er påkrevd."
-        if not extraction.xsd_files: return False,"Ingen lokal XSD-fil ble funnet i uttrekket."
-        if ctx.work_operations is None: return False,"Jobben mangler Arbeid – operasjoner. Åpne Mapper for aktiv jobb og velg området for valideringsrapporten."
-        return True,""
+        extraction = ctx.source or Noark5Extraction.detect(ctx.extraction_root)
+        if not extraction.metadata_files.get("arkivstruktur"):
+            return False, "arkivstruktur.xml er påkrevd."
+        if not extraction.xsd_files:
+            return False, "Ingen lokal XSD-fil ble funnet i uttrekket."
+        if ctx.work_operations is None:
+            return False, "Jobben mangler Arbeid – operasjoner. Åpne Mapper for aktiv jobb og velg området for valideringsrapporten."
+        return True, ""
 
     def run(self, ctx: OperationContext) -> OperationResult:
-        extraction=ctx.source or Noark5Extraction.detect(ctx.extraction_root)
-        definition=json.loads(DEFINITION_PATH.read_text(encoding="utf-8")); item=definition["validations"][0]
-        xml_path=extraction.metadata_files[item["source_key"]]
-        if xml_path is None: return OperationResult(False,f"{item['source']} ble ikke funnet.")
-        schema_path=resolve_local_schema(xml_path,extraction.xsd_files,item.get("schema",{}).get("preferred_names",[]))
+        extraction = ctx.source or Noark5Extraction.detect(ctx.extraction_root)
+        definition = json.loads(DEFINITION_PATH.read_text(encoding="utf-8"))
+        item = definition["validations"][0]
+        xml_path = extraction.metadata_files[item["source_key"]]
+        if xml_path is None:
+            return OperationResult(False, f"{item['source']} ble ikke funnet.")
+
+        schema_path = resolve_local_schema(
+            xml_path,
+            extraction.xsd_files,
+            item.get("schema", {}).get("preferred_names", []),
+        )
         if schema_path is None:
-            return OperationResult(False,"Kunne ikke avgjøre hvilken lokal XSD som hører til arkivstruktur.xml.",data={"available_xsds":[str(p) for p in extraction.xsd_files]})
+            return OperationResult(
+                False,
+                "Kunne ikke avgjøre hvilken lokal XSD som hører til arkivstruktur.xml.",
+                data={"available_xsds": [str(p) for p in extraction.xsd_files]},
+            )
+
         out = artifact_run_dir(
             ctx,
             "noark5_tests",
@@ -63,24 +84,30 @@ class ValidateXmlSchemaOperation(BaseOperation):
             definition_version=str(definition.get("format_version", "")),
         )
 
-        requested_strategy = str(
-            ctx.settings.get("resource_strategy", "auto") or "auto"
-        )
+        requested_strategy = str(ctx.settings.get("resource_strategy", "auto") or "auto")
         environment = (
             ctx.metadata.get("run_environment")
             or ctx.settings.get("_current_run_environment")
             or {}
         )
 
-        ctx.progress(0.25,f"XSD: {schema_path.name}")
-        result=validate_xml_against_xsd(
-            xml_path,
-            schema_path,
-            resource_strategy=requested_strategy,
-            environment=environment,
-            expected_reuse=1,
-            available_xsds=extraction.xsd_files,
-        )
+        ctx.progress(0.25, f"XSD: {schema_path.name}")
+        try:
+            result = validate_xml_against_xsd(
+                xml_path,
+                schema_path,
+                resource_strategy=requested_strategy,
+                environment=environment,
+                expected_reuse=1,
+                available_xsds=extraction.xsd_files,
+                cancelled_cb=ctx.cancelled,
+            )
+        except XmlSchemaValidationCancelled:
+            return OperationResult(
+                False,
+                "XML/XSD-validering avbrutt av bruker.",
+                data={"cancelled": True},
+            )
 
         decision = result.resource_decision or {}
         if decision:
@@ -95,15 +122,25 @@ class ValidateXmlSchemaOperation(BaseOperation):
                 f"{decision.get('reason')}"
             )
 
-        report_path=out / item["output"]
-        write_validation_report(result,report_path,validation_id=item["id"]); ctx.progress(1.0,"XML/XSD-validering fullført")
-        data={
+        report_path = out / item["output"]
+        write_validation_report(result, report_path, validation_id=item["id"])
+        ctx.progress(1.0, "XML/XSD-validering fullført")
+        data = {
             **result.as_dict(),
-            "report":str(report_path),
-            "artifact_manifest":str(out / "artifact_manifest.json"),
+            "report": str(report_path),
+            "artifact_manifest": str(out / "artifact_manifest.json"),
             "definition_id": str(definition.get("definition_id", "")),
             "definition_version": str(definition.get("format_version", "")),
             "validation_id": str(item.get("id", "")),
         }
-        if result.valid: return OperationResult(True,f"XML/XSD-validering OK. Rapport: {report_path}",data=data)
-        return OperationResult(False,f"XML/XSD-validering feilet med {len(result.errors)} avvik. Rapport: {report_path}",data=data)
+        if result.valid:
+            return OperationResult(
+                True,
+                f"XML/XSD-validering OK. Rapport: {report_path}",
+                data=data,
+            )
+        return OperationResult(
+            False,
+            f"XML/XSD-validering feilet med {len(result.errors)} avvik. Rapport: {report_path}",
+            data=data,
+        )

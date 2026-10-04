@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import unittest
 from pathlib import Path
 
@@ -108,13 +109,15 @@ class V016A272ArkadeWorkflowOperationTests(unittest.TestCase):
         self.assertIn("Source - extraction må være definert", source)
         self.assertIn("Arkade 5 CLI må være konfigurert", source)
 
-    def test_runtime_is_a272_and_version_is_current_a37(self):
+    def test_runtime_is_a272_and_version_is_current_alpha(self):
         main = (ROOT / "main.py").read_text(encoding="utf-8")
         runtime = (ROOT / "gui" / "persistent_app_a27_2.py").read_text(encoding="utf-8")
         version = (ROOT / "version.py").read_text(encoding="utf-8")
         self.assertIn("from gui.persistent_app_a27_2 import run_gui", main)
         self.assertIn("class WorkflowApp(A27_1WorkflowApp)", runtime)
-        self.assertIn('VERSION = "0.1.6-a37"', version)
+        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a(\d+)(?:\.\d+)?"', version)
+        self.assertIsNotNone(match, version)
+        self.assertGreaterEqual(int(match.group(1)), 27)
 
 
 if __name__ == "__main__":

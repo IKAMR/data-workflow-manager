@@ -10,9 +10,9 @@ class WorkflowApp(A27_1WorkflowApp):
 
 def run_gui() -> None:
     # a27.2 remains the final historical entry point in main.py.
-    # From a37 it delegates to the current runtime so the long import chain
+    # From a38 it delegates to the current runtime so the long import chain
     # cannot silently override the newest implementation.
-    from .persistent_app_a37_runtime import WorkflowApp as CurrentWorkflowApp
+    from .persistent_app_a38_runtime import WorkflowApp as CurrentWorkflowApp
 
     theme.apply_theme()
     app = CurrentWorkflowApp()

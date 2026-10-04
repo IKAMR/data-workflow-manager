@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import unittest
 from pathlib import Path
 
@@ -8,13 +9,20 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class V016A37RuntimeTests(unittest.TestCase):
-    def test_version_is_a37(self):
+    def test_version_is_a37_or_newer(self):
         source = (ROOT / "version.py").read_text(encoding="utf-8")
-        self.assertIn('VERSION = "0.1.6-a37"', source)
+        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a(\d+)"', source)
+        self.assertIsNotNone(match, source)
+        self.assertGreaterEqual(int(match.group(1)), 37)
 
-    def test_a272_delegates_to_a37_runtime(self):
+    def test_a272_delegates_to_current_runtime_after_a37(self):
         source = (ROOT / "gui" / "persistent_app_a27_2.py").read_text(encoding="utf-8")
-        self.assertIn("persistent_app_a37_runtime", source)
+        match = re.search(
+            r"from \.persistent_app_a(\d+)_runtime import WorkflowApp as CurrentWorkflowApp",
+            source,
+        )
+        self.assertIsNotNone(match, source)
+        self.assertGreaterEqual(int(match.group(1)), 37)
         self.assertIn("CurrentWorkflowApp()", source)
 
     def test_a37_builds_on_committed_a36_runtime(self):
@@ -73,7 +81,6 @@ class V016A37RuntimeTests(unittest.TestCase):
         self.assertIn('if str(run_type).casefold() != "batch":', source)
         self.assertIn('self.settings[key] = False', source)
         self.assertIn('copy_run_log_to_work_operations', source)
-
 
 
 if __name__ == "__main__":

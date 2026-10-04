@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Callable
 from urllib.parse import unquote, urlparse
 
 from lxml import etree
@@ -12,6 +13,10 @@ from app.resource_strategy import ResourceDecision, choose_resource_strategy
 
 _SCHEMA_LOCATION_READ_CHUNK = 64 * 1024
 _STREAM_PARSE_CHUNK = 1024 * 1024
+
+
+class XmlSchemaValidationCancelled(RuntimeError):
+    """Raised when streaming XML/XSD validation is cancelled by the operator."""
 
 
 @dataclass(frozen=True)
@@ -144,7 +149,6 @@ class _LocalXsdResolver(etree.Resolver):
         parsed = urlparse(str(url))
         candidate_name = Path(unquote(parsed.path)).name.casefold()
         matches = self._by_name.get(candidate_name, [])
-        # Only use basename fallback when it is unambiguous.
         if len(matches) == 1:
             return self.resolve_filename(str(matches[0]), context)
         return None
@@ -177,8 +181,11 @@ def _load_schema(
 def _stream_validate_xml(
     xml_path: Path,
     schema: etree.XMLSchema,
+    *,
+    cancelled_cb: Callable[[], bool] | None = None,
 ) -> tuple[bool, list[dict]]:
     context = None
+    element_counter = 0
     try:
         with xml_path.open("rb") as stream:
             context = etree.iterparse(
@@ -191,6 +198,15 @@ def _stream_validate_xml(
                 chunk_size=_STREAM_PARSE_CHUNK,
             )
             for _event, element in context:
+                element_counter += 1
+                if (
+                    cancelled_cb is not None
+                    and element_counter % 2048 == 0
+                    and cancelled_cb()
+                ):
+                    raise XmlSchemaValidationCancelled(
+                        "XML/XSD-validering avbrutt av bruker."
+                    )
                 element.clear()
                 parent = element.getparent()
                 if parent is not None:
@@ -199,6 +215,8 @@ def _stream_validate_xml(
 
         errors = _error_rows(context.error_log) if context is not None else []
         return not errors, errors
+    except XmlSchemaValidationCancelled:
+        raise
     except etree.XMLSyntaxError as exc:
         errors: list[dict] = []
         if context is not None:
@@ -250,6 +268,7 @@ def validate_xml_against_xsd(
     environment: dict | None = None,
     expected_reuse: int = 1,
     available_xsds: list[Path] | None = None,
+    cancelled_cb: Callable[[], bool] | None = None,
 ) -> XmlSchemaValidationResult:
     xml_path = Path(xml_path).resolve()
     schema_path = Path(schema_path).resolve()
@@ -282,6 +301,9 @@ def validate_xml_against_xsd(
             resource_decision=decision.as_dict(),
         )
 
+    if cancelled_cb is not None and cancelled_cb():
+        raise XmlSchemaValidationCancelled("XML/XSD-validering avbrutt av bruker.")
+
     if decision.selected == "memory":
         valid, errors = _tree_validate_xml(xml_path, schema, in_memory=True)
         mode = "memory-tree"
@@ -289,7 +311,11 @@ def validate_xml_against_xsd(
         valid, errors = _tree_validate_xml(xml_path, schema, in_memory=False)
         mode = "disk-tree"
     else:
-        valid, errors = _stream_validate_xml(xml_path, schema)
+        valid, errors = _stream_validate_xml(
+            xml_path,
+            schema,
+            cancelled_cb=cancelled_cb,
+        )
         mode = "streaming-iterparse"
 
     return XmlSchemaValidationResult(

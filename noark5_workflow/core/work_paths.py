@@ -21,13 +21,14 @@ def resolve_dwm_work_root(
 ) -> Path:
     """Return the authoritative root for data owned by DWM.
 
-    External tools use ``work_operations`` directly and manage their own output
-    folders. DWM-owned files always live below ``app_work_subfolder`` when that
-    setting is non-blank. A blank setting deliberately means the Work -
-    operations root itself.
+    ``work_operations`` may be either:
+    - the base Work - operations directory, or
+    - the already materialized DWM directory, or
+    - one job-specific directory directly below the DWM directory.
 
-    The function is idempotent for callers that already pass the resolved DWM
-    root.
+    The app-owned folder and the job-list output rule are both single
+    filesystem components.  Therefore ``.../dwm/a01`` is already inside DWM
+    and must never become ``.../dwm/a01/dwm``.
     """
     root = Path(work_operations)
     cfg = _settings(settings)
@@ -39,10 +40,16 @@ def resolve_dwm_work_root(
     if subpath.is_absolute():
         raise ValueError("App-undermappe i Work må være relativ.")
 
-    # Preserve the existing setting semantics while avoiding accidental
-    # ``.../dwm/dwm`` when an already-resolved root is passed internally.
-    if len(subpath.parts) == 1 and root.name.casefold() == subpath.name.casefold():
-        return root
+    # app_work_subfolder is defined as exactly one component.  Accept both the
+    # app root itself (.../dwm) and one materialized job-rule level below it
+    # (.../dwm/a01) as already resolved.
+    if len(subpath.parts) == 1:
+        app_name = subpath.name.casefold()
+        if root.name.casefold() == app_name:
+            return root
+        if root.parent.name.casefold() == app_name:
+            return root
+
     return root / subpath
 
 
