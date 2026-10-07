@@ -26,7 +26,7 @@ def _iter_tests(suite: unittest.TestSuite):
 
 
 def _current_version_test_token() -> str | None:
-    """Return e.g. ``v016_a13`` for VERSION ``0.1.6-a13``."""
+    """Return e.g. ``v017_a1`` for VERSION ``0.1.7-a1``."""
     match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)-a(\d+)", VERSION)
     if not match:
         return None
@@ -44,42 +44,63 @@ def _test_sort_key(test) -> tuple[int, str]:
     return (0 if is_current else 1, test_id)
 
 
-def _historical_alpha_markers_for_final_release() -> tuple[str, ...]:
-    """Create a test-only compatibility view for historical alpha guards.
+def _current_release_tuple() -> tuple[int, int, int] | None:
+    match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)(?:-a\d+(?:\.\d+)*)?", VERSION)
+    if not match:
+        return None
+    return tuple(int(match.group(index)) for index in (1, 2, 3))
 
-    A final X.Y.Z release is newer than every X.Y.Z-aNN milestone. Historical
-    tests may still search the text of version.py for old alpha milestones.
-    The physical version.py is never changed.
+
+def _historical_version_markers() -> tuple[str, ...]:
+    """Create a test-only compatibility view for older release guards.
+
+    Historical tests intentionally lock milestones from the release in which a
+    feature was introduced.  Moving to a newer release series must keep those
+    guards true.  Path.read_text() therefore gets synthetic markers for older
+    releases while the physical version.py remains unchanged.
     """
-    if not re.fullmatch(r"\d+\.\d+\.\d+", VERSION):
+    current = _current_release_tuple()
+    if current is None:
         return ()
 
-    release_re = re.escape(VERSION)
-    exact = set()
+    major, minor, patch = current
+    releases = [
+        f"{major}.{minor}.{old_patch}"
+        for old_patch in range(patch)
+    ]
+    if not releases:
+        return ()
+
+    exact: set[str] = set()
     for path in (ROOT / "tests").glob("test_*.py"):
         try:
             source = _ORIGINAL_PATH_READ_TEXT(path, encoding="utf-8")
         except OSError:
             continue
-        for alpha in re.findall(
-            rf'VERSION\s*=\s*["\']({release_re}-a\d+(?:\.\d+)*)["\']',
-            source,
-        ):
-            exact.add(alpha)
+        for release in releases:
+            release_re = re.escape(release)
+            for alpha in re.findall(
+                rf'VERSION\s*=\s*["\']({release_re}-a\d+(?:\.\d+)*)["\']',
+                source,
+            ):
+                exact.add(alpha)
 
-    markers = [f'VERSION = "{VERSION}-a999999"']
+    markers: list[str] = []
+    for release in releases:
+        markers.append(f'VERSION = "{release}"')
+        markers.append(f'VERSION = "{release}-a999999"')
     markers.extend(f'VERSION = "{value}"' for value in sorted(exact))
     return tuple(markers)
 
 
-def _install_final_release_test_compatibility():
-    markers = _historical_alpha_markers_for_final_release()
+def _install_historical_version_test_compatibility():
+    markers = _historical_version_markers()
     if not markers:
         return lambda: None
 
     version_path = (ROOT / "version.py").resolve()
     suffix = (
-        "\n# Test-only historical alpha compatibility view.\n"
+        "\n# Test-only historical version compatibility view.\n"
         + "\n".join(markers)
         + "\n"
     )
@@ -109,7 +130,7 @@ class CompactTextTestResult(unittest.TextTestResult):
 
 
 def main() -> int:
-    restore_read_text = _install_final_release_test_compatibility()
+    restore_read_text = _install_historical_version_test_compatibility()
     try:
         discovered = unittest.defaultTestLoader.discover(
             str(ROOT / "tests"), pattern="test_*.py"
