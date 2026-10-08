@@ -18,33 +18,82 @@ from noark5_workflow.reporting.depot_metadata import (
     update_current_metadata,
     job_display_name,
 )
-from version import APP_NAME
+from version import APP_NAME, VERSION
 from . import theme
 from .work_window_state_v017_a1 import install_work_window_state, job_window_state_key
 
 
 _FIELDS = (
-    ("label", "LABEL / uttrekksidentitet", "METS / info.xml"),
-    ("system", "Kildesystem", "METS / info.xml"),
-    ("system_version", "Systemversjon", "METS / info.xml"),
-    ("period_start", "Periode fra", "METS / info.xml"),
-    ("period_end", "Periode til", "METS / info.xml"),
-    ("owner_org", "Eierorganisasjon", "METS / info.xml"),
-    ("creator", "Skaper / arkivskaper", "METS / info.xml"),
-    ("archivist_org", "Arkivorganisasjon", "METS / info.xml"),
-    ("submitter_org", "Avleverende organisasjon", "METS / info.xml"),
-    ("submitter_person", "Avleverende person", "METS / info.xml"),
-    ("submission_agreement", "Submission Agreement / leveransespesifikasjon", "METS / info.xml"),
-    ("archivist_type", "Arkivtype", "METS / info.xml"),
-    ("producer_org", "Produsent (organisasjon)", "METS / info.xml"),
-    ("producer_person", "Produsent (person)", "METS / info.xml"),
-    ("producer_software", "Produsent (programvare)", "METS / info.xml"),
-    ("preserver", "Bevaringsansvarlig", "METS / info.xml"),
+    # Rows 1-47 follow 0000-metadata-arkade.xlsx / Arkade 5 GUI order.
+    ("archive_description", "Arkivbeskrivelse", "Arkiv / pakke"),
+    ("submission_agreement", "Avtalenr", "Arkiv / pakke"),
+    ("record_status", "Oppføringstype", "Arkiv / pakke"),
+    ("delivery_type", "Arkivsystemtype", "Arkiv / pakke"),
+    ("project_name", "Prosjektnavn", "Arkiv / pakke"),
+    ("package_number", "Pakkenummer", "Arkiv / pakke"),
+    ("reference_code", "Referansekode", "Arkiv / pakke"),
+
+    ("archivist_org", "Arkivskaper", "Arkivskaper"),
+    ("archivist_person", "Kontaktperson", "Arkivskaper"),
+    ("archivist_address", "Adresse", "Arkivskaper"),
+    ("archivist_phone", "Telefon", "Arkivskaper"),
+    ("archivist_email", "Epost", "Arkivskaper"),
+
+    ("submitter_org", "Overfører", "Overfører"),
+    ("submitter_person", "Kontaktperson", "Overfører"),
+    ("submitter_address", "Adresse", "Overfører"),
+    ("submitter_phone", "Telefon", "Overfører"),
+    ("submitter_email", "Epost", "Overfører"),
+
+    ("producer_org", "Produsent", "Produsent"),
+    ("producer_person", "Kontaktperson", "Produsent"),
+    ("producer_address", "Adresse", "Produsent"),
+    ("producer_phone", "Telefon", "Produsent"),
+    ("producer_email", "Epost", "Produsent"),
+
+    ("owner_org", "Eier", "Eier"),
+    ("owner_person", "Kontaktperson", "Eier"),
+    ("owner_address", "Adresse", "Eier"),
+    ("owner_phone", "Telefon", "Eier"),
+    ("owner_email", "Epost", "Eier"),
+
+    ("creator_org", "Skaper info.xml", "Skaper info.xml"),
+    ("creator_person", "Kontaktperson", "Skaper info.xml"),
+    ("creator_address", "Adresse", "Skaper info.xml"),
+    ("creator_phone", "Telefon", "Skaper info.xml"),
+    ("creator_email", "Epost", "Skaper info.xml"),
+
+    ("mets_creator_software", "METS program", "METS program"),
+    ("mets_creator_software_version", "METS program versjon", "METS program"),
+    ("recipient", "Mottaker", "Mottaker"),
+
+    ("system", "Systemnavn", "System"),
+    ("system_version", "Versjon", "System"),
+    ("system_type", "Type", "System"),
+    ("system_type_version", "Typeversjon", "System"),
+
+    ("extraction_system", "Uttrekkssystem", "Uttrekkssystem"),
+    ("extraction_system_version", "Versjon", "Uttrekkssystem"),
+    ("extraction_system_type", "Type", "Uttrekkssystem"),
+    ("extraction_system_type_version", "Typeversjon", "Uttrekkssystem"),
+
+    ("period_start", "Startdato", "Periode / uttrekk"),
+    ("period_end", "Sluttdato", "Periode / uttrekk"),
+    ("extraction_date", "Uttrekksdato", "Periode / uttrekk"),
+    ("label", "Merkelapp", "Merkelapp"),
+
+    # Depot/portal values are deliberately separate from DIAS/METS.
     ("owner_municipalities", "Eierkommune(r)", "Depotmetadata / tillegg"),
     ("archive_creators", "Arkivskapere / historiske kommuner", "Depotmetadata / tillegg"),
     ("system_region", "IT-/systemregion", "Depotmetadata / tillegg"),
     ("delivery_information", "Informasjon om innleveringen / fritekst", "Depotmetadata / tillegg"),
 )
+
+_READ_ONLY_CURRENT = {
+    "mets_creator_software": APP_NAME,
+    "mets_creator_software_version": VERSION,
+}
+
 
 
 class DepotMetadataEditor(ctk.CTkToplevel):
@@ -68,10 +117,12 @@ class DepotMetadataEditor(ctk.CTkToplevel):
         display_name = display_name or str(job.name or job.job_id)
         self._v017_display_name = display_name
         self.title(f"Rediger metadata – {display_name}")
-        self.geometry("1480x900")
-        self.minsize(1060, 700)
+        self.geometry("1120x820")
+        self.minsize(860, 620)
+        self.resizable(True, True)
         self.configure(fg_color=theme.APP_BG)
-        self.transient(master)
+        # This is a major work window, not a modal child dialog. Keeping it
+        # non-transient gives Windows normal minimize/maximize/close controls.
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(3, weight=1)
@@ -164,7 +215,10 @@ class DepotMetadataEditor(ctk.CTkToplevel):
 
         self._render()
         install_work_window_state(
-            self, job_window_state_key("metadata", self._v017_display_name)
+            self,
+            job_window_state_key("metadata", self._v017_display_name),
+            max_width_fraction=0.95,
+            max_height_fraction=0.94,
         )
 
     def _render(self) -> None:
@@ -179,8 +233,9 @@ class DepotMetadataEditor(ctk.CTkToplevel):
         self._identity.configure(
             text=(
                 f"{self.job.job_id} | teknisk navn: {self.job.name or self.job.job_id}\n"
-                "Gjeldende depotverdier kan redigeres. Importerte info.xml/METS-versjoner "
-                "bevares separat som kildehistorikk og overskrives ikke av redigering her."
+                "Felt 1-47 følger Arkade 5 / DIAS METS. Samme metadata brukes til ytre "
+                "submission description (info.xml) og indre dias-mets.xml. Importerte "
+                "kilder bevares separat som historisk evidens."
             )
         )
         self._review_label.configure(
@@ -221,12 +276,12 @@ class DepotMetadataEditor(ctk.CTkToplevel):
                 text=label,
                 anchor="w",
                 justify="left",
-                wraplength=300,
+                wraplength=230,
                 font=theme.font(theme.SMALL_SIZE),
                 text_color=theme.TEXT_MAIN,
             ).grid(row=row, column=0, padx=10, pady=6, sticky="nw")
 
-            value = str(current.get(key, "") or "")
+            value = str(_READ_ONLY_CURRENT.get(key, current.get(key, "")) or "")
             var = ctk.StringVar(value=value)
             self._vars[key] = var
             if key == "delivery_information":
@@ -234,6 +289,8 @@ class DepotMetadataEditor(ctk.CTkToplevel):
                 widget.insert("1.0", value)
             else:
                 widget = ctk.CTkEntry(self._body, textvariable=var, font=theme.font(theme.SMALL_SIZE))
+                if key in _READ_ONLY_CURRENT:
+                    widget.configure(state="disabled")
             widget.grid(row=row, column=1, padx=10, pady=6, sticky="ew")
             self._widgets[key] = widget
 
@@ -244,7 +301,7 @@ class DepotMetadataEditor(ctk.CTkToplevel):
                 text=source_text,
                 anchor="w",
                 justify="left",
-                wraplength=520,
+                wraplength=360,
                 font=theme.font(theme.SMALL_SIZE),
                 text_color=theme.TEXT_MUTED,
             ).grid(row=row, column=2, padx=10, pady=6, sticky="nw")
@@ -264,12 +321,21 @@ class DepotMetadataEditor(ctk.CTkToplevel):
                 path = str(item.get("path", "") or "")
                 stamp = str(item.get("imported_at", "") or "")
                 sha = str(item.get("sha256", "") or "")
+                evidence_status = str(item.get("evidence_status", "") or "")
+                preserved = str(item.get("preserved_file", "") or "")
+                manifest = str(item.get("evidence_manifest", "") or "")
                 text = f"{stamp} | {path}"
                 if sha:
                     text += f"\nSHA-256: {sha}"
+                if evidence_status:
+                    text += f"\nEvidensstatus: {evidence_status}"
+                if preserved:
+                    text += f"\nBevart original: {preserved}"
+                if manifest:
+                    text += f"\nEvidensmanifest: {manifest}"
                 ctk.CTkLabel(
                     self._body, text=text, anchor="w", justify="left",
-                    wraplength=1100, font=theme.font(theme.SMALL_SIZE),
+                    wraplength=850, font=theme.font(theme.SMALL_SIZE),
                     text_color=theme.TEXT_MUTED,
                 ).grid(row=row, column=0, columnspan=3, padx=10, pady=4, sticky="ew")
                 row += 1
@@ -342,7 +408,7 @@ class DepotMetadataEditor(ctk.CTkToplevel):
                 stem = safe[:120]
         kwargs = {
             "parent": self,
-            "title": "Eksporter gjenbrukbar info.xml",
+            "title": "Eksporter DIAS info.xml (submission description)",
             "initialfile": f"{stem}_info.xml",
             "defaultextension": ".xml",
             "filetypes": [("XML-filer", "*.xml"), ("Alle filer", "*.*")],
@@ -360,10 +426,10 @@ class DepotMetadataEditor(ctk.CTkToplevel):
             return
         messagebox.showinfo(
             APP_NAME,
-            "Metadata er eksportert som en gjenbrukbar info.xml.\n\n"
-            "Filen inneholder metadatafeltene fra editoren, men ikke endelig "
-            "DIAS pakke-ID, TAR-referanse, størrelse eller checksum. Disse lages "
-            "først ved endelig DIAS-pakking.\n\n"
+            "Metadata er eksportert som DIAS package-level METS (info.xml).\n\n"
+            "Feltmappingen følger Arkade 5 og submissionDescription.xsd. Denne "
+            "metadataeksporten har ikke filinventar/TAR-sjekksum; det legges til "
+            "når den endelige DIAS SIP/AIP-pakken bygges.\n\n"
             f"Lagret: {path}",
             parent=self,
         )
@@ -373,7 +439,7 @@ class DepotMetadataEditor(ctk.CTkToplevel):
             return
         kwargs = {
             "parent": self,
-            "title": "Velg info.xml / DIAS-METS metadata",
+            "title": "Velg DIAS info.xml / submission description",
             "filetypes": [("XML-filer", "*.xml"), ("Alle filer", "*.*")],
         }
         initial = self._manual_import_initial_dir()

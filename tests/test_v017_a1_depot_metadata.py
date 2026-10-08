@@ -422,8 +422,8 @@ class V017A1DepotMetadataTests(unittest.TestCase):
     def test_single_extraction_editor_exposes_mets_and_depot_fields(self):
         source = (ROOT / "gui" / "depot_metadata_editor_v017_a1.py").read_text(encoding="utf-8")
         self.assertIn("REDIGER METADATA - ETT UTREKK", source)
-        self.assertIn('("label", "LABEL / uttrekksidentitet", "METS / info.xml")', source)
-        self.assertIn('("submission_agreement", "Submission Agreement / leveransespesifikasjon", "METS / info.xml")', source)
+        self.assertIn('("archive_description", "Arkivbeskrivelse", "Arkiv / pakke")', source)
+        self.assertIn('("submission_agreement", "Avtalenr", "Arkiv / pakke")', source)
         self.assertIn('("delivery_information", "Informasjon om innleveringen / fritekst", "Depotmetadata / tillegg")', source)
         self.assertIn("source_values(payload, key)", source)
         self.assertIn("update_current_metadata(self.job, self._values())", source)
@@ -444,14 +444,18 @@ class V017A1DepotMetadataTests(unittest.TestCase):
                 "system_version": "4.2",
                 "period_start": "2005-05-02",
                 "period_end": "2007-12-31",
+                "archive_description": "1502_024 ePhorte mk (2005-2007)",
+                "record_status": "NEW",
+                "delivery_type": "Sak-/Arkivsystem",
+                "package_number": "1.0",
                 "owner_org": "1502 - Molde kommune",
-                "creator": "Documaster AS",
+                "creator_org": "Documaster AS",
                 "archivist_org": "1502 - Molde kommune",
                 "submitter_org": "1502 - Molde kommune",
                 "submission_agreement": "18/690-2/2018-10-09",
                 "producer_org": "Documaster AS",
-                "producer_software": "Documaster AS",
-                "preserver": "Torbjørn Aasen",
+                "extraction_system": "Documaster AS",
+                "recipient": "Interkommunalt Arkiv for Møre og Romsdal IKS",
             }
             target = export_info_xml(job, root / "shared_info.xml", values=values)
             self.assertTrue(target.is_file())
@@ -465,8 +469,8 @@ class V017A1DepotMetadataTests(unittest.TestCase):
         self.assertIn("Eksporter info.xml...", source)
         self.assertIn("filedialog.asksaveasfilename", source)
         self.assertIn("export_info_xml(self.job, Path(filename), values=self._values())", source)
-        self.assertIn("Metadata er eksportert som en gjenbrukbar info.xml.", source)
-        self.assertIn("DIAS pakke-ID, TAR-referanse, størrelse eller checksum", source)
+        self.assertIn("Metadata er eksportert som DIAS package-level METS (info.xml).", source)
+        self.assertIn("submissionDescription.xsd", source)
 
     def test_single_selected_job_routes_to_full_editor_without_blocking_scan(self):
         source = (ROOT / "gui" / "persistent_app_v017_a1.py").read_text(encoding="utf-8")
@@ -486,20 +490,20 @@ class V017A1DepotMetadataTests(unittest.TestCase):
         self.assertIn("job_display_name(self.current_job)", source)
         self.assertIn("AKTIV JOBB:", source)
 
-    def test_v017_first_commit_version_is_a1(self):
-        # tests/run_tests.py deliberately decorates Path.read_text(version.py)
-        # with historical VERSION markers for legacy compatibility tests.
-        # Load the real module instead of asserting the monkeypatched text view.
+    def test_v017_series_keeps_a1_as_historical_start(self):
+        # This test belongs to the a1 feature set, but version.py follows the
+        # current alpha.  Lock the v0.1.7 alpha series here instead of making
+        # every later alpha fail a historical a1 assertion.
         import importlib.util
 
         version_path = ROOT / "version.py"
-        spec = importlib.util.spec_from_file_location("dwm_version_v017_a1", version_path)
+        spec = importlib.util.spec_from_file_location("dwm_version_v017", version_path)
         self.assertIsNotNone(spec)
         self.assertIsNotNone(spec.loader)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         self.assertEqual(module.APP_NAME, "Data Workflow Manager")
-        self.assertEqual(module.VERSION, "0.1.7-a1")
+        self.assertRegex(module.VERSION, r"^0\.1\.7-a\d+$")
 
 
 if __name__ == "__main__":

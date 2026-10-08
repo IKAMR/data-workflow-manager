@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import xml.etree.ElementTree as ET
 from uuid import uuid4
 from datetime import datetime
@@ -11,30 +12,23 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from noark5_workflow.core.job import Job
+from noark5_workflow.core.work_paths import resolve_dwm_work_root, resolve_work_operations_base
 from noark5_workflow.analysis.period_assessment import suggest_reviewed_period
-from noark5_workflow.operations.dias_mets import read_meta_from_mets
+from noark5_workflow.operations.dias_mets import (
+    DIAS_METADATA_FIELDS,
+    LEGACY_TO_CANONICAL,
+    build_submission_description,
+    read_meta_from_mets,
+    submission_description_readiness,
+    write_xml,
+)
 
 FILE_TYPE = "dwm-depot-metadata"
-FORMAT_VERSION = 2
+FORMAT_VERSION = 3
 
-METS_FIELDS = (
-    "submission_agreement",
-    "label",
-    "system",
-    "system_version",
-    "archivist_type",
-    "period_start",
-    "period_end",
-    "owner_org",
-    "archivist_org",
-    "submitter_org",
-    "submitter_person",
-    "producer_org",
-    "producer_person",
-    "producer_software",
-    "creator",
-    "preserver",
-)
+# Canonical DIAS/METS metadata follows rows 1-47 in the Arkade metadata sheet
+# and Arkade 5's ArchiveMetadata model.  Older DWM keys are migrated below.
+METS_FIELDS = DIAS_METADATA_FIELDS
 
 DEPOT_FIELDS = (
     "owner_municipalities",
@@ -51,12 +45,183 @@ def _now_iso() -> str:
 
 
 def metadata_store_path(job: Job) -> Path | None:
-    """Return a writable metadata sidecar outside the received source."""
+    """Return the metadata sidecar inside DWM's configured Work subfolder."""
     if job.work_operations is not None:
-        return Path(job.work_operations) / "metadata" / "depot_metadata.json"
+        root = resolve_dwm_work_root(job.work_operations)
+        return root / "metadata" / "depot_metadata.json"
+    if job.work_root is not None:
+        root = resolve_dwm_work_root(Path(job.work_root) / "repository_operations")
+        return root / "metadata" / "depot_metadata.json"
+    return None
+
+
+def _legacy_metadata_store_path(job: Job) -> Path | None:
+    """Pre-a2 location used before DWM-subfolder resolution was applied."""
+    # Prefer Work root when available: it remains stable even after the GUI has
+    # materialized app/job subfolders into job.work_operations.
     if job.work_root is not None:
         return Path(job.work_root) / "repository_operations" / "metadata" / "depot_metadata.json"
+    if job.work_operations is not None:
+        base = resolve_work_operations_base(job.work_operations)
+        return base / "metadata" / "depot_metadata.json"
     return None
+
+
+def metadata_root_path(job: Job) -> Path | None:
+    """Return the authoritative metadata directory for one job."""
+    path = metadata_store_path(job)
+    return path.parent if path is not None else None
+
+
+def _metadata_work_root(job: Job) -> Path | None:
+    root = metadata_root_path(job)
+    return root.parent if root is not None else None
+
+
+def _metadata_evidence_id(item: dict[str, Any]) -> str:
+    sha = str(item.get("sha256", "") or "").casefold()
+    source_path = str(item.get("path", "") or "")
+    fallback = f"{item.get('size')}|{item.get('mtime_ns')}|{item.get('imported_at')}"
+    seed = f"{sha}|{source_path}|{fallback}".encode("utf-8", errors="replace")
+    return "info-" + hashlib.sha256(seed).hexdigest()[:16]
+
+
+def _write_json_atomic(path: Path, value: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = path.with_name(path.name + ".tmp")
+    try:
+        temp.write_text(
+            json.dumps(value, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        temp.replace(path)
+    finally:
+        if temp.exists():
+            try:
+                temp.unlink()
+            except OSError:
+                pass
+
+
+def _upgrade_source_fields_from_file(item: dict[str, Any], source_file: Path | None) -> dict[str, Any]:
+    """Re-read an unchanged imported METS file with the current DIAS mapper.
+
+    This upgrades a1/a2 source-history records that only extracted the old
+    reduced field set. The original bytes/checksum remain the provenance anchor.
+    """
+    enriched = dict(item)
+    if source_file is None or not source_file.is_file():
+        return enriched
+    try:
+        parsed = read_meta_from_mets(source_file)
+    except (OSError, ValueError):
+        return enriched
+    canonical = {
+        key: str(parsed.get(key, "") or "").strip()
+        for key in METS_FIELDS
+        if str(parsed.get(key, "") or "").strip()
+    }
+    if canonical:
+        enriched["fields"] = canonical
+        enriched["fields_mapper"] = "arkade5-dias-v3"
+    return enriched
+
+
+def _materialize_source_evidence(job: Job, item: dict[str, Any]) -> dict[str, Any]:
+    """Preserve one imported info.xml source beside its extracted field values.
+
+    The received/source file is never modified.  If an older metadata record
+    only contains path + checksum, this function upgrades it by copying the
+    exact source bytes when they are still available.  A manifest is written
+    even when the source is unavailable so the historical values/checksum are
+    not lost.
+    """
+    enriched = dict(item)
+    metadata_root = metadata_root_path(job)
+    work_root = _metadata_work_root(job)
+    if metadata_root is None or work_root is None:
+        return enriched
+
+    evidence_id = str(enriched.get("evidence_import_id", "") or "").strip()
+    if not evidence_id:
+        evidence_id = _metadata_evidence_id(enriched)
+    evidence_root = metadata_root / "source_evidence" / evidence_id
+    manifest_path = evidence_root / "manifest.json"
+    source_dir = evidence_root / "source"
+
+    original_path_text = str(enriched.get("path", "") or "")
+    original_path = Path(original_path_text) if original_path_text else None
+    original_name = original_path.name if original_path is not None and original_path.name else "info.xml"
+    preserved_file: Path | None = None
+    status = "source_unavailable"
+    expected_sha = str(enriched.get("sha256", "") or "").casefold()
+
+    if original_path is not None and original_path.is_file():
+        actual_sha = _sha256_file(original_path)
+        if expected_sha and actual_sha.casefold() != expected_sha:
+            status = "source_changed_since_import"
+        else:
+            source_dir.mkdir(parents=True, exist_ok=True)
+            preserved_file = source_dir / original_name
+            if not preserved_file.exists() or _sha256_file(preserved_file) != actual_sha:
+                shutil.copy2(original_path, preserved_file)
+            status = "preserved"
+            if not expected_sha:
+                enriched["sha256"] = actual_sha
+                expected_sha = actual_sha
+            try:
+                stat = original_path.stat()
+                enriched.setdefault("size", int(stat.st_size))
+                enriched.setdefault("mtime_ns", int(stat.st_mtime_ns))
+            except OSError:
+                pass
+
+    if preserved_file is None:
+        previous = str(enriched.get("preserved_file", "") or "")
+        if previous:
+            candidate = work_root / previous
+            if candidate.is_file():
+                preserved_file = candidate
+                status = "preserved"
+
+    parse_source = preserved_file if preserved_file is not None and preserved_file.is_file() else None
+    if parse_source is None and status == "preserved" and original_path is not None and original_path.is_file():
+        parse_source = original_path
+    enriched = _upgrade_source_fields_from_file(enriched, parse_source)
+
+    rel_preserved = (
+        str(preserved_file.relative_to(work_root))
+        if preserved_file is not None and preserved_file.is_file()
+        else None
+    )
+    rel_manifest = str(manifest_path.relative_to(work_root))
+    manifest = {
+        "format_version": 1,
+        "evidence_type": "received_metadata_source",
+        "evidence_import_id": evidence_id,
+        "job_id": str(job.job_id),
+        "original_path": original_path_text,
+        "original_name": original_name,
+        "imported_at": str(enriched.get("imported_at", "") or ""),
+        "size": enriched.get("size"),
+        "mtime_ns": enriched.get("mtime_ns"),
+        "sha256": str(enriched.get("sha256", "") or ""),
+        "fields": dict(enriched.get("fields", {}) or {}),
+        "preservation_status": status,
+        "preserved_file": rel_preserved,
+        "principle": (
+            "Mottatt/importert info.xml bevares uendret som kildeevidens. "
+            "Gjeldende depotmetadata lagres separat og kan korrigeres uten å omskrive kilden."
+        ),
+    }
+    _write_json_atomic(manifest_path, manifest)
+
+    enriched["evidence_import_id"] = evidence_id
+    enriched["evidence_manifest"] = rel_manifest
+    enriched["evidence_status"] = status
+    if rel_preserved is not None:
+        enriched["preserved_file"] = rel_preserved
+    return enriched
 
 
 def _blank_current() -> dict[str, str]:
@@ -68,6 +233,11 @@ def _normalise_current(value: Any) -> dict[str, str]:
     if isinstance(value, dict):
         for key in ALL_EDITABLE_FIELDS:
             current[key] = str(value.get(key, "") or "").strip()
+        # Migrate short-lived a1/a2 field names without losing operator work.
+        for old_key, new_key in LEGACY_TO_CANONICAL.items():
+            old_value = str(value.get(old_key, "") or "").strip()
+            if old_value and not current.get(new_key):
+                current[new_key] = old_value
     return current
 
 
@@ -116,8 +286,15 @@ def empty_metadata(job: Job) -> dict[str, Any]:
 
 def load_depot_metadata(job: Job) -> dict[str, Any]:
     path = metadata_store_path(job)
-    if path is None or not path.is_file():
+    if path is None:
         return empty_metadata(job)
+    if not path.is_file():
+        # Read the short-lived pre-a2 location so existing operator work is not
+        # lost. The next save writes to the configured DWM location.
+        legacy = _legacy_metadata_store_path(job)
+        if legacy is None or legacy == path or not legacy.is_file():
+            return empty_metadata(job)
+        path = legacy
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
@@ -145,27 +322,95 @@ def save_depot_metadata(job: Job, payload: dict[str, Any]) -> Path:
         raise ValueError(
             f"{job.job_id} mangler Work/operations. Metadata kan ikke lagres i mottatt kilde."
         )
+
+    source_imports = []
+    for item in list(payload.get("source_imports", []) or []):
+        if not isinstance(item, dict):
+            continue
+        source_imports.append(_materialize_source_evidence(job, item))
+
     result = {
         "file_type": FILE_TYPE,
         "format_version": FORMAT_VERSION,
         "job_id": str(job.job_id),
         "updated_at": _now_iso(),
-        "source_imports": list(payload.get("source_imports", []) or []),
+        "source_imports": source_imports,
         "current": _normalise_current(payload.get("current", {})),
         "review": _normalise_review(payload.get("review", {})),
     }
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temp = path.with_name(path.name + ".tmp")
-    try:
-        temp.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        temp.replace(path)
-    finally:
-        if temp.exists():
-            try:
-                temp.unlink()
-            except OSError:
-                pass
+    _write_json_atomic(path, result)
     return path
+
+
+def migrate_metadata_storage(job: Job) -> dict[str, Any]:
+    """Materialize metadata and imported info.xml evidence in the current DWM area.
+
+    The short-lived pre-a2 location remains untouched. This makes migration
+    non-destructive while ensuring subsequent reads/writes use the configured
+    DWM/job subfolder. Existing correct data is not rewritten unless an older
+    source-import record still lacks its evidence manifest.
+    """
+    target = metadata_store_path(job)
+    if target is None:
+        raise ValueError(
+            f"{job.job_id} mangler Work/operations. Metadata kan ikke migreres."
+        )
+    legacy = _legacy_metadata_store_path(job)
+    target_existed = target.is_file()
+    legacy_used = bool(
+        not target_existed
+        and legacy is not None
+        and legacy != target
+        and legacy.is_file()
+    )
+    payload = load_depot_metadata(job)
+    imports = [
+        item for item in (payload.get("source_imports") or [])
+        if isinstance(item, dict)
+    ]
+    has_material = bool(
+        imports
+        or any(str(value or "").strip() for value in (payload.get("current") or {}).values())
+        or str(payload.get("updated_at", "") or "").strip()
+    )
+    work_root = _metadata_work_root(job)
+    needs_evidence_upgrade = False
+    if imports and work_root is not None:
+        for item in imports:
+            rel_manifest = str(item.get("evidence_manifest", "") or "")
+            fields = item.get("fields", {}) if isinstance(item.get("fields", {}), dict) else {}
+            has_legacy_fields = any(old_key in fields for old_key in LEGACY_TO_CANONICAL)
+            if (
+                not rel_manifest
+                or not (work_root / rel_manifest).is_file()
+                or has_legacy_fields
+                or item.get("fields_mapper") != "arkade5-dias-v3"
+            ):
+                needs_evidence_upgrade = True
+                break
+
+    if not has_material and not target_existed and not legacy_used:
+        return {
+            "target": str(target),
+            "written": False,
+            "migrated_legacy": False,
+            "source_imports": 0,
+        }
+    if target_existed and not legacy_used and not needs_evidence_upgrade:
+        return {
+            "target": str(target),
+            "written": False,
+            "migrated_legacy": False,
+            "source_imports": len(imports),
+        }
+
+    saved = save_depot_metadata(job, payload)
+    return {
+        "target": str(saved),
+        "written": True,
+        "migrated_legacy": legacy_used,
+        "source_imports": len(imports),
+    }
 
 
 def update_current_metadata(job: Job, values: dict[str, Any]) -> Path:
@@ -564,7 +809,7 @@ def import_info_xml(
     overwrite_current: bool = True,
     apply_current: bool = True,
 ) -> Path:
-    """Import one METS source and retain every distinct source version as evidence."""
+    """Import one METS source and retain values plus an immutable source copy as evidence."""
     source = Path(path)
     fields = read_meta_from_mets(source)
     payload = load_depot_metadata(job)
@@ -634,82 +879,40 @@ def export_info_xml(
     *,
     values: dict[str, Any] | None = None,
 ) -> Path:
-    """Export current/editable METS metadata as a reusable package-metadata XML.
+    """Export the outer DIAS submission description (commonly ``info.xml``).
 
-    This is deliberately a metadata-transfer document, not the final DIAS
-    package info.xml: package-specific object identity, TAR reference, size and
-    checksum are only known when the final package is built. The document is
-    nevertheless valid for this application's METS metadata importer and keeps
-    the same field semantics used by ``read_meta_from_mets``.
+    The editable values follow Arkade 5's ArchiveMetadata mapping.  DWM writes
+    a package-level METS document using the current submissionDescription.xsd
+    structure.  File inventory/checksums are intentionally omitted here because
+    they are only known at final package creation; fileSec is optional in that
+    schema.
     """
-    current = _normalise_current(values if values is not None else load_depot_metadata(job)["current"])
-    target_path = Path(target)
-    if target_path.suffix.casefold() != ".xml":
-        target_path = target_path.with_suffix(".xml")
-
-    mets = _METS_NS
-    xsi = "http://www.w3.org/2001/XMLSchema-instance"
-    ET.register_namespace("mets", mets)
-    ET.register_namespace("xsi", xsi)
-
-    attrs = {
-        f"{{{xsi}}}schemaLocation": f"{mets} http://schema.arkivverket.no/METS/info.xsd",
-        "PROFILE": "http://xml.ra.se/METS/RA_METS_eARD.xml",
-        "TYPE": "SIP",
-        "ID": "ID" + str(uuid4()),
-    }
-    if current.get("label"):
-        attrs["LABEL"] = current["label"]
-    root = ET.Element(f"{{{mets}}}mets", attrs)
-    hdr = ET.SubElement(
-        root,
-        f"{{{mets}}}metsHdr",
-        {"CREATEDATE": _now_iso(), "RECORDSTATUS": "DRAFT"},
+    current = _normalise_current(
+        values if values is not None else load_depot_metadata(job)["current"]
     )
+    problems = submission_description_readiness(current)
+    if problems:
+        raise ValueError(
+            "Kan ikke eksportere en XSD-klar DIAS info.xml ennå. Mangler: "
+            + "; ".join(problems)
+        )
 
-    def add_agent(type_: str, role: str, value: str, *, othertype: str = "", otherrole: str = "") -> None:
-        text = str(value or "").strip()
-        if not text:
-            return
-        agent_attrs = {"TYPE": type_, "ROLE": role}
-        if othertype:
-            agent_attrs["OTHERTYPE"] = othertype
-        if otherrole:
-            agent_attrs["OTHERROLE"] = otherrole
-        agent = ET.SubElement(hdr, f"{{{mets}}}agent", agent_attrs)
-        ET.SubElement(agent, f"{{{mets}}}name").text = text
+    try:
+        from version import APP_NAME, VERSION
+        software_name = str(APP_NAME or "Data Workflow Manager")
+        software_version = str(VERSION or "")
+    except Exception:
+        software_name = "Data Workflow Manager"
+        software_version = ""
 
-    add_agent("ORGANIZATION", "ARCHIVIST", current.get("archivist_org", ""))
-    add_agent("OTHER", "ARCHIVIST", current.get("system", ""), othertype="SOFTWARE")
-    add_agent("OTHER", "ARCHIVIST", current.get("system_version", ""), othertype="SOFTWARE")
-    add_agent("OTHER", "ARCHIVIST", current.get("archivist_type", ""), othertype="SOFTWARE")
-    add_agent("ORGANIZATION", "CREATOR", current.get("creator", ""))
-    add_agent("ORGANIZATION", "OTHER", current.get("producer_org", ""), otherrole="PRODUCER")
-    add_agent("INDIVIDUAL", "OTHER", current.get("producer_person", ""), otherrole="PRODUCER")
-    add_agent("OTHER", "OTHER", current.get("producer_software", ""), othertype="SOFTWARE", otherrole="PRODUCER")
-    add_agent("ORGANIZATION", "OTHER", current.get("submitter_org", ""), otherrole="SUBMITTER")
-    add_agent("INDIVIDUAL", "OTHER", current.get("submitter_person", ""), otherrole="SUBMITTER")
-    add_agent("ORGANIZATION", "IPOWNER", current.get("owner_org", ""))
-    add_agent("ORGANIZATION", "PRESERVATION", current.get("preserver", ""))
+    tree = build_submission_description(
+        current,
+        package_type="SIP",
+        software_name=software_name,
+        software_version=software_version,
+    )
+    return write_xml(tree, target)
 
-    for kind, key in (
-        ("SUBMISSIONAGREEMENT", "submission_agreement"),
-        ("STARTDATE", "period_start"),
-        ("ENDDATE", "period_end"),
-    ):
-        value = current.get(key, "")
-        if value:
-            ET.SubElement(hdr, f"{{{mets}}}altRecordID", {"TYPE": kind}).text = value
-
-    ET.SubElement(hdr, f"{{{mets}}}metsDocumentID").text = "info.xml"
-    struct_map = ET.SubElement(root, f"{{{mets}}}structMap")
-    ET.SubElement(struct_map, f"{{{mets}}}div", {"LABEL": "Reusable metadata export"})
-
-    tree = ET.ElementTree(root)
-    ET.indent(tree, space="  ")
-    target_path.parent.mkdir(parents=True, exist_ok=True)
-    tree.write(target_path, encoding="utf-8", xml_declaration=True)
-    return target_path
 
 def _candidate_roots(job: Job) -> list[Path]:
     # Metadata discovery is deliberately limited to Source and Work.
@@ -766,7 +969,7 @@ def _is_dias_info_mets(path: Path) -> bool:
         value for key, value in root.attrib.items()
         if key.endswith("schemaLocation") and value
     ).casefold()
-    if "info.xsd" in schema_location:
+    if "info.xsd" in schema_location or "submissiondescription.xsd" in schema_location:
         return True
 
     document_id = root.find(
@@ -886,13 +1089,20 @@ def _state_signature(payload: dict[str, Any]) -> str:
 
 def source_values(payload: dict[str, Any], field: str) -> tuple[str, ...]:
     values: list[str] = []
+    legacy_keys = [old for old, new in LEGACY_TO_CANONICAL.items() if new == field]
     for item in payload.get("source_imports", []) or []:
         if not isinstance(item, dict):
             continue
         fields = item.get("fields", {})
         if not isinstance(fields, dict):
             continue
-        value = str(fields.get(field, "") or "").strip()
+        raw = fields.get(field, "")
+        if not raw:
+            for old_key in legacy_keys:
+                raw = fields.get(old_key, "")
+                if raw:
+                    break
+        value = str(raw or "").strip()
         if value and value not in values:
             values.append(value)
     return tuple(values)

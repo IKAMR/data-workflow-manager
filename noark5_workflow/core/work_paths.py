@@ -53,6 +53,38 @@ def resolve_dwm_work_root(
     return root / subpath
 
 
+def resolve_work_operations_base(
+    work_operations: str | Path,
+    *,
+    settings: Mapping[str, object] | None = None,
+) -> Path:
+    """Return the base Work - operations directory for migration/discovery.
+
+    This is the inverse boundary needed when an already effective path such as
+    ``repository_operations/dwm`` or ``repository_operations/dwm/a01`` is
+    supplied.  It is deliberately limited to the same one-component app folder
+    and one-component job-list subfolder contract as ``resolve_dwm_work_root``.
+    """
+    root = Path(work_operations)
+    cfg = _settings(settings)
+    subfolder = str(cfg.get("app_work_subfolder", "dwm") or "").strip()
+    if not subfolder:
+        return root
+
+    subpath = Path(subfolder)
+    if subpath.is_absolute():
+        raise ValueError("App-undermappe i Work må være relativ.")
+    if len(subpath.parts) != 1:
+        return root
+
+    app_name = subpath.name.casefold()
+    if root.name.casefold() == app_name:
+        return root.parent
+    if root.parent.name.casefold() == app_name:
+        return root.parent.parent
+    return root
+
+
 def resolve_dwm_path(
     work_operations: str | Path,
     *parts: str | Path,

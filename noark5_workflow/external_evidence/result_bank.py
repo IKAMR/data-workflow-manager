@@ -6,6 +6,7 @@ from typing import Any
 
 from .arkade5 import list_arkade5_imports, load_arkade5_import
 from .arkade5_coverage import build_arkade5_coverage
+from .kdrs_query import list_kdrs_query_imports, load_kdrs_query_import
 
 
 BANK_FORMAT_VERSION = 2
@@ -66,12 +67,75 @@ def _group_summary(resources: list[dict[str, Any]]) -> dict[str, int]:
     }
 
 
+def _kdrs_query_resources(
+    import_id: str,
+    manifest: dict[str, Any],
+    normalized_by_type: dict[str, dict[str, Any]],
+) -> list[dict[str, Any]]:
+    resources: list[dict[str, Any]] = []
+    file_by_type = {
+        str(row.get("report_type") or ""): row
+        for row in manifest.get("files") or []
+        if isinstance(row, dict)
+    }
+
+    for report_type, normalized in normalized_by_type.items():
+        source = normalized.get("source") or {}
+        file_row = file_by_type.get(report_type) or {}
+        sections = normalized.get("sections") or []
+        for index, section in enumerate(sections, start=1):
+            if not isinstance(section, dict):
+                continue
+            test_id = str(section.get("test_id") or "")
+            legacy_job_id = str(section.get("legacy_job_id") or "")
+            resource = {
+                "resource_id": f"kdrs_query:{import_id}:{report_type}:{index}:{test_id or legacy_job_id or 'section'}",
+                "role": "external_result_resource",
+                "authoritative_internal_master": False,
+                "source_system": "KDRS Query",
+                "source_version": normalized.get("source_tool_version"),
+                "source_import_id": import_id,
+                "source_file": source.get("file") or file_row.get("original_name"),
+                "source_sha256": source.get("sha256") or file_row.get("sha256"),
+                "source_test_date": None,
+                "report_type": report_type,
+                "test_id": test_id or f"legacy.{legacy_job_id.casefold()}",
+                "legacy_job_id": legacy_job_id,
+                "test_point": section.get("test_point"),
+                "test_name": section.get("name"),
+                "status": "imported",
+                "has_results": bool(section.get("lines")),
+                "results": section.get("lines") or [],
+                "raw_text": section.get("raw_text"),
+                "archive_part_index": section.get("archive_part_index"),
+                "archive_part_title": section.get("archive_part_title"),
+                "definition_source": normalized.get("definition_source"),
+                "coverage_classification": (
+                    "mapped_to_dwm_test" if str(section.get("test_id") or "").startswith("kdrs.")
+                    else "historical_reference"
+                ),
+                "coverage_reason": (
+                    "Legacy test-ID/testpunkt er koblet til DWM XPath-katalogen."
+                    if str(section.get("test_id") or "").startswith("kdrs.")
+                    else "U1/U2 beholdes som historisk/regresjonsbasert evidens."
+                ),
+                "dwm_candidates": (
+                    [str(section.get("test_id"))]
+                    if str(section.get("test_id") or "").startswith("kdrs.")
+                    else []
+                ),
+                "relationship_to_internal": "comparison_not_available",
+                "reconciliation": None,
+            }
+            resources.append(resource)
+    return resources
+
+
 def build_external_result_bank(work_operations: str | Path) -> dict[str, Any]:
     """Build reusable external result resources grouped by source run/report.
 
-    The flat ``resources`` list remains available for machine use. ``groups``
-    preserves each imported external report as a distinct run so repeated Arkade
-    5 runs are never visually or semantically merged.
+    Every imported external report/run remains a distinct source group. External
+    evidence may supplement DWM coverage but never replaces internal master data.
     """
     work = Path(work_operations)
     resources: list[dict[str, Any]] = []
@@ -139,6 +203,32 @@ def build_external_result_bank(work_operations: str | Path) -> dict[str, Any]:
             "source_number_of_tests": summary.get("number_of_tests_run"),
             "source_number_of_errors": summary.get("number_of_errors"),
             "source_number_of_warnings": summary.get("number_of_warnings"),
+            "summary": _group_summary(group_resources),
+            "resources": group_resources,
+        })
+
+    for manifest in list_kdrs_query_imports(work):
+        import_id = str(manifest.get("import_id") or "")
+        if not import_id:
+            continue
+        loaded = load_kdrs_query_import(work, import_id)
+        normalized_by_type = loaded.get("normalized") or {}
+        group_resources = _kdrs_query_resources(import_id, manifest, normalized_by_type)
+        resources.extend(group_resources)
+        source_files = [
+            str(row.get("original_name") or "")
+            for row in manifest.get("files") or []
+            if isinstance(row, dict)
+        ]
+        groups.append({
+            "group_id": f"kdrs_query:{import_id}",
+            "source_system": "KDRS Query",
+            "source_version": "0.6",
+            "source_import_id": import_id,
+            "source_file": "; ".join(value for value in source_files if value),
+            "source_sha256": None,
+            "source_test_date": None,
+            "report_types": manifest.get("report_types") or [],
             "summary": _group_summary(group_resources),
             "resources": group_resources,
         })
