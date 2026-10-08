@@ -35,11 +35,27 @@ never collapse them into one format.
 | 40-43 | Uttrekkssystem / versjon / type / typeversjon | `extraction_system*` | `agent ROLE=OTHER OTHERROLE=PRODUCER TYPE=OTHER OTHERTYPE=SOFTWARE` + Arkade notes | same |
 | 44 | Startdato | `period_start` | `STARTDATE` | same |
 | 45 | Sluttdato | `period_end` | `ENDDATE` | same |
-| 46 | Uttrekksdato | `extraction_date` | not in package-level header | `fileGrp USE=ArchiveExtraction/@VERSDATE` |
+| 46 | Uttrekksdato | `extraction_date` | No approved XML mapping | Mapping pending; stored in DWM only for now |
 | 47 | Merkelapp | `label` | `mets/@LABEL` | same |
 
-Arkade 5 encodes contact/system subfields as ordered `<note>` values followed by
-an explicit `notescontent:` marker, for example:
+## Arkade 5 note convention
+
+METS itself permits repeated `<mets:note>` without assigning predefined meaning
+or labels to each note. Arkade 5 encodes contact/system subfields as ordered
+`<mets:note>` values and uses the **last note** as an explicit
+`notescontent:` marker identifying which of the earlier notes mean what.
+
+Example for an `INDIVIDUAL` contact agent belonging to an organization:
+
+```xml
+<mets:note>Gate 1</mets:note>
+<mets:note>70110000</mets:note>
+<mets:note>arkiv@example.no</mets:note>
+<mets:note>notescontent:Address,Telephone,Email</mets:note>
+```
+
+The marker is Arkade 5's interpretation convention, not a generic METS
+requirement. The same principle is used for software agents:
 
 ```xml
 <mets:note>4.2</mets:note>
@@ -48,8 +64,33 @@ an explicit `notescontent:` marker, for example:
 <mets:note>notescontent:Version,Type,TypeVersion</mets:note>
 ```
 
-DWM reads and writes this convention. Imported XML is retained unchanged as
-source evidence. Corrected/current depot metadata is stored separately.
+DWM reads and writes this convention for outer and inner METS. The agent's
+`name` contains the person or software name; it is **not** a `note`.
+
+## System and extraction software
+
+For both `system*` and `extraction_system*`, `Name` is the software/system name,
+`Version` is its software version, and `Type` is the extraction format (for
+example Noark 5 or SIARD). `TypeVersion` is only meaningful for Noark 5, with
+values 3.1, 4.0 or 5.0. For other formats, it is omitted from generated METS.
+Historical imported values must not be silently deleted from source evidence.
+
+## Recipient and extraction date
+
+`recipient` is the **recipient organization** (`PRESERVATION / ORGANIZATION`),
+not the logged-in individual user. The organization must be configurable per
+deployment, rather than hardcoded to IKAMR. Do not replace an imported value
+with a user's personal name. A missing or disputed depot organization must be
+resolved explicitly, not guessed from the current user.
+
+`extraction_date` is an independently persisted and editable depot value.
+The outer `info.xml` does not currently map it. Its mapping in inner
+`dias-mets.xml` requires a separate decision; DWM must not export a speculative
+`ArchiveExtraction/@VERSDATE` from this field until agreed.
+
+Imported XML is retained unchanged as source evidence. Corrected/current depot
+metadata is stored separately. Original METS software provenance and a newly
+DWM-generated document's software creator are distinct facts.
 
 Rows 48 and onward in the IKAMR spreadsheet are depot/process/SIARD/package
 tracking data and are not treated as DIAS METS metadata.

@@ -123,10 +123,22 @@ class V017A2DiasMetadataTests(unittest.TestCase):
         self.assertEqual(alts["PROJECTNAME"], values["project_name"])
         document_id = hdr.find(f"{{{METS_NS}}}metsDocumentID")
         self.assertEqual((document_id.text or ""), "dias-mets.xml")
-        extraction_group = root.find(f"{{{METS_NS}}}fileSec/{{{METS_NS}}}fileGrp")
-        self.assertIsNotNone(extraction_group)
-        self.assertEqual(extraction_group.get("USE"), "ArchiveExtraction")
-        self.assertEqual(extraction_group.get("VERSDATE"), "2026-10-08T00:00:00")
+        # Extraction date is stored in DWM, but its inner-METS XML mapping is
+        # not yet agreed and must not be invented by the shell builder.
+        self.assertIsNone(root.find(f"{{{METS_NS}}}fileSec"))
+
+    def test_typeversion_only_for_noark5_output(self):
+        values = _values()
+        values["system_type"] = "SIARD"
+        values["system_type_version"] = "5.0"
+        values["extraction_system_type"] = "Noark 5"
+        root = build_submission_description(values).getroot()
+        agents = root.findall(f"{{{METS_NS}}}metsHdr/{{{METS_NS}}}agent")
+        system = next(a for a in agents if a.get("ROLE") == "ARCHIVIST" and a.get("OTHERTYPE") == "SOFTWARE")
+        extraction = next(a for a in agents if a.get("OTHERROLE") == "PRODUCER" and a.get("OTHERTYPE") == "SOFTWARE")
+        notes = lambda agent: [(n.text or "") for n in agent.findall(f"{{{METS_NS}}}note")]
+        self.assertEqual(notes(system), ["4.2", "SIARD", "notescontent:Version,Type"])
+        self.assertEqual(notes(extraction), ["1.2.3", "Noark 5", "5.0", "notescontent:Version,Type,TypeVersion"])
 
     def test_arkade_notescontent_is_parsed_for_contact_and_system_fields(self):
         xml = '''<?xml version="1.0" encoding="utf-8"?>

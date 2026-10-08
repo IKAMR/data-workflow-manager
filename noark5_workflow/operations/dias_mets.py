@@ -62,7 +62,7 @@ DIAS_METADATA_FIELDS = (
     "extraction_system_type_version", # 43 note TypeVersion
     "period_start",              # 44 STARTDATE
     "period_end",                # 45 ENDDATE
-    "extraction_date",           # 46 fileGrp USE=ArchiveExtraction @VERSDATE
+    "extraction_date",           # 46 depot field; XML location not yet approved
     "label",                     # 47 mets/@LABEL
 )
 
@@ -367,6 +367,11 @@ def _add_entity_agents(hdr: ET.Element, values: dict[str, str], prefix: str, rol
     return count
 
 
+def _is_noark5_format(value: str) -> bool:
+    """Only Noark 5 uses TypeVersion in the current depot mapping."""
+    return re.sub(r"[\s_-]+", "", str(value or "")).casefold() == "noark5"
+
+
 def _add_system_agent(hdr: ET.Element, *, name: str, version: str, type_: str, type_version: str, role: str, otherrole: str = "") -> int:
     name = str(name or "").strip()
     if not name:
@@ -381,7 +386,7 @@ def _add_system_agent(hdr: ET.Element, *, name: str, version: str, type_: str, t
         [
             ("Version", version),
             ("Type", type_),
-            ("TypeVersion", type_version),
+            ("TypeVersion", type_version if _is_noark5_format(type_) else ""),
         ],
     )
     return 1
@@ -541,12 +546,10 @@ def build_dias_mets_metadata(
     software_name: str = "Data Workflow Manager",
     software_version: str = "",
 ) -> ET.ElementTree:
-    """Build an inner DIAS METS metadata shell from the same canonical values.
+    """Build an inner DIAS METS metadata shell from canonical values.
 
-    Final package generation adds PREMIS/file inventory and applies
-    ``extraction_date`` as VERSDATE on the ArchiveExtraction fileGrp.  The
-    header/agent/altRecordID mapping here is the same model used by Arkade 5's
-    DiasMetsCreator.
+    Extraction date remains in depot metadata; XML export location is not yet
+    agreed. Final package generation handles PREMIS and file inventory.
     """
     current = _normalise_values(values)
     current["mets_creator_software"] = software_name
@@ -558,14 +561,6 @@ def build_dias_mets_metadata(
     ET.register_namespace("xsi", XSI_NS)
     root = _base_root(current, object_id=object_id, package_type=package_type)
     _populate_mets_header(root, current, created_at=_created_at(created_at), document_id="dias-mets.xml", include_project_name=True)
-    extraction_date = _normalise_datetime(current.get("extraction_date", ""))
-    if extraction_date:
-        file_sec = ET.SubElement(root, _tag("fileSec"))
-        ET.SubElement(
-            file_sec,
-            _tag("fileGrp"),
-            {"USE": "ArchiveExtraction", "VERSDATE": extraction_date},
-        )
     struct_map = ET.SubElement(root, _tag("structMap"))
     ET.SubElement(struct_map, _tag("div"))
     return ET.ElementTree(root)
