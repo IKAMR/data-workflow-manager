@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
 from tkinter import filedialog, messagebox
 import threading
 
@@ -76,6 +77,18 @@ _DEPOT_ADDITIONAL_FIELDS = (
     ("system_region", "IT-/systemregion", "Depotmetadata / tillegg"),
     ("delivery_information", "Informasjon om innleveringen / fritekst", "Depotmetadata / tillegg"),
 )
+def _system_type_choices() -> list[str]:
+    """Suggestions, not an enum: preserve arbitrary imported legacy values."""
+    path = Path(__file__).resolve().parents[1] / 'config' / 'noark5' / 'metadata' / 'system_type_values.json'
+    try:
+        values = json.loads(path.read_text(encoding='utf-8')).get('system_types', [])
+        if isinstance(values, list) and all(isinstance(x, str) for x in values) and values:
+            return values
+    except (OSError, ValueError, TypeError):
+        pass
+    return ['Noark3', 'Noark4', 'Noark5', 'SpecializedSystem', 'Siard']
+
+
 _READ_ONLY_CURRENT = {"mets_creator_software": APP_NAME, "mets_creator_software_version": VERSION}
 
 
@@ -352,7 +365,11 @@ class DepotMetadataEditor(ctk.CTkToplevel):
             value = str(_READ_ONLY_CURRENT.get(key, current.get(key, "")) or "")
             var = ctk.StringVar(value=value)
             self._vars[key] = var
-            widget = ctk.CTkEntry(self._body, textvariable=var, font=theme.font(theme.SMALL_SIZE))
+            widget = (ctk.CTkComboBox(self._body, variable=var, values=_system_type_choices(),
+                                          state='normal', font=theme.font(theme.SMALL_SIZE))
+                          if key in ('system_type', 'extraction_system_type')
+                          else ctk.CTkEntry(self._body, textvariable=var,
+                                            font=theme.font(theme.SMALL_SIZE)))
             if key in _READ_ONLY_CURRENT:
                 widget.configure(state="disabled")
             widget.grid(row=row, column=1, padx=10, pady=6, sticky="ew")

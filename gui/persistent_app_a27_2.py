@@ -12,7 +12,7 @@ def run_gui() -> None:
     # Historical main.py entry point delegates to the current runtime.
     # v0.1.6 regression baseline was:
     # from .persistent_app_a39_runtime import WorkflowApp as CurrentWorkflowApp
-    from .persistent_app_v017_a2 import WorkflowApp as CurrentWorkflowApp
+    from .persistent_app_a4_6_runtime import WorkflowApp as CurrentWorkflowApp
 
     theme.apply_theme()
     app = CurrentWorkflowApp()
