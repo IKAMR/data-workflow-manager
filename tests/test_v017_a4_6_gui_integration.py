@@ -10,9 +10,14 @@ ROOT = Path(__file__).resolve().parents[1]
 class A46GuiIntegrationTests(unittest.TestCase):
     def test_active_result_window_contains_external_sources_tab(self):
         source = (ROOT / 'gui/depot_result_center_v017_a1.py').read_text(encoding='utf-8')
-        ast.parse(source)
+        tree = ast.parse(source)
         self.assertIn('tabs.add("Eksterne kilder")', source)
-        self.assertIn('KdrsQueryResultsDialog(self, work_operations=work)', source)
+        calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
+                 and isinstance(node.func, ast.Name)
+                 and node.func.id == 'KdrsQueryResultsDialog']
+        self.assertTrue(calls, 'KDRS Query detail dialog must remain accessible')
+        self.assertTrue(any(any(keyword.arg == 'work_operations' for keyword in call.keywords)
+                            for call in calls), 'KDRS Query dialog must receive work_operations')
         self.assertIn('infer_work_operations_from_depot_report(self.report_path)', source)
 
     def test_live_runtime_preserves_current_baseline_and_layers_fix(self):
