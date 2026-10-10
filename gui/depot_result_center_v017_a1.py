@@ -48,6 +48,10 @@ class V017A1DepotResultCenterDialog(DepotResultCenterDialogA19_5):
                 )
                 break
 
+    def _open_a65_multi_overview(self) -> None:
+        from .noark5_multi_overview_a65 import MultiExtractionOverview
+        MultiExtractionOverview(self, report_path=self.report_path)
+
     def _install_kdrs_query_tab(self) -> None:
         """Show external result sources without making KDRS the tab identity."""
         tabs = self._root_tabview()
@@ -88,6 +92,9 @@ class V017A1DepotResultCenterDialog(DepotResultCenterDialogA19_5):
         ctk.CTkButton(
             report_actions, text="Kildesammenligning (HTML)", width=230,
             command=self._open_a5_evidence_html).pack(side="left")
+        ctk.CTkButton(
+            report_actions, text="Samlet uttrekksoversikt", width=220,
+            command=self._open_a65_multi_overview).pack(side="left", padx=(8, 0))
         self._a5_evidence_status = ctk.CTkLabel(
             tab, text="Evidensstatus er ikke kontrollert ennå.", anchor="w", justify="left")
         self._a5_evidence_status.grid(row=3, column=0, sticky="ew", padx=20, pady=(8, 4))
