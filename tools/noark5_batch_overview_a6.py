@@ -405,7 +405,6 @@ def render(items, generated):
              '<style>body{font:11pt/1.45 Arial,sans-serif;color:#182336;max-width:1200px;margin:25px auto;padding:0 12px}h1{font-size:19pt}h2{font-size:14pt;margin-top:28px}h3{font-size:12pt}table{border-collapse:collapse;width:100%;font-size:9pt;margin:10px 0}td,th{border:1px solid #c7ced8;padding:6px;text-align:left;vertical-align:top}th{background:#edf2f8}tr:nth-child(even){background:#fafbfd}.warning{border-left:4px solid #8e5e12;padding:9px 12px;background:#fffaf0}.muted{color:#475569}a{color:#16457f}@media print{@page{size:A3 landscape;margin:12mm}body{margin:0;max-width:none}table{font-size:8pt}.page{break-before:page}thead{display:table-header-group}tr{break-inside:avoid}}</style></head><body>',
              '<h1>Samlet oversikt – Noark 5-uttrekk</h1>',
              f'<p class="muted">Laget {e(generated)}. {len(items)} valgte rapporter. Skrivebeskyttet gjennomgang av eksisterende DWM-resultater.</p>',
-             '<p class="warning"><strong>Ikke depotgodkjenning.</strong> Denne rapporten dokumenterer kun tilgjengelige data og registrerte resultater. Avvik, kildeintegritet, dokumenttilgang, kontrollstatus og faglig godkjenning må vurderes særskilt før ekstern kildecontainer kan slettes.</p>',
              '<h2>Valgte uttrekk</h2>',table(headers,records),
              '<p class="muted">GO-vurderingen gjelder dokumentert kontrollgrunnlag, ikke depotgodkjenning eller slettingstillatelse.</p>',
              '<h2>Kjente delsummer og datadekning</h2>',table(['Måltall','Kjent verdi','Dekning','Komplette uttrekk','Arkivdeler med tall'],[[label,display(value),'Komplett' if complete else 'DELSUM – ikke total',f'{full} av {num}',f'{pknown} av {ptotal}'] for label,value,complete,full,num,pknown,ptotal in coverage]),
@@ -444,39 +443,101 @@ def main(argv=None):
     parser.add_argument('--source',type=Path,required=True,help='Arbeidsrot eller depot_validation_report.json')
     parser.add_argument('--output',type=Path,required=True,help='Ny/eksisterende mappe for rapporter')
     parser.add_argument('--select',nargs='*',help='Jobb-IDer, f.eks. JOB-001 JOB-002; utelatt = alle oppdagede')
+    parser.add_argument('--joblist',type=Path,help='Eksisterende .n5jobs med jobber fordelt på flere mapper')
     parser.add_argument('--list',action='store_true',help='Vis oppdagede jobber uten rapportgenerering')
     args=parser.parse_args(argv)
     try:
         progress(f'Starter: {args.source} | Jobbvalg: '+(', '.join(args.select) if args.select else 'ALLE'))
-        paths=locate_reports(args.source)
+        configured_jobs = []
+        if args.joblist:
+            data=json.loads(args.joblist.read_text(encoding='utf-8-sig'))
+            configured_jobs=[j for j in data.get('jobs',[]) if isinstance(j,dict)]
+            if not configured_jobs: raise ValueError('Jobblisten inneholder ingen jobber')
+            selected=set(args.select or [j.get('job_id') for j in configured_jobs])
+            configured_jobs=[j for j in configured_jobs if j.get('job_id') in selected]
+            paths=[]
+            for j in configured_jobs:
+                root=j.get('source_root') or j.get('source_extraction') or j.get('source_unzipped')
+                if not root:
+                    progress(f'Mangler kilde for {j.get("job_id")}')
+                    continue
+                source_path=Path(root)
+                # Do not crawl archive files; probe only the known depot-report directories.
+                work=j.get('work_operations')
+                candidates=[source_path]
+                if work: candidates.insert(0,Path(work))
+                hits=set()
+                for candidate in candidates:
+                    if candidate.is_dir(): hits.update(locate_reports(candidate))
+                for report in sorted(hits):
+                    if identity(report,{})==j.get('job_id'): paths.append(report)
+        else:
+            paths=locate_reports(args.source)
         parsed=[]
         for n, path in enumerate(paths, 1):
             progress(f'Leser rapport {n}/{len(paths)} | {path.parent.name}')
             parsed.append(extract(path))
         items=choose_latest_per_job(parsed)
+        missing_jobs=[]
+        if args.joblist:
+            for j in configured_jobs:
+                jid=j.get('job_id') or 'Ukjent jobb'
+                root=j.get('source_root') or j.get('source_extraction') or j.get('source_unzipped') or ''
+                matching=[x for x in items if x['job']==jid and (not root or Path(root).name.casefold() in x['extraction'].casefold())]
+                if matching:
+                    # Do not merge unrelated extracts with the same JOB-ID.
+                    chosen=max(matching,key=lambda x: Path(x['source']).stat().st_mtime)
+                    items=[x for x in items if x['job']!=jid or x is chosen]
+                    chosen['job_name']=j.get('name') or Path(root).name
+                else:
+                    missing_jobs.append({'job':jid,'name':j.get('name') or Path(root).name,
+                        'extraction':str(root),'status':'MANGLER DEPOTRAPPORT',
+                        'go_assessment':{'status':'AVKLARING','reasons':['Ingen depotrapport tilgjengelig']}})
         if args.list:
             for x in items:print(x['job'],'|',x['name'],'|',x['metrics']['archive_part_count'],'arkivdeler |',x['source'])
             return 0
-        if args.select:
+        if args.select and not args.joblist:
             wanted=set(args.select)
             found={i['job'] for i in items}
             missing=wanted-found
             if missing:raise ValueError('Ukjente jobb-ID-er: '+', '.join(sorted(missing)))
             items=[i for i in items if i['job'] in wanted]
-        if not items: raise ValueError('Ingen DWM depot_validation_report.json funnet for valget')
+        if not items and not missing_jobs: raise ValueError('Ingen DWM depot_validation_report.json funnet for valget')
         progress(f'Valgte jobber: {len(items)} | Oppretter rapportmappe: {args.output}')
         args.output.mkdir(parents=True,exist_ok=True)
         generated=datetime.now(timezone.utc).isoformat(timespec='seconds')
-        try:
-            from tools.report_outputs import write_html_and_pdf
-        except ModuleNotFoundError:
-            from report_outputs import write_html_and_pdf
-        html_report, pdf_report = write_html_and_pdf(args.output/'noark5-uttrekksoversikt.html', render(items,generated))
-        progress(f'HTML og tekstbasert PDF klare: {html_report.name}, {pdf_report.name}')
-        (args.output/'noark5-uttrekksoversikt.json').write_text(json.dumps({'generated':generated,'items':items,'coverage':coverage_rows(items)},ensure_ascii=False,indent=2),encoding='utf-8')
-        with (args.output/'noark5-uttrekksoversikt.csv').open('w',newline='',encoding='utf-8-sig') as f:
+        # Core machine-readable exports must not depend on PDF/Edge availability.
+        html_path = args.output / 'noark5-uttrekksoversikt.html'
+        json_path = args.output / 'noark5-uttrekksoversikt.json'
+        csv_path = args.output / 'noark5-uttrekksoversikt.csv'
+        pdf_path = args.output / 'noark5-uttrekksoversikt.pdf'
+        html_content=render(items, generated)
+        if missing_jobs:
+            missing_rows=''.join('<tr><td>'+e(j['job'])+'</td><td>'+e(j['name'])+'</td><td>'+e(j['extraction'])+'</td><td>AVKLARING – mangler depotrapport</td></tr>' for j in missing_jobs)
+            html_content=html_content.replace('</body></html>', '<h2>Jobber uten depotrapport</h2><table><tr><th>Jobb</th><th>Uttrekk</th><th>Kilde</th><th>Kontrollgrunnlag</th></tr>'+missing_rows+'</table></body></html>')
+        html_path.write_text(html_content, encoding='utf-8')
+        progress(f'HTML klar: {html_path.name}')
+        json_path.write_text(json.dumps({'generated':generated,'items':items,'coverage':coverage_rows(items),'missing_jobs':missing_jobs},ensure_ascii=False,indent=2),encoding='utf-8')
+        progress(f'JSON klar: {json_path.name}')
+        with csv_path.open('w',newline='',encoding='utf-8-sig') as f:
             w=csv.writer(f,delimiter=';');w.writerow(['Jobb','Uttrekk','Rapport']+[label for _,label in METRICS]+['Teknisk status','Avvik','Depotvurdering','KDRS-evidens','GO-vurdering'])
             for x in items:w.writerow([x['job'],Path(x['extraction']).name,x['name']]+[x['metrics'][key] if x['metrics'][key] is not None else '' for key,_ in METRICS]+[x['technical_status'],x['deviation_count'],x['assessment_status'],x['external_evidence']['status'],x['go_assessment']['status']])
+            for j in missing_jobs:w.writerow([j['job'],j['name'],'Ingen depotrapport']+['']*len(METRICS)+['Mangler','','','','AVKLARING'])
+        progress(f'CSV klar: {csv_path.name}')
+        # Remove a previous PDF before attempting regeneration: stale files must
+        # never be mistaken for this run's PDF output.
+        pdf_path.unlink(missing_ok=True)
+        try:
+            try:
+                from tools.report_outputs import html_to_pdf
+            except ModuleNotFoundError:
+                from report_outputs import html_to_pdf
+            html_to_pdf(html_path, pdf_path)
+            progress(f'PDF klar: {pdf_path.name}')
+        except (OSError, ValueError, RuntimeError) as pdf_error:
+            pdf_path.unlink(missing_ok=True)
+            print(f'[ADVARSEL] PDF ikke opprettet: {pdf_error}', flush=True)
+            print('[STATUS] HTML, JSON og CSV er ferdige og kan brukes.', flush=True)
         print(f'OK: {len(items)} rapport(er). Resultat: {args.output.resolve()}')
         return 0
     except (OSError,ValueError,RuntimeError,json.JSONDecodeError) as exc:

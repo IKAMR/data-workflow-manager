@@ -32,7 +32,10 @@ class BatchOverviewTests(unittest.TestCase):
             data=json.loads((out/'noark5-uttrekksoversikt.json').read_text())
             self.assertEqual(len(data['items']),1)
             self.assertEqual(data['items'][0]['archive_parts'][0]['folder_count'],2)
-            self.assertIn('Ikke depotgodkjenning',(out/'noark5-uttrekksoversikt.html').read_text())
+            # Report remains explicit about evidence status without unrelated deletion disclaimer.
+            html=(out/'noark5-uttrekksoversikt.html').read_text()
+            self.assertIn('GO-vurdering',html)
+            self.assertNotIn('før ekstern kildecontainer kan slettes',html)
     def test_selection_unknown_fails(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp)
