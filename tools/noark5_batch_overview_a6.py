@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 import re
 import sys
+import os
 
 METRICS = [
     ('archive_part_count', 'Arkivdeler'), ('folder_count', 'Mapper'),
@@ -47,57 +48,64 @@ def progress(message):
     print(f"[STATUS] {message}", flush=True)
 
 
-def locate_reports(source):
-    """Search *only* known DWM reporting paths; never traverse original content.
+def _report_directories(candidate):
+    """Bounded probes of report-only locations, including optional dwm run folders.
 
-    Root may be a drive directory with multiple extraction folders, a single
-    extraction, repository_operations, dwm, or a single canonical report.
-    No rglob/os.walk is used on the source tree.
+    Never descend into SIP content, DOKUMENT, or arbitrary directories.
     """
+    bases = [candidate / 'repository_operations' / 'dwm',
+             candidate / 'dwm']
+    if candidate.name.lower() == 'dwm':
+        bases.append(candidate)
+    # A caller may provide dwm/a01 directly.
+    if candidate.parent.name.lower() == 'dwm':
+        bases.append(candidate)
+    for base in bases:
+        if not base.is_dir():
+            continue
+        yield base / 'noark5_reports' / 'depot_validation'
+        # Backward-compatible early DWM layout: noark5_reports/JOB-.../report.
+        yield base / 'noark5_reports'
+        # One deliberately bounded directory level is the supported run folder.
+        for entry in base.iterdir():
+            if entry.is_dir() and not entry.is_symlink() and entry.name.lower() not in {
+                'noark5_reports','external_evidence','logs','content','dokument',
+                'temp','temporary','cache','archive','aip','sip'}:
+                yield entry / 'noark5_reports' / 'depot_validation'
+    yield candidate / 'noark5_reports' / 'depot_validation'
+    yield candidate / 'noark5_reports'
+    yield candidate / 'depot_validation'
+
+
+def locate_reports(source):
+    """Discover reports from known DWM locations, including dwm/<run-folder>."""
+    source = Path(source)
     if source.is_file():
         if source.name != 'depot_validation_report.json':
             raise ValueError('Velg depot_validation_report.json eller en arbeidsmappe')
-        progress('Rapportfil valgt direkte: 1 funn')
         return [source]
     if not source.is_dir():
         raise ValueError(f'Kilden finnes ikke: {source}')
-
-    # Probe only fixed relative paths, plus one level of extraction folders.
-    # Both root and child are examined to support several invocation levels.
     candidates = [source]
-    excluded = {'content', 'sip', 'aip', 'dokument', 'dokumenter',
-                'documents', 'schema', 'schemas', 'arkivstruktur',
-                'source', 'original', 'originals', 'storage', 'temp',
-                '_temp', '_work', 'logs', 'log', 'repository_content'}
-    known = {'repository_operations', 'dwm', 'noark5_reports', 'depot_validation'}
-    if source.name.lower() not in known:
+    excluded = {'content', 'sip', 'aip', 'dokument', 'dokumenter', 'documents',
+                'schemas','original','storage','temp','logs','repository_content'}
+    if source.name.lower() not in {'repository_operations','dwm','noark5_reports','depot_validation'}:
         progress(f'Leser kun første mappenivå under {source} (ingen dokumentsøk)')
-        with __import__('os').scandir(source) as entries:
-            for entry in entries:
-                if entry.name.lower() in excluded:
-                    continue
-                if entry.is_dir(follow_symlinks=False):
-                    candidates.append(Path(entry.path))
+        with os.scandir(source) as entries:
+            candidates.extend(Path(entry.path) for entry in entries
+                              if entry.name.lower() not in excluded and entry.is_dir(follow_symlinks=False))
     reports = set()
     for index, candidate in enumerate(candidates, 1):
         progress(f'Mapper undersøkt: {index}/{len(candidates)} | Rapporter funnet: {len(reports)} | {candidate.name}')
-        roots = [candidate / 'repository_operations' / 'dwm' / 'noark5_reports' / 'depot_validation',
-                 candidate / 'dwm' / 'noark5_reports' / 'depot_validation',
-                 candidate / 'noark5_reports' / 'depot_validation',
-                 candidate / 'noark5_reports',
-                 candidate / 'depot_validation']
-        # Fixed narrow report-directory glob: does not descend into content.
-        for report_root in roots:
+        for report_root in _report_directories(candidate):
             if not report_root.is_dir():
                 continue
             for path in report_root.glob('*/depot_validation_report.json'):
                 if path.is_file():
                     reports.add(path)
                     progress(f'FUNNET {len(reports)}: {path.parent.name} ({candidate.name})')
-            path = report_root / 'depot_validation_report.json'
-            if path.is_file():
-                reports.add(path)
-                progress(f'FUNNET {len(reports)}: {path.parent.name} ({candidate.name})')
+            if (report_root / 'depot_validation_report.json').is_file():
+                reports.add(report_root / 'depot_validation_report.json')
     progress(f'Søket fullført | Mapper undersøkt: {len(candidates)} | Rapporter funnet: {len(reports)}')
     return sorted(reports)
 
@@ -201,7 +209,10 @@ def imported_arkade_evidence(report_path):
         dwm = next((parent for parent in report_path.parents if parent.name.lower() == 'dwm'), None)
         if dwm is None:
             return info
-        root = dwm / 'external_evidence' / 'arkade5'
+        report_dir = next((parent for parent in report_path.parents if parent.name.lower() == 'noark5_reports'), None)
+        root = (report_dir.parent if report_dir else dwm) / 'external_evidence' / 'arkade5'
+        if not root.is_dir():
+            root = dwm / 'external_evidence' / 'arkade5'
         if not root.is_dir():
             return info
         # Limit to explicitly imported normalized artifacts, not original large JSON.
@@ -314,8 +325,9 @@ def extract(path):
     deviations=data.get('deviations') or []
     tech=data.get('technical_validation') or {}
     assessment=data.get('assessment') or {}
-    return {
+    result = {
         'job':identity(path,data), 'source':str(path.resolve()),
+        'extraction': next((str(p.parent) for p in path.parents if p.name.lower()=='repository_operations'), str(path.parent)),
         'name':path.parent.name, 'metrics':metrics,'archive_parts':parts, 'external_evidence':evidence,
         'arkade5_import':imported_arkade_evidence(path),
         'technical_status':str(tech.get('status') or 'Ukjent'),
@@ -325,18 +337,51 @@ def extract(path):
         'deviations':[str(x.get('summary') or '') for x in deviations if isinstance(x,dict)],
         'warning':'Automatisk oversikt er ikke depotgodkjenning eller grunnlag alene for sletting av kildecontainer.'
     }
+    result['go_assessment'] = go_assessment(result)
+    return result
 
 
 def choose_latest_per_job(items):
-    # Repeated runs: select latest by file mtime; do not sum repeated runs.
-    groups={}
+    """Deduplicate only matching extraction + job + run-folder family.
+
+    JOB-001 from separate job lists must never be merged accidentally.
+    """
+    groups = {}
     for item in items:
-        groups.setdefault(item['job'],[]).append(item)
-    selected=[]
-    for job, rows in groups.items():
-        if job == 'Ukjent jobb': selected.extend(rows)
-        else: selected.append(max(rows,key=lambda x:Path(x['source']).stat().st_mtime))
-    return sorted(selected,key=lambda x:(x['job'],x['source']))
+        groups.setdefault((item['extraction'].casefold(), item['job']), []).append(item)
+    chosen = []
+    for rows in groups.values():
+        chosen.append(max(rows, key=lambda x: Path(x['source']).stat().st_mtime))
+    return sorted(chosen, key=lambda x:(x['extraction'],x['job'],x['source']))
+
+
+def go_assessment(item):
+    """Evidence sufficiency, not formal depot acceptance.
+
+    Missing relevant tests are not assumed passing; any native technical error blocks GO.
+    """
+    reasons = []
+    if item['technical_status'].lower() in {'error','failed','failure'}:
+        reasons.append('Teknisk validering rapporterer feil')
+        verdict = 'STOPP'
+    else:
+        verdict = 'GO'
+    for key, label in METRICS:
+        if not metric_coverage(item, key)['complete']:
+            reasons.append(f'Mangelfull datadekning: {label}')
+    ark = item['arkade5_import']
+    if ark['imports'] == 0:
+        reasons.append('Arkade 5-resultater er ikke dokumentert i rapportgrunnlaget')
+    elif ark['failed_controls']:
+        reasons.append('Arkade 5 har kontroller med feilforekomster')
+    if item['assessment_status'] not in ('approved','accepted','ok'):
+        reasons.append('Faglig depotvurdering er ikke ferdig godkjent')
+    if item['deviation_count']:
+        reasons.append(f"{item['deviation_count']} registrerte avvik krever vurdering")
+    if verdict != 'STOPP' and reasons:
+        verdict = 'AVKLARING'
+    return {'status': verdict, 'reasons': reasons,
+            'scope': 'Tilstrekkelig kontrollgrunnlag, ikke depotgodkjenning eller slettetillatelse'}
 
 
 def e(value):return html.escape(str(value),quote=True)
@@ -349,8 +394,8 @@ def table(headers, rows):
 
 
 def render(items, generated):
-    headers=['Jobb','Rapportgrunnlag']+[label for _,label in METRICS]+['Teknisk status','Avvik','Depotvurdering','KDRS-evidens']
-    records=[[x['job'],x['name']]+[display(x['metrics'][key]) for key,_ in METRICS]+[x['technical_status'],str(x['deviation_count']),x['assessment_status'], x['external_evidence']['status']+f" ({x['external_evidence']['approved']} valgt)"] for x in items]
+    headers=['Jobb','Uttrekk','Rapportgrunnlag']+[label for _,label in METRICS]+['Teknisk status','Avvik','Depotvurdering','KDRS-evidens','GO-vurdering']
+    records=[[x['job'],Path(x['extraction']).name,x['name']]+[display(x['metrics'][key]) for key,_ in METRICS]+[x['technical_status'],str(x['deviation_count']),x['assessment_status'], x['external_evidence']['status']+f" ({x['external_evidence']['approved']} valgt)", x['go_assessment']['status']] for x in items]
     coverage = coverage_rows(items)
     incomplete = [label for label, _, complete, *_ in coverage if not complete]
     # Archive parts are *not* additive as logical unique parts unless each selected report is distinct.
@@ -362,12 +407,14 @@ def render(items, generated):
              f'<p class="muted">Laget {e(generated)}. {len(items)} valgte rapporter. Skrivebeskyttet gjennomgang av eksisterende DWM-resultater.</p>',
              '<p class="warning"><strong>Ikke depotgodkjenning.</strong> Denne rapporten dokumenterer kun tilgjengelige data og registrerte resultater. Avvik, kildeintegritet, dokumenttilgang, kontrollstatus og faglig godkjenning må vurderes særskilt før ekstern kildecontainer kan slettes.</p>',
              '<h2>Valgte uttrekk</h2>',table(headers,records),
+             '<p class="muted">GO-vurderingen gjelder dokumentert kontrollgrunnlag, ikke depotgodkjenning eller slettingstillatelse.</p>',
              '<h2>Kjente delsummer og datadekning</h2>',table(['Måltall','Kjent verdi','Dekning','Komplette uttrekk','Arkivdeler med tall'],[[label,display(value),'Komplett' if complete else 'DELSUM – ikke total',f'{full} av {num}',f'{pknown} av {ptotal}'] for label,value,complete,full,num,pknown,ptotal in coverage]),
              f'<p class="muted">{e(note)}</p>']
     if incomplete:content.append(f'<p><strong>Manglende grunnlag:</strong> {e(", ".join(incomplete))}. Summer er derfor delvise.</p>')
     for x in items:
-        content += ['<section class="page">',f'<h2>{e(x["job"])} – {e(x["name"])}</h2>',
+        content += ['<section class="page">',f'<h2>{e(x["job"])} – {e(Path(x["extraction"]).name)} – {e(x["name"])}</h2>',
                     f'<p>Teknisk status: <strong>{e(x["technical_status"])}</strong> | Avvik: <strong>{x["deviation_count"]}</strong> | Depotvurdering: <strong>{e(x["assessment_status"])}</strong></p>',
+                    f'<p><strong>GO-vurdering: {e(x["go_assessment"]["status"])}</strong> – {e("; ".join(x["go_assessment"]["reasons"]) or "Ingen mangler påvist i valgte kriterier")}</p>',
                     f'<p><strong>KDRS-evidens:</strong> {e(x["external_evidence"]["status"])} – {x["external_evidence"]["approved"]} godkjente verdier</p>',
                     '<h3>Datadekning</h3>', table(['Måltall','Kjent verdi','Status','Arkivdeler med tall'],
                     [[label,display(cov['known']),'Komplett' if cov['complete'] else 'DELSUM – ikke total',
@@ -428,8 +475,8 @@ def main(argv=None):
         progress(f'HTML og tekstbasert PDF klare: {html_report.name}, {pdf_report.name}')
         (args.output/'noark5-uttrekksoversikt.json').write_text(json.dumps({'generated':generated,'items':items,'coverage':coverage_rows(items)},ensure_ascii=False,indent=2),encoding='utf-8')
         with (args.output/'noark5-uttrekksoversikt.csv').open('w',newline='',encoding='utf-8-sig') as f:
-            w=csv.writer(f,delimiter=';');w.writerow(['Jobb','Rapport']+[label for _,label in METRICS]+['Teknisk status','Avvik','Depotvurdering','KDRS-evidens'])
-            for x in items:w.writerow([x['job'],x['name']]+[x['metrics'][key] if x['metrics'][key] is not None else '' for key,_ in METRICS]+[x['technical_status'],x['deviation_count'],x['assessment_status'],x['external_evidence']['status']])
+            w=csv.writer(f,delimiter=';');w.writerow(['Jobb','Uttrekk','Rapport']+[label for _,label in METRICS]+['Teknisk status','Avvik','Depotvurdering','KDRS-evidens','GO-vurdering'])
+            for x in items:w.writerow([x['job'],Path(x['extraction']).name,x['name']]+[x['metrics'][key] if x['metrics'][key] is not None else '' for key,_ in METRICS]+[x['technical_status'],x['deviation_count'],x['assessment_status'],x['external_evidence']['status'],x['go_assessment']['status']])
         print(f'OK: {len(items)} rapport(er). Resultat: {args.output.resolve()}')
         return 0
     except (OSError,ValueError,RuntimeError,json.JSONDecodeError) as exc:
