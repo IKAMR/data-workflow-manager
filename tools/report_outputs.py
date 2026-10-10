@@ -6,6 +6,7 @@ The browser is launched with an isolated temporary profile; report inputs are re
 from __future__ import annotations
 
 import argparse
+import uuid
 import os
 from pathlib import Path
 import shutil
@@ -44,6 +45,16 @@ def _text_check(pdf: Path) -> bool | None:
     return any(len(page.extract_text().strip()) >= 12 for page in PdfReader(str(pdf)).pages)
 
 
+def _publish_pdf(intermediate: Path, target: Path) -> None:
+    """Publish across volumes safely; Windows os.replace cannot cross drives."""
+    temporary = target.with_name(f'.{target.stem}-{uuid.uuid4().hex}.tmp.pdf')
+    try:
+        shutil.copyfile(intermediate, temporary)
+        os.replace(temporary, target)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def html_to_pdf(html_path: str | Path, pdf_path: str | Path | None = None) -> Path:
     """Create searchable PDF from existing HTML; fail without overwriting a good PDF."""
     source = Path(html_path).resolve(strict=True)
@@ -67,7 +78,7 @@ def html_to_pdf(html_path: str | Path, pdf_path: str | Path | None = None) -> Pa
                     check = _text_check(intermediate)
                     if check is False:
                         raise RuntimeError('PDF inneholder ikke markerbar tekst')
-                    os.replace(intermediate, target)
+                    _publish_pdf(intermediate, target)
                     return target
                 errors.append(f'{executable.name}: {result.stderr[-250:]}')
             except (OSError, subprocess.TimeoutExpired, RuntimeError) as exc:
@@ -82,7 +93,7 @@ def html_to_pdf(html_path: str | Path, pdf_path: str | Path | None = None) -> Pa
             HTML(filename=str(source), base_url=source.parent.as_uri() + '/').write_pdf(str(interim))
             if _text_check(interim) is False:
                 raise RuntimeError('PDF inneholder ikke markerbar tekst')
-            os.replace(interim, target)
+            _publish_pdf(interim, target)
             return target
     except (ImportError, OSError, RuntimeError) as exc:
         errors.append(f'WeasyPrint: {exc}')

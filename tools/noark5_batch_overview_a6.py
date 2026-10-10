@@ -78,7 +78,10 @@ def _report_directories(candidate):
 
 
 def locate_reports(source):
-    """Discover reports from known DWM locations, including dwm/<run-folder>."""
+    """Probe DWM report paths at root, extraction and municipality/extraction levels.
+
+    This is deliberately NOT recursive: never visit SIP/content/document directories.
+    """
     source = Path(source)
     if source.is_file():
         if source.name != 'depot_validation_report.json':
@@ -86,14 +89,29 @@ def locate_reports(source):
         return [source]
     if not source.is_dir():
         raise ValueError(f'Kilden finnes ikke: {source}')
-    candidates = [source]
+
     excluded = {'content', 'sip', 'aip', 'dokument', 'dokumenter', 'documents',
-                'schemas','original','storage','temp','logs','repository_content'}
-    if source.name.lower() not in {'repository_operations','dwm','noark5_reports','depot_validation'}:
-        progress(f'Leser kun første mappenivå under {source} (ingen dokumentsøk)')
+                'schemas', 'original', 'storage', 'temp', 'logs', 'repository_content',
+                'noark5_reports', 'depot_validation', 'external_evidence', '_work',
+                '_dwg_zip', '.git', '__pycache__'}
+    candidates = [source]
+    # Probe only directory entries at the first two levels; no unrestricted rglob.
+    # A source already inside a work/report directory must not be expanded.
+    if source.name.lower() not in {'repository_operations', 'dwm', 'noark5_reports', 'depot_validation'} and source.parent.name.lower() != 'dwm':
+        progress(f'Leser maksimalt to mappenivåer under {source} (ingen dokumentsøk)')
         with os.scandir(source) as entries:
-            candidates.extend(Path(entry.path) for entry in entries
-                              if entry.name.lower() not in excluded and entry.is_dir(follow_symlinks=False))
+            first = [Path(e.path) for e in entries
+                     if e.name.lower() not in excluded and e.is_dir(follow_symlinks=False)]
+        candidates.extend(first)
+        for parent in first:
+            # An identified extraction already has its own DWM operations area.
+            # Do not descend from an extraction into its archive payload.
+            if (parent / 'repository_operations').is_dir() or (parent / 'dwm').is_dir():
+                continue
+            with os.scandir(parent) as entries:
+                candidates.extend(Path(e.path) for e in entries
+                                  if e.name.lower() not in excluded and e.is_dir(follow_symlinks=False))
+
     reports = set()
     for index, candidate in enumerate(candidates, 1):
         progress(f'Mapper undersøkt: {index}/{len(candidates)} | Rapporter funnet: {len(reports)} | {candidate.name}')
@@ -101,11 +119,12 @@ def locate_reports(source):
             if not report_root.is_dir():
                 continue
             for path in report_root.glob('*/depot_validation_report.json'):
-                if path.is_file():
+                if path.is_file() and path not in reports:
                     reports.add(path)
                     progress(f'FUNNET {len(reports)}: {path.parent.name} ({candidate.name})')
-            if (report_root / 'depot_validation_report.json').is_file():
-                reports.add(report_root / 'depot_validation_report.json')
+            direct = report_root / 'depot_validation_report.json'
+            if direct.is_file():
+                reports.add(direct)
     progress(f'Søket fullført | Mapper undersøkt: {len(candidates)} | Rapporter funnet: {len(reports)}')
     return sorted(reports)
 
