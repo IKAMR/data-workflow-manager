@@ -54,6 +54,7 @@ class MultiExtractionOverview(ctk.CTkToplevel):
         self._events: queue.Queue = queue.Queue()
         self._running = False
         self._job_vars = {}
+        self._job_metadata = {}
         self._last_output: Path | None = None
         try:
             root = extraction_group_root(report_path)
@@ -141,6 +142,7 @@ class MultiExtractionOverview(ctk.CTkToplevel):
         for widget in self._job_frame.winfo_children():
             widget.destroy()
         self._job_vars = {}
+        self._job_metadata = {}
         self._job_info.configure(text=message)
 
     def _set_mode(self):
@@ -168,7 +170,7 @@ class MultiExtractionOverview(ctk.CTkToplevel):
         except (OSError, ValueError, TypeError) as exc:
             self._clear_jobs(f'Kunne ikke lese aktiv jobbliste: {exc}')
             return
-        self._show_jobs(jobs)
+        self._show_jobs(jobs, discover=True)
 
     def _search_folders(self):
         if self._running or self._mode.get() != 'folders':
@@ -179,21 +181,56 @@ class MultiExtractionOverview(ctk.CTkToplevel):
             return
         self._clear_jobs('Søker etter eksisterende depotrapporter ...')
         try:
-            jobs = [(jid, '', '') for jid in available_jobs(source)]
+            from gui.noark5_overview_evidence_a10 import extraction_root, report_candidates
+            from tools.noark5_batch_overview_a6 import locate_reports, identity
+            with contextlib.redirect_stdout(io.StringIO()):
+                reports = locate_reports(source)
+            selected = {}
+            for report in reports:
+                jid = identity(report, {})
+                if jid == 'Ukjent jobb':
+                    continue
+                root = extraction_root(report)
+                # A report file lives inside repository_operations; resolve from parents.
+                for parent in report.parents:
+                    if parent.name.lower() == 'repository_operations':
+                        root = parent.parent
+                        break
+                key = (str(root), jid)
+                selected[key] = (jid, root.name, str(root))
+            jobs = [selected[key] for key in sorted(selected)]
         except (OSError, ValueError, TypeError) as exc:
             self._clear_jobs(f'Kunne ikke finne jobber: {exc}')
             return
-        self._show_jobs(jobs)
+        self._show_jobs(jobs, discover=True)
 
-    def _show_jobs(self, jobs):
-        self._clear_jobs(f'Fant {len(jobs)} jobber. Fjern avkrysning for jobber som ikke skal med.'
+    def _show_jobs(self, jobs, *, discover=False):
+        from gui.noark5_overview_evidence_a10 import extraction_root, evidence_status
+        self._clear_jobs(f'Fant {len(jobs)} jobber. Velg en eller flere for rapportering.'
                          if jobs else 'Ingen jobber funnet.')
+        if not jobs:
+            return
+        header = ctk.CTkFrame(self._job_frame, fg_color='transparent')
+        header.pack(fill='x', pady=(0, 5))
+        for text, width in [('Velg / jobb / uttrekk', 460), ('Depotrapport', 100),
+                            ('Arkade 5', 95), ('KDRS Query', 105)]:
+            ctk.CTkLabel(header, text=text, width=width, anchor='w',
+                         font=ctk.CTkFont(weight='bold')).pack(side='left', padx=(0, 6))
         for job, name, location in jobs:
+            root = extraction_root(location)
+            status = evidence_status(root, job) if root else {
+                'depot':'Ikke funnet', 'arkade':'Ikke påvist', 'kdrs':'Ikke påvist'}
+            # Source folder and job id together prevent collisions across joblists.
+            key = (str(root) if root else location, job)
             variable = ctk.BooleanVar(value=True)
-            self._job_vars[job] = variable
-            text = f'{job} | {name} | {Path(location).name}' if name else job
-            ctk.CTkCheckBox(self._job_frame, text=text, variable=variable, width=110).pack(
-                side='top', anchor='w', pady=1)
+            self._job_vars[key] = variable
+            self._job_metadata[key] = (job, name, location)
+            row = ctk.CTkFrame(self._job_frame, fg_color='transparent')
+            row.pack(fill='x', pady=1)
+            label = f'{job} | {name or (root.name if root else "Ukjent uttrekk")}'
+            ctk.CTkCheckBox(row, text=label, variable=variable, width=460).pack(side='left',padx=(0,6))
+            for field, width in [('depot',100),('arkade',95),('kdrs',105)]:
+                ctk.CTkLabel(row, text=status[field], width=width, anchor='w').pack(side='left',padx=(0,6))
 
     def _choose_output(self):
         path = filedialog.askdirectory(parent=self, title='Velg rapportmappe')
@@ -221,7 +258,7 @@ class MultiExtractionOverview(ctk.CTkToplevel):
         if not self._output.get().strip():
             messagebox.showerror('Rapportmappe', 'Oppgi en rapportmappe.', parent=self)
             return
-        selection = [job for job, var in self._job_vars.items() if var.get()]
+        selection = [self._job_metadata[key][0] for key, var in self._job_vars.items() if var.get()]
         if not selection:
             messagebox.showerror('Jobbvalg', 'Velg minst én jobb. Klikk Finn jobber etter endring av kildemappe.', parent=self)
             return
