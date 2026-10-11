@@ -636,6 +636,78 @@ def table(headers, rows):
     return f'<table><thead><tr>{th}</tr></thead><tbody>{body}</tbody></table>'
 
 
+REPORT_SECTIONS = {
+    'coverage': 'Datadekning',
+    'sources': 'Kildesammenligning – mengdetall',
+    'arkade_sources': 'Arkade 5 – kilde per import og måltall',
+    'archive_parts': 'Arkivdeler',
+    'arkade_tests': 'Arkade 5 – importert testgrunnlag',
+    'pronom': 'PRONOM – importert filformatstatistikk',
+    'deviations': 'Registrerte avvik',
+}
+REPORT_PROFILES = {
+    'oversikt': set(),
+    'standard': {'coverage', 'sources', 'archive_parts', 'arkade_tests', 'deviations'},
+    'detaljert': set(REPORT_SECTIONS),
+}
+
+def selected_report_sections(profile, section_choices=None):
+    if profile not in REPORT_PROFILES:
+        raise ValueError('Ukjent rapportprofil: '+str(profile))
+    if section_choices is None:
+        return set(REPORT_PROFILES[profile])
+    unknown = set(section_choices) - set(REPORT_SECTIONS)
+    if unknown:
+        raise ValueError('Ukjente rapportseksjoner: '+', '.join(sorted(unknown)))
+    return set(section_choices)
+
+def filter_report_html(document, profile, sections):
+    """Filter HTML presentation only; preserve the complete JSON/CSV evidence."""
+    import re
+    if profile == 'oversikt' and not sections:
+        return re.sub(r'<section class="page">.*?</section>', '', document, flags=re.S)
+
+    def filter_one(match):
+        block = match.group(0)
+        # Split on top-level h3 boundaries, keeping the initial h2/status preamble.
+        pieces = re.split(r'(?=<h3>)', block)
+        output = [pieces[0]]
+        headings = {v: k for k, v in REPORT_SECTIONS.items()}
+        for piece in pieces[1:]:
+            hit = re.match(r'<h3>(.*?)</h3>', piece, flags=re.S)
+            if not hit:
+                output.append(piece)
+                continue
+            key = headings.get(hit.group(1))
+            if key == 'sources':
+                source_selected = 'sources' in sections
+                provenance_selected = 'arkade_sources' in sections
+                if not (source_selected or provenance_selected):
+                    continue
+                if not provenance_selected:
+                    piece = re.sub(r'<h4>Arkade 5 – kilde per import og måltall</h4>.*', '', piece, flags=re.S)
+                elif not source_selected:
+                    piece = re.sub(r'(<h3>Kildesammenligning – mengdetall</h3>).*?(<h4>Arkade 5 – kilde per import og måltall</h4>)', r'\2', piece, flags=re.S)
+                output.append(piece)
+            elif key is None or key in sections:
+                output.append(piece)
+        return ''.join(output)
+
+    return re.sub(r'<section class="page">.*?</section>', filter_one, document, flags=re.S)
+
+
+def render_go_reasons(items):
+    """Concise reasons on overview pages, with no change to assessment logic."""
+    rows = []
+    for item in items:
+        assessment = item.get('go_assessment') or {}
+        reasons = assessment.get('reasons') or []
+        explanation = '; '.join(str(x) for x in reasons) if reasons else 'Ingen registrerte begrunnelser'
+        rows.append([item.get('job', ''), Path(item.get('extraction', '')).name,
+                     assessment.get('status', 'Ukjent'), explanation])
+    return '<h2>Vurderingsgrunnlag per uttrekk</h2>' + table(
+        ['Jobb', 'Uttrekk', 'Status', 'Begrunnelse'], rows)
+
 def render(items, generated):
     headers=['Jobb','Uttrekk','Rapportgrunnlag']+[label for _,label in METRICS]+['Teknisk status','Avvik','Depotvurdering','KDRS-evidens','GO-vurdering']
     records=[[x['job'],Path(x['extraction']).name,x['name']]+[display(x['report_metrics'][key]['value']) for key,_ in METRICS]+[x['technical_status'],str(x['deviation_count']),x['assessment_status'], x['external_evidence']['status']+f" ({x['external_evidence']['approved']} valgt)", x['go_assessment']['status']] for x in items]
@@ -648,7 +720,7 @@ def render(items, generated):
              '<style>body{font:11pt/1.45 Arial,sans-serif;color:#182336;max-width:1200px;margin:25px auto;padding:0 12px}h1{font-size:19pt}h2{font-size:14pt;margin-top:28px}h3{font-size:12pt}table{border-collapse:collapse;width:100%;font-size:9pt;margin:10px 0}td,th{border:1px solid #c7ced8;padding:6px;text-align:left;vertical-align:top}th{background:#edf2f8}tr:nth-child(even){background:#fafbfd}.warning{border-left:4px solid #8e5e12;padding:9px 12px;background:#fffaf0}.muted{color:#475569}a{color:#16457f}@media print{@page{size:A3 landscape;margin:12mm}body{margin:0;max-width:none}table{font-size:8pt}.page{break-before:page}thead{display:table-header-group}tr{break-inside:avoid}}</style></head><body>',
              '<h1>Samlet oversikt – Noark 5-uttrekk</h1>',
              f'<p class="muted">Laget {e(generated)}. {len(items)} valgte rapporter. Skrivebeskyttet gjennomgang av eksisterende DWM-resultater.</p>',
-             '<h2>Valgte uttrekk</h2>',table(headers,records),
+             '<h2>Valgte uttrekk</h2>',table(headers,records), render_go_reasons(items),
              '<p class="muted">Tall valgt eksplisitt fra Arkade 5 vises som rapportverdi for hele uttrekket. Originale DWM-tall, arkivdeler, dekningsberegninger og GO-vurdering endres ikke.</p>',
              '<h2>Kjente delsummer og datadekning</h2>',table(['Måltall','Kjent verdi','Dekning','Komplette uttrekk','Arkivdeler med tall'],[[label,display(value),'Komplett' if complete else 'DELSUM – ikke total',f'{full} av {num}',f'{pknown} av {ptotal}'] for label,value,complete,full,num,pknown,ptotal in coverage]),
              f'<p class="muted">{e(note)}</p>']
@@ -699,6 +771,8 @@ def main(argv=None):
     parser.add_argument('--joblist',type=Path,help='Eksisterende .n5jobs med jobber fordelt på flere mapper')
     parser.add_argument('--prefix',default='',help='Valgfritt prefiks for alle fire rapportfiler')
     parser.add_argument('--quantity-selections',type=Path,help='JSON med eksplisitte, kildekontrollerte rapportvalg')
+    parser.add_argument('--report-profile', choices=sorted(REPORT_PROFILES), default='detaljert', help='Oversikt, standard eller detaljert')
+    parser.add_argument('--report-sections', help='Kommaseparerte rapportseksjoner; overstyrer profilens seksjonsvalg')
     parser.add_argument('--list',action='store_true',help='Vis oppdagede jobber uten rapportgenerering')
     args=parser.parse_args(argv)
     try:
@@ -777,13 +851,14 @@ def main(argv=None):
         json_path = args.output / (basename+'.json')
         csv_path = args.output / (basename+'.csv')
         pdf_path = args.output / (basename+'.pdf')
-        html_content=render(items, generated)
+        sections = selected_report_sections(args.report_profile, args.report_sections.split(',') if args.report_sections is not None and args.report_sections else ([] if args.report_sections == '' else None))
+        html_content=filter_report_html(render(items, generated), args.report_profile, sections)
         if missing_jobs:
             missing_rows=''.join('<tr><td>'+e(j['job'])+'</td><td>'+e(j['name'])+'</td><td>'+e(j['extraction'])+'</td><td>AVKLARING – mangler depotrapport</td></tr>' for j in missing_jobs)
             html_content=html_content.replace('</body></html>', '<h2>Jobber uten depotrapport</h2><table><tr><th>Jobb</th><th>Uttrekk</th><th>Kilde</th><th>Kontrollgrunnlag</th></tr>'+missing_rows+'</table></body></html>')
         html_path.write_text(html_content, encoding='utf-8')
         progress(f'HTML klar: {html_path.name}')
-        json_path.write_text(json.dumps({'generated':generated,'items':items,'coverage':coverage_rows(items),'missing_jobs':missing_jobs,'quantity_selection_count':selection_count},ensure_ascii=False,indent=2),encoding='utf-8')
+        json_path.write_text(json.dumps({'generated':generated,'items':items,'coverage':coverage_rows(items),'missing_jobs':missing_jobs,'quantity_selection_count':selection_count,'report_presentation':{'profile':args.report_profile,'sections':sorted(sections),'format':'html/pdf; json/csv full evidence'}},ensure_ascii=False,indent=2),encoding='utf-8')
         progress(f'JSON klar: {json_path.name}')
         with csv_path.open('w',newline='',encoding='utf-8-sig') as f:
             w=csv.writer(f,delimiter=';');w.writerow(['Jobb','Uttrekk','Rapport']+[label for _,label in METRICS]+[label+' – kilde' for _,label in METRICS]+['Teknisk status','Avvik','Depotvurdering','KDRS-evidens','GO-vurdering'])

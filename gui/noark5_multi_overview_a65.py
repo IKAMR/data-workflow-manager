@@ -75,6 +75,8 @@ class MultiExtractionOverview(ctk.CTkToplevel):
             initial_output=str(Path.home() / 'Documents' / 'DWM-uttrekksoversikt')
         self._output = ctk.StringVar(value=initial_output)
         self._prefix = ctk.StringVar(value=saved.get('report_prefix','') if 'saved' in locals() else '')
+        self._report_profile = ctk.StringVar(value='Detaljert')
+        self._report_sections = None
         ctk.CTkLabel(self, text='Samlet uttrekksoversikt – eksisterende depotrapporter',
                      font=ctk.CTkFont(size=13, weight='bold'), anchor='w').pack(fill='x', padx=18, pady=(18, 7))
         ctk.CTkLabel(self, text='Ingen nye Noark 5-tester. Ingen søk i DOKUMENT/content. Ingen automatisk depotgodkjenning.',
@@ -101,6 +103,11 @@ class MultiExtractionOverview(ctk.CTkToplevel):
         self._set_mode()
         self._field('Rapportmappe', self._output, browse=True)
         self._field('Filprefiks (valgfritt)', self._prefix)
+        profile_bar=ctk.CTkFrame(self, fg_color='transparent')
+        profile_bar.pack(fill='x', padx=18, pady=(4,0))
+        ctk.CTkLabel(profile_bar,text='Rapportprofil',width=245,anchor='w').pack(side='left')
+        ctk.CTkOptionMenu(profile_bar,variable=self._report_profile,values=['Oversikt','Standard','Detaljert'],command=self._profile_changed,width=185).pack(side='left',padx=8)
+        ctk.CTkButton(profile_bar,text='Velg rapportinnhold',command=self._choose_report_content,width=190).pack(side='left',padx=10)
         self._quantity_button = ctk.CTkButton(self, text='Velg Arkade 5-mengdetall (valgfritt)', command=self._choose_quantities, width=260)
         self._quantity_button.pack(anchor='w', padx=18, pady=(3, 0))
         actions = ctk.CTkFrame(self, fg_color='transparent')
@@ -300,6 +307,41 @@ class MultiExtractionOverview(ctk.CTkToplevel):
             dialog.destroy()
         ctk.CTkButton(dialog, text='Bruk valgene', command=save).pack(pady=(2, 12))
 
+    _section_labels = {
+        'coverage':'Datadekning', 'sources':'Kildesammenligning',
+        'arkade_sources':'Arkade 5-kilder per import', 'archive_parts':'Arkivdeler',
+        'arkade_tests':'Arkade 5-testresultater', 'pronom':'PRONOM / filformater',
+        'deviations':'Registrerte avvik',
+    }
+    _profile_defaults = {
+        'Oversikt':set(),
+        'Standard':{'coverage','sources','archive_parts','arkade_tests','deviations'},
+        'Detaljert':set(_section_labels),
+    }
+
+    def _profile_changed(self, *_):
+        self._report_sections = None
+        self._state_label.configure(text=f'Rapportprofil: {self._report_profile.get()} (standard seksjonsvalg).')
+
+    def _choose_report_content(self):
+        dialog=ctk.CTkToplevel(self)
+        dialog.title('Velg rapportinnhold – Noark 5')
+        dialog.geometry('530x510')
+        dialog.transient(self)
+        dialog.grab_set()
+        ctk.CTkLabel(dialog,text='Velg seksjoner i HTML og PDF. JSON og CSV beholder alle data.',anchor='w').pack(fill='x',padx=16,pady=(16,10))
+        initial=self._report_sections if self._report_sections is not None else self._profile_defaults[self._report_profile.get()]
+        vars_={}
+        for key,label in self._section_labels.items():
+            var=ctk.BooleanVar(value=key in initial)
+            vars_[key]=var
+            ctk.CTkCheckBox(dialog,text=label,variable=var).pack(anchor='w',padx=20,pady=7)
+        def confirm():
+            self._report_sections={key for key,var in vars_.items() if var.get()}
+            self._state_label.configure(text=f'{len(self._report_sections)} rapportseksjoner valgt for HTML/PDF.')
+            dialog.destroy()
+        ctk.CTkButton(dialog,text='Bruk valgene',command=confirm).pack(pady=13)
+
     def _choose_output(self):
         path = filedialog.askdirectory(parent=self, title='Velg rapportmappe')
         if path:
@@ -349,13 +391,15 @@ class MultiExtractionOverview(ctk.CTkToplevel):
         self._start_button.configure(state='disabled')
         self._state_label.configure(text='Kjører – status oppdateres nedenfor')
         self._append(f'Starter {len(selection)} valgte jobber: {source}')
-        threading.Thread(target=self._worker, args=(script, source, target, selection, self._joblist_path if use_joblist else None, prefix, quantity_payload), daemon=True).start()
+        threading.Thread(target=self._worker, args=(script, source, target, selection, self._joblist_path if use_joblist else None, prefix, quantity_payload, self._report_profile.get().lower(), self._report_sections), daemon=True).start()
 
-    def _worker(self, script, source, target, selection, joblist=None, prefix='', quantity_payload=None):
+    def _worker(self, script, source, target, selection, joblist=None, prefix='', quantity_payload=None, profile='detaljert', sections=None):
         try:
             command = [sys.executable, '-u', str(script), '--source', str(source), '--output', str(target), '--select', *selection]
             if joblist: command += ['--joblist', str(joblist)]
             if prefix: command += ['--prefix', prefix]
+            command += ['--report-profile', profile]
+            if sections is not None: command += ['--report-sections', ','.join(sorted(sections))]
             import tempfile
             # Keep the temporary choice manifest alive until the generator has read it.
             with tempfile.TemporaryDirectory(prefix='dwm-quantity-choice-') as temp_dir:
