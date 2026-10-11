@@ -55,6 +55,8 @@ class MultiExtractionOverview(ctk.CTkToplevel):
         self._running = False
         self._job_vars = {}
         self._job_metadata = {}
+        self._quantity_choices = []
+        self._quantity_selected = set()
         self._last_output: Path | None = None
         try:
             root = extraction_group_root(report_path)
@@ -72,6 +74,7 @@ class MultiExtractionOverview(ctk.CTkToplevel):
         except (OSError, ValueError, TypeError):
             initial_output=str(Path.home() / 'Documents' / 'DWM-uttrekksoversikt')
         self._output = ctk.StringVar(value=initial_output)
+        self._prefix = ctk.StringVar(value=saved.get('report_prefix','') if 'saved' in locals() else '')
         ctk.CTkLabel(self, text='Samlet uttrekksoversikt – eksisterende depotrapporter',
                      font=ctk.CTkFont(size=13, weight='bold'), anchor='w').pack(fill='x', padx=18, pady=(18, 7))
         ctk.CTkLabel(self, text='Ingen nye Noark 5-tester. Ingen søk i DOKUMENT/content. Ingen automatisk depotgodkjenning.',
@@ -97,6 +100,9 @@ class MultiExtractionOverview(ctk.CTkToplevel):
         self._job_frame.pack(fill='x', padx=18, pady=4)
         self._set_mode()
         self._field('Rapportmappe', self._output, browse=True)
+        self._field('Filprefiks (valgfritt)', self._prefix)
+        self._quantity_button = ctk.CTkButton(self, text='Velg Arkade 5-mengdetall (valgfritt)', command=self._choose_quantities, width=260)
+        self._quantity_button.pack(anchor='w', padx=18, pady=(3, 0))
         actions = ctk.CTkFrame(self, fg_color='transparent')
         actions.pack(fill='x', padx=18, pady=(10, 8))
         self._start_button = ctk.CTkButton(actions, text='Lag rapport – valgte jobber',
@@ -126,11 +132,11 @@ class MultiExtractionOverview(ctk.CTkToplevel):
     def _remember_output(self):
         try:
             self._preferences_path.write_text(
-                json.dumps({'report_folder':self._output.get()},ensure_ascii=False),encoding='utf-8')
+                json.dumps({'report_folder':self._output.get(),'report_prefix':self._prefix.get().strip()},ensure_ascii=False),encoding='utf-8')
         except OSError:
             pass
 
-    def _field(self, label, variable, *, browse):
+    def _field(self, label, variable, *, browse=False):
         bar = ctk.CTkFrame(self, fg_color='transparent')
         bar.pack(fill='x', padx=18, pady=5)
         ctk.CTkLabel(bar, text=label, width=245, anchor='w').pack(side='left')
@@ -143,6 +149,8 @@ class MultiExtractionOverview(ctk.CTkToplevel):
             widget.destroy()
         self._job_vars = {}
         self._job_metadata = {}
+        self._quantity_choices = []
+        self._quantity_selected = set()
         self._job_info.configure(text=message)
 
     def _set_mode(self):
@@ -232,6 +240,66 @@ class MultiExtractionOverview(ctk.CTkToplevel):
             for field, width in [('depot',100),('arkade',95),('kdrs',105)]:
                 ctk.CTkLabel(row, text=status[field], width=width, anchor='w').pack(side='left',padx=(0,6))
 
+    def _choose_quantities(self):
+        """Let the user explicitly select evidenced Arkade totals for reporting only."""
+        if self._running:
+            return
+        selected_jobs = [self._job_metadata[key] for key, var in self._job_vars.items() if var.get()]
+        if not selected_jobs:
+            messagebox.showinfo('Arkade 5', 'Velg minst én jobb først.', parent=self)
+            return
+        from gui.noark5_quantity_choices_a116 import candidates_for_jobs, selection_key
+        try:
+            import contextlib
+            import io
+            with contextlib.redirect_stdout(io.StringIO()):
+                candidates = candidates_for_jobs(
+                    selected_jobs,
+                    joblist=self._joblist_path if self._mode.get() == 'joblist' else None,
+                    source=self._source.get() if self._mode.get() == 'folders' else None,
+                )
+        except (OSError, ValueError, TypeError) as exc:
+            messagebox.showerror('Arkade 5-mengdetall', str(exc), parent=self)
+            return
+        if not candidates:
+            messagebox.showinfo('Arkade 5', 'Ingen entydig dokumenterte uttrekkstotaler funnet for valgte jobber.', parent=self)
+            return
+        self._quantity_choices = candidates
+        dialog = ctk.CTkToplevel(self)
+        dialog.title('Velg Arkade 5-totaler – kun rapportgrunnlag')
+        dialog.geometry('850x540')
+        dialog.transient(self)
+        dialog.grab_set()
+        ctk.CTkLabel(dialog, text='Velg dokumenterte totaler for hele uttrekket. Ingen DWM- eller arkivdelverdier endres.',
+                     anchor='w').pack(fill='x', padx=14, pady=12)
+        frame = ctk.CTkScrollableFrame(dialog)
+        frame.pack(fill='both', expand=True, padx=14, pady=6)
+        vars_by_key = {}
+        for choice in candidates:
+            key = selection_key(choice)
+            var = ctk.BooleanVar(value=key in self._quantity_selected)
+            vars_by_key[key] = var
+            dwm = 'ukjent' if choice['dwm_count'] is None else str(choice['dwm_count'])
+            description = (f"{choice['job']} | {choice['extraction']} | {choice['label']} | "
+                           f"Arkade 5: {choice['count']:,} | DWM: {dwm}")
+            ctk.CTkCheckBox(frame, text=description.replace(',', ' '), variable=var).pack(anchor='w', padx=6, pady=4)
+        shortcuts = ctk.CTkFrame(dialog, fg_color='transparent')
+        shortcuts.pack(fill='x', padx=14, pady=(2, 6))
+        def choose_by(condition):
+            for choice in candidates:
+                vars_by_key[selection_key(choice)].set(bool(condition(choice)))
+        ctk.CTkButton(shortcuts, text='Velg der DWM mangler',
+                      command=lambda: choose_by(lambda c: c.get('dwm_count') is None)).pack(side='left', padx=(0, 8))
+        ctk.CTkButton(shortcuts, text='Velg alle',
+                      command=lambda: choose_by(lambda c: True)).pack(side='left', padx=(0, 8))
+        ctk.CTkButton(shortcuts, text='Fjern alle',
+                      command=lambda: choose_by(lambda c: False)).pack(side='left')
+        def save():
+            self._quantity_selected = {key for key, var in vars_by_key.items() if var.get()}
+            self._state_label.configure(text=f'{len(self._quantity_selected)} Arkade 5-total(er) valgt for rapportvisning.')
+            dialog.destroy()
+        ctk.CTkButton(dialog, text='Bruk valgene', command=save).pack(pady=(2, 12))
+
     def _choose_output(self):
         path = filedialog.askdirectory(parent=self, title='Velg rapportmappe')
         if path:
@@ -262,6 +330,17 @@ class MultiExtractionOverview(ctk.CTkToplevel):
         if not selection:
             messagebox.showerror('Jobbvalg', 'Velg minst én jobb. Klikk Finn jobber etter endring av kildemappe.', parent=self)
             return
+        prefix=self._prefix.get().strip()
+        if prefix and (prefix in ('.','..') or len(prefix)>100 or any(c not in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-.' for c in prefix)):
+            messagebox.showerror('Filprefiks', 'Bruk bare A-Z, a-z, tall, bindestrek, understrek og punktum (maks 100 tegn).', parent=self)
+            return
+        basename=(prefix+'_' if prefix else '')+'noark5-uttrekksoversikt'
+        existing=[target/(basename+ext) for ext in ('.html','.pdf','.json','.csv') if (target/(basename+ext)).exists()]
+        if existing and not messagebox.askyesno('Overskrive rapportfiler', f'{len(existing)} rapportfil(er) finnes allerede med dette navnet. Vil du overskrive dem?', parent=self):
+            return
+        # Only explicitly checked rows are exported; CLI revalidates against source reports.
+        from gui.noark5_quantity_choices_a116 import selected_payload
+        quantity_payload = selected_payload(self._quantity_choices, self._quantity_selected)
         self._remember_output()
         self._running = True
         self._last_output = None
@@ -270,20 +349,31 @@ class MultiExtractionOverview(ctk.CTkToplevel):
         self._start_button.configure(state='disabled')
         self._state_label.configure(text='Kjører – status oppdateres nedenfor')
         self._append(f'Starter {len(selection)} valgte jobber: {source}')
-        threading.Thread(target=self._worker, args=(script, source, target, selection, self._joblist_path if use_joblist else None), daemon=True).start()
+        threading.Thread(target=self._worker, args=(script, source, target, selection, self._joblist_path if use_joblist else None, prefix, quantity_payload), daemon=True).start()
 
-    def _worker(self, script, source, target, selection, joblist=None):
+    def _worker(self, script, source, target, selection, joblist=None, prefix='', quantity_payload=None):
         try:
             command = [sys.executable, '-u', str(script), '--source', str(source), '--output', str(target), '--select', *selection]
             if joblist: command += ['--joblist', str(joblist)]
+            if prefix: command += ['--prefix', prefix]
+            import tempfile
+            # Keep the temporary choice manifest alive until the generator has read it.
+            with tempfile.TemporaryDirectory(prefix='dwm-quantity-choice-') as temp_dir:
+                if quantity_payload and quantity_payload.get('choices'):
+                    manifest = Path(temp_dir) / 'choices.json'
+                    manifest.write_text(json.dumps(quantity_payload, ensure_ascii=False), encoding='utf-8')
+                    command += ['--quantity-selections', str(manifest)]
+                self._run_command(command, target, prefix)
+        except Exception as exc:
+            self._events.put(('failure', str(exc)))
+
+    def _run_command(self, command, target, prefix):
             with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                   text=True, encoding='utf-8', errors='replace', bufsize=1,
                                   env={**__import__('os').environ, 'PYTHONIOENCODING': 'utf-8'}) as process:
                 for line in process.stdout:
                     self._events.put(('line', line.rstrip()))
-                self._events.put(('done', process.wait(), target))
-        except Exception as exc:
-            self._events.put(('failure', str(exc)))
+                self._events.put(('done', process.wait(), target, prefix))
 
     def _poll(self):
         try:
@@ -292,15 +382,15 @@ class MultiExtractionOverview(ctk.CTkToplevel):
                 if event[0] == 'line':
                     self._append(event[1])
                 elif event[0] == 'done':
-                    code, target = event[1], event[2]
+                    code, target, prefix = event[1], event[2], event[3]
+                    basename=(prefix+'_' if prefix else '')+'noark5-uttrekksoversikt'
                     self._running = False
                     self._start_button.configure(state='normal')
-                    expected = ('noark5-uttrekksoversikt.html',
-                                'noark5-uttrekksoversikt.json', 'noark5-uttrekksoversikt.csv')
+                    expected = tuple(basename + ext for ext in ('.html','.json','.csv'))
                     core_ready = code == 0 and all((target / name).is_file() for name in expected)
-                    pdf_ready = core_ready and (target / PDF_NAME).is_file()
+                    pdf_ready = core_ready and (target / (basename+'.pdf')).is_file()
                     if core_ready:
-                        self._last_output = target / REPORT_NAME
+                        self._last_output = target / (basename+'.html')
                         self._open_button.configure(state='normal')
                         if pdf_ready:
                             self._pdf_button.configure(state='normal')

@@ -151,7 +151,7 @@ def part_rows(data):
 def overlay_accepted_evidence(path, native_metrics, parts):
     """Read-only overlay. Trust only scoped explicit approvals bound to native SHA."""
     projection_path = path.with_name('depot-effective-evidence.json')
-    info={'status':'Ingen evidensprojeksjon', 'approved':0, 'rejected':0, 'source':None}
+    info={'status':'Ingen evidensprojeksjon', 'approved':0, 'rejected':0, 'source':None, 'whole_selected':{}, 'part_selected':[]}
     if not projection_path.is_file():
         return info
     info['source']=str(projection_path)
@@ -203,6 +203,10 @@ def overlay_accepted_evidence(path, native_metrics, parts):
             for metric,row in (record.get('metrics') or {}).items():
                 consider(row,part,metric)
         for target,metric,value in proposals:
+            if target is native_metrics:
+                info['whole_selected'][metric] = value
+            else:
+                info['part_selected'].append({'archive_part':target['nr'], 'metric':metric, 'value':value})
             target[metric]=value
             target.setdefault('evidence_fields',[]).append(metric)
         info['approved']=len(proposals)
@@ -214,6 +218,49 @@ def overlay_accepted_evidence(path, native_metrics, parts):
 
 
 
+def extract_arkade_quantity(test, control_id):
+    """Read only explicitly labelled whole-extraction count messages.
+
+    Per-archive-part counts, error counts, and PRONOM inventory are not totals.
+    Conflicting totals within one control are not accepted.
+    """
+    if not isinstance(test, dict) or test.get('test_id') != control_id:
+        return None
+    patterns = [r'^Totalt\s*:\s*([0-9]+)\s*$']
+    if control_id == 'N5.59':
+        patterns = [r'^Antall journalposter funnet i arkivstrukturen\s*:\s*([0-9]+)\s*$']
+    found = set()
+    for row in test.get('results') or []:
+        if not isinstance(row, dict):
+            continue
+        msg = str(row.get('message') or '').strip()
+        for pattern in patterns:
+            match = re.fullmatch(pattern, msg, flags=re.IGNORECASE)
+            if match:
+                found.add(int(match.group(1)))
+    return next(iter(found)) if len(found) == 1 else None
+
+
+def imported_quantity_candidates(value, source):
+    """Extract separately sourced Arkade counts, never summing import runs."""
+    control_to_metric = {v:k for k,v in ARKADE_QUANTITY_CONTROLS.items()}
+    out = []
+    for test in value.get('tests') or []:
+        if not isinstance(test, dict):
+            continue
+        cid = test.get('test_id')
+        if cid not in control_to_metric:
+            continue
+        count = extract_arkade_quantity(test, cid)
+        if count is not None:
+            out.append({'metric':control_to_metric[cid], 'control':cid,
+                        'count':count, 'scope':'Hele uttrekket',
+                        'source':str(source),
+                        'source_version':str(value.get('source_version') or ''),
+                        'source_sha256':str((value.get('source') or {}).get('sha256') or '')})
+    return out
+
+
 def imported_arkade_evidence(report_path):
     """Summarize previously imported Arkade 5 results; never parse source SIP.
 
@@ -222,7 +269,7 @@ def imported_arkade_evidence(report_path):
     info = {'status': 'Ingen import funnet', 'imports': 0, 'tests': None,
             'error_occurrences': None, 'failed_controls': [], 'controls': [],
             'pronom_rows': None, 'pronom_files': None, 'pronom_classes': {},
-            'pronom_formats': [], 'sources': [], 'warnings': []}
+            'pronom_formats': [], 'sources': [], 'warnings': [], 'quantity_candidates': []}
     try:
         # Canonical: repository_operations/dwm/noark5_reports/depot_validation/RUN/report.json
         dwm = next((parent for parent in report_path.parents if parent.name.lower() == 'dwm'), None)
@@ -246,6 +293,7 @@ def imported_arkade_evidence(report_path):
             info['imports'] += 1
             if report.is_file():
                 value = json.loads(report.read_text(encoding='utf-8-sig'))
+                info['quantity_candidates'].extend(imported_quantity_candidates(value, report))
                 summary = value.get('summary') or {}
                 info['tests'] = summary.get('number_of_tests_run')
                 info['error_occurrences'] = decimal_count(summary.get('number_of_errors'))
@@ -335,10 +383,185 @@ def coverage_rows(items):
                      sum(x['parts_known'] for x in known), sum(x['parts_total'] for x in known)))
     return rows
 
+# Noark 5 Arkade controls potentially reporting whole-extraction quantities.
+# A positive has_results flag only means the control has data, not a vetted count.
+ARKADE_QUANTITY_CONTROLS = {
+    'archive_part_count': 'N5.05',
+    'folder_count': 'N5.10',
+    'registration_count': 'N5.16',
+    'journalpost_count': 'N5.59',
+    'document_description_count': 'N5.23',
+    'document_object_count': 'N5.26',
+}
+
+
+def quantity_evidence_comparison(item):
+    """Expose source provenance and scope without selecting alternative totals.
+
+    Archive-part selections remain scoped to their actual part. A whole-extraction
+    Arkade total can be compared with a whole-extraction DWM value, but is never
+    substituted for absent native data or apportioned to archive parts.
+    """
+    ark = item.get('arkade5_import') or {}
+    controls = {r.get('id'): r for r in ark.get('controls', []) if isinstance(r, dict)}
+    native = item.get('native_metrics') or item['metrics']
+    effective = item['metrics']
+    evidence = item.get('external_evidence') or {}
+    whole_selected = evidence.get('whole_selected') or {}
+    part_selected = evidence.get('part_selected') or []
+    result = []
+    for key, label in METRICS:
+        test_id = ARKADE_QUANTITY_CONTROLS[key]
+        control = controls.get(test_id)
+        candidates = [c for c in ark.get('quantity_candidates', []) if c.get('metric') == key]
+        distinct = {c['count'] for c in candidates}
+        verified = next(iter(distinct)) if len(distinct) == 1 else None
+        if candidates:
+            ark_status = ('Dokumentert total i Arkade 5' if verified is not None
+                          else 'Ulike totalverdier mellom importer – må avklares')
+        else:
+            ark_status = ('Resultatgrunnlag finnes – antall ikke verifisert' if control and control.get('has_results')
+                          else 'Kontroll registrert, ingen resultatverdier' if control
+                          else 'Ingen kontroll påvist')
+        selected_whole = key in whole_selected
+        selected_parts = [v for v in part_selected if v.get('metric') == key]
+        dwm_count = native.get(key)
+        # Backward compatibility: older effective reports may identify an approved
+        # change but lack the later whole/part scope fields. Preserve provenance
+        # without falsely attributing that value to the whole extraction.
+        # Compatibility for evidence summaries written before scoped selections.
+        # A changed effective count with an approved external decision retains
+        # its provenance, but its geographic/archive scope remains unknown.
+        approved_count = evidence.get('approved', 0)
+        try:
+            has_approval = int(approved_count) > 0
+        except (TypeError, ValueError):
+            has_approval = False
+        legacy_approved_change = (
+            not selected_whole and not selected_parts
+            and has_approval
+            and get_count(effective.get(key)) is not None
+            and get_count(effective.get(key)) != get_count(dwm_count)
+        )
+        source = ('KDRS Query (valgt for hele uttrekket)' if selected_whole
+                  else 'KDRS Query (godkjent)' if legacy_approved_change
+                  else 'DWM')
+        # An Arkade total is comparable only to another whole-extraction count
+        # of the *same metric*. Its absence is not a reason to infer equality.
+        comparable = verified is not None and dwm_count is not None
+        agreement = ('Samsvarer' if verified == dwm_count else 'Avvik') if comparable else 'Ikke sammenlignet'
+        if candidates and verified is None:
+            availability = 'Motstridende Arkade-importer'
+        elif verified is not None:
+            availability = 'Arkade-total tilgjengelig'
+        elif control:
+            availability = 'Kontroll finnes, total ikke dokumentert'
+        else:
+            availability = 'Ingen Arkade-total påvist'
+        result.append({
+            'metric': key, 'label': label,
+            'dwm_count': dwm_count, 'effective_count': effective.get(key),
+            'effective_source': source,
+            'arkade_control': test_id, 'arkade_status': ark_status,
+            'arkade_count': verified, 'arkade_candidates': candidates,
+            'scope': 'Hele uttrekket (Arkade 5)',
+            'availability': availability,
+            'comparable': comparable,
+            'comparison_status': agreement,
+            'selected_source': source,
+            'arkade_selected': False,
+            'kdrs_whole_selected': selected_whole,
+            'kdrs_archive_parts_selected': selected_parts,
+            'selection_scope': ('Hele uttrekket' if selected_whole else
+                                'Bare arkivdel' if selected_parts else
+                                'Ikke dokumentert i eldre grunnlag' if legacy_approved_change
+                                else 'Ingen ekstern verdi valgt'),
+        })
+    return result
+
+
+
+def apply_explicit_quantity_choices(items, selection):
+    """Separate reporting choices: never change native/effective metrics or GO.
+
+    Schema: {"choices": [{"job": "JOB-002", "extraction": "folder-name",
+             "metric": "folder_count", "source": "Arkade 5", "count": 66834}]}
+    A selected number must be corroborated by an imported explicit Arkade total.
+    """
+    if not isinstance(selection, dict) or not isinstance(selection.get('choices'), list):
+        raise ValueError('Valgfilen må inneholde en liste i feltet choices')
+    used = set()
+    allowed_metrics = {k for k, _ in METRICS}
+    for choice in selection['choices']:
+        if not isinstance(choice, dict):
+            raise ValueError('Ugyldig valgoppføring')
+        job, extraction, metric = (str(choice.get(k, '')).strip() for k in ('job', 'extraction', 'metric'))
+        if metric not in allowed_metrics or choice.get('source') != 'Arkade 5':
+            raise ValueError('Bare dokumenterte Arkade 5-uttrekkstotaler støttes i denne versjonen')
+        if not extraction:
+            raise ValueError('Uttrekksnavn må oppgis for entydig identifikasjon')
+        matching = [i for i in items if i['job'] == job and Path(i['extraction']).name.casefold() == extraction.casefold()]
+        if len(matching) != 1:
+            raise ValueError(f'Valget identifiserer ikke nøyaktig ett uttrekk: {job} / {extraction}')
+        row = next(r for r in matching[0]['quantity_comparison'] if r['metric'] == metric)
+        count = choice.get('count')
+        if type(count) is not int or count < 0 or row.get('arkade_count') is None or row['arkade_count'] != count:
+            raise ValueError(f'Valgt tall er ikke entydig dokumentert i Arkade 5: {job} / {metric}')
+        identity_key = (job, extraction.casefold(), metric)
+        if identity_key in used:
+            raise ValueError(f'Dobbelt valg for {job} / {metric}')
+        used.add(identity_key)
+        row['report_selected_count'] = count
+        row['report_selected_source'] = 'Arkade 5 (eksplisitt rapportvalg)'
+        row['report_selected_scope'] = 'Hele uttrekket'
+        row['report_selection_only'] = True
+    return len(used)
+
+def report_quantity_value(item, metric):
+    """User-selected *whole-extraction* reporting total, or existing DWM total.
+
+    Never updates the native/effective metrics nor substitutes archive-part counts.
+    """
+    native = item['metrics'].get(metric)
+    for row in item.get('quantity_comparison', []):
+        if row.get('metric') != metric:
+            continue
+        if row.get('report_selection_only') and row.get('report_selected_scope') == 'Hele uttrekket':
+            chosen = row.get('report_selected_count')
+            if type(chosen) is int and chosen >= 0:
+                return chosen, row.get('report_selected_source', 'Arkade 5 (eksplisitt rapportvalg)')
+        break
+    return native, next((r.get('selected_source','DWM') for r in item.get('quantity_comparison', []) if r.get('metric') == metric), 'DWM')
+
+
+def build_report_metrics(item):
+    """Materialized, source-labelled report values, independent of original metrics.
+
+    The source scope remains at whole-extraction level for user-selected Arkade
+    totals. Unknown native values are not silently treated as zero.
+    """
+    result = {}
+    for key, _label in METRICS:
+        value, source = report_quantity_value(item, key)
+        row = next((r for r in item.get('quantity_comparison', []) if r.get('metric') == key), {})
+        explicit = bool(row.get('report_selection_only') and
+                        row.get('report_selected_scope') == 'Hele uttrekket')
+        result[key] = {
+            'value': value,
+            'source': source,
+            'scope': 'Hele uttrekket' if explicit else row.get('selection_scope', 'Ukjent'),
+            'explicit_selection': explicit,
+            'dwm_original': (item.get('native_metrics') or item.get('metrics') or {}).get(key),
+            'dwm_effective': (item.get('metrics') or {}).get(key),
+        }
+    return result
+
+
 def extract(path):
     data=read_report(path)
     summary=data.get('summary') or {}
     metrics={key:get_count(summary.get(key)) for key,_ in METRICS}
+    native_metrics=metrics.copy()
     parts=part_rows(data)
     evidence=overlay_accepted_evidence(path,metrics,parts)
     deviations=data.get('deviations') or []
@@ -347,7 +570,7 @@ def extract(path):
     result = {
         'job':identity(path,data), 'source':str(path.resolve()),
         'extraction': next((str(p.parent) for p in path.parents if p.name.lower()=='repository_operations'), str(path.parent)),
-        'name':path.parent.name, 'metrics':metrics,'archive_parts':parts, 'external_evidence':evidence,
+        'name':path.parent.name, 'metrics':metrics,'native_metrics':native_metrics,'archive_parts':parts, 'external_evidence':evidence,
         'arkade5_import':imported_arkade_evidence(path),
         'technical_status':str(tech.get('status') or 'Ukjent'),
         'assessment_status':str(assessment.get('status') or 'Ikke vurdert'),
@@ -356,6 +579,7 @@ def extract(path):
         'deviations':[str(x.get('summary') or '') for x in deviations if isinstance(x,dict)],
         'warning':'Automatisk oversikt er ikke depotgodkjenning eller grunnlag alene for sletting av kildecontainer.'
     }
+    result['quantity_comparison'] = quantity_evidence_comparison(result)
     result['go_assessment'] = go_assessment(result)
     return result
 
@@ -414,7 +638,7 @@ def table(headers, rows):
 
 def render(items, generated):
     headers=['Jobb','Uttrekk','Rapportgrunnlag']+[label for _,label in METRICS]+['Teknisk status','Avvik','Depotvurdering','KDRS-evidens','GO-vurdering']
-    records=[[x['job'],Path(x['extraction']).name,x['name']]+[display(x['metrics'][key]) for key,_ in METRICS]+[x['technical_status'],str(x['deviation_count']),x['assessment_status'], x['external_evidence']['status']+f" ({x['external_evidence']['approved']} valgt)", x['go_assessment']['status']] for x in items]
+    records=[[x['job'],Path(x['extraction']).name,x['name']]+[display(x['report_metrics'][key]['value']) for key,_ in METRICS]+[x['technical_status'],str(x['deviation_count']),x['assessment_status'], x['external_evidence']['status']+f" ({x['external_evidence']['approved']} valgt)", x['go_assessment']['status']] for x in items]
     coverage = coverage_rows(items)
     incomplete = [label for label, _, complete, *_ in coverage if not complete]
     # Archive parts are *not* additive as logical unique parts unless each selected report is distinct.
@@ -425,7 +649,7 @@ def render(items, generated):
              '<h1>Samlet oversikt – Noark 5-uttrekk</h1>',
              f'<p class="muted">Laget {e(generated)}. {len(items)} valgte rapporter. Skrivebeskyttet gjennomgang av eksisterende DWM-resultater.</p>',
              '<h2>Valgte uttrekk</h2>',table(headers,records),
-             '<p class="muted">GO-vurderingen gjelder dokumentert kontrollgrunnlag, ikke depotgodkjenning eller slettingstillatelse.</p>',
+             '<p class="muted">Tall valgt eksplisitt fra Arkade 5 vises som rapportverdi for hele uttrekket. Originale DWM-tall, arkivdeler, dekningsberegninger og GO-vurdering endres ikke.</p>',
              '<h2>Kjente delsummer og datadekning</h2>',table(['Måltall','Kjent verdi','Dekning','Komplette uttrekk','Arkivdeler med tall'],[[label,display(value),'Komplett' if complete else 'DELSUM – ikke total',f'{full} av {num}',f'{pknown} av {ptotal}'] for label,value,complete,full,num,pknown,ptotal in coverage]),
              f'<p class="muted">{e(note)}</p>']
     if incomplete:content.append(f'<p><strong>Manglende grunnlag:</strong> {e(", ".join(incomplete))}. Summer er derfor delvise.</p>')
@@ -437,6 +661,16 @@ def render(items, generated):
                     '<h3>Datadekning</h3>', table(['Måltall','Kjent verdi','Status','Arkivdeler med tall'],
                     [[label,display(cov['known']),'Komplett' if cov['complete'] else 'DELSUM – ikke total',
                       f"{cov['parts_known']} av {cov['parts_total']}"] for key,label in METRICS if (cov:=metric_coverage(x,key))]),
+                    '<h3>Kildesammenligning – mengdetall</h3>',
+                    '<p class="muted">Arkade 5-totaler hentes bare fra eksplisitte uttrekkstotaler. Hver import beholdes med kilde; ulike verdier blir ikke slått sammen. Ingen Arkade-verdi overstyrer DWM eller fordeles automatisk på arkivdeler. PRONOM-filforekomster er ikke dokumentobjekter.</p>',
+                    table(['Måltall','DWM opprinnelig','Valgt rapportverdi','Rapportverdiens kilde','Arkade 5-total','Tilgjengelighet','Sammenligning','KDRS-valgets omfang','Eksplisitt rapportvalg'],
+                    [[r['label'],display(r['dwm_count']),display(x['report_metrics'][r['metric']]['value']),x['report_metrics'][r['metric']]['source'],
+                      display(r['arkade_count']),r['availability'],r['comparison_status'],r['selection_scope'],
+                      (r['report_selected_source']+': '+display(r['report_selected_count'])+' ('+r['report_selected_scope']+')') if 'report_selected_count' in r else 'Ikke valgt'] for r in x['quantity_comparison']]),
+                    '<h4>Arkade 5 – kilde per import og måltall</h4>',
+                    table(['Måltall','Kontroll','Uttrekkstotal','Versjon','Kilde (normalisert rapport)'],
+                      [[r['label'],c['control'],display(c['count']),c['source_version'],c['source']]
+                       for r in x['quantity_comparison'] for c in r['arkade_candidates']]),
                     '<h3>Arkivdeler</h3>',table(['Nr','Arkivdel']+[label for _,label in METRICS[1:]],
                       [[p['nr'],p['title']]+[(display(p[key])+(' (KDRS*)' if key in p.get('evidence_fields',[]) else '')) for key,_ in METRICS[1:]] for p in x['archive_parts']]),
                     '<p class="muted">* KDRS = eksplisitt godkjent ekstern evidens; original DWM-rapport er uendret.</p>',
@@ -463,9 +697,15 @@ def main(argv=None):
     parser.add_argument('--output',type=Path,required=True,help='Ny/eksisterende mappe for rapporter')
     parser.add_argument('--select',nargs='*',help='Jobb-IDer, f.eks. JOB-001 JOB-002; utelatt = alle oppdagede')
     parser.add_argument('--joblist',type=Path,help='Eksisterende .n5jobs med jobber fordelt på flere mapper')
+    parser.add_argument('--prefix',default='',help='Valgfritt prefiks for alle fire rapportfiler')
+    parser.add_argument('--quantity-selections',type=Path,help='JSON med eksplisitte, kildekontrollerte rapportvalg')
     parser.add_argument('--list',action='store_true',help='Vis oppdagede jobber uten rapportgenerering')
     args=parser.parse_args(argv)
     try:
+        prefix=args.prefix.strip()
+        if prefix and (prefix in {'.','..'} or len(prefix)>100 or any(c not in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-.' for c in prefix)):
+            raise ValueError('Ugyldig rapportprefiks. Bruk bare bokstaver A-Z, tall, bindestrek, understrek og punktum (maks 100 tegn).')
+        basename=(prefix + '_' if prefix else '')+'noark5-uttrekksoversikt'
         progress(f'Starter: {args.source} | Jobbvalg: '+(', '.join(args.select) if args.select else 'ALLE'))
         configured_jobs = []
         if args.joblist:
@@ -522,26 +762,33 @@ def main(argv=None):
             if missing:raise ValueError('Ukjente jobb-ID-er: '+', '.join(sorted(missing)))
             items=[i for i in items if i['job'] in wanted]
         if not items and not missing_jobs: raise ValueError('Ingen DWM depot_validation_report.json funnet for valget')
+        selection_count = 0
+        if args.quantity_selections:
+            selection_data = json.loads(args.quantity_selections.read_text(encoding='utf-8-sig'))
+            selection_count = apply_explicit_quantity_choices(items, selection_data)
+            progress(f'Eksplisitte mengdevalg kontrollert: {selection_count} (kun rapportvisning)')
+        for item in items:
+            item['report_metrics'] = build_report_metrics(item)
         progress(f'Valgte jobber: {len(items)} | Oppretter rapportmappe: {args.output}')
         args.output.mkdir(parents=True,exist_ok=True)
         generated=datetime.now(timezone.utc).isoformat(timespec='seconds')
         # Core machine-readable exports must not depend on PDF/Edge availability.
-        html_path = args.output / 'noark5-uttrekksoversikt.html'
-        json_path = args.output / 'noark5-uttrekksoversikt.json'
-        csv_path = args.output / 'noark5-uttrekksoversikt.csv'
-        pdf_path = args.output / 'noark5-uttrekksoversikt.pdf'
+        html_path = args.output / (basename+'.html')
+        json_path = args.output / (basename+'.json')
+        csv_path = args.output / (basename+'.csv')
+        pdf_path = args.output / (basename+'.pdf')
         html_content=render(items, generated)
         if missing_jobs:
             missing_rows=''.join('<tr><td>'+e(j['job'])+'</td><td>'+e(j['name'])+'</td><td>'+e(j['extraction'])+'</td><td>AVKLARING – mangler depotrapport</td></tr>' for j in missing_jobs)
             html_content=html_content.replace('</body></html>', '<h2>Jobber uten depotrapport</h2><table><tr><th>Jobb</th><th>Uttrekk</th><th>Kilde</th><th>Kontrollgrunnlag</th></tr>'+missing_rows+'</table></body></html>')
         html_path.write_text(html_content, encoding='utf-8')
         progress(f'HTML klar: {html_path.name}')
-        json_path.write_text(json.dumps({'generated':generated,'items':items,'coverage':coverage_rows(items),'missing_jobs':missing_jobs},ensure_ascii=False,indent=2),encoding='utf-8')
+        json_path.write_text(json.dumps({'generated':generated,'items':items,'coverage':coverage_rows(items),'missing_jobs':missing_jobs,'quantity_selection_count':selection_count},ensure_ascii=False,indent=2),encoding='utf-8')
         progress(f'JSON klar: {json_path.name}')
         with csv_path.open('w',newline='',encoding='utf-8-sig') as f:
-            w=csv.writer(f,delimiter=';');w.writerow(['Jobb','Uttrekk','Rapport']+[label for _,label in METRICS]+['Teknisk status','Avvik','Depotvurdering','KDRS-evidens','GO-vurdering'])
-            for x in items:w.writerow([x['job'],Path(x['extraction']).name,x['name']]+[x['metrics'][key] if x['metrics'][key] is not None else '' for key,_ in METRICS]+[x['technical_status'],x['deviation_count'],x['assessment_status'],x['external_evidence']['status'],x['go_assessment']['status']])
-            for j in missing_jobs:w.writerow([j['job'],j['name'],'Ingen depotrapport']+['']*len(METRICS)+['Mangler','','','','AVKLARING'])
+            w=csv.writer(f,delimiter=';');w.writerow(['Jobb','Uttrekk','Rapport']+[label for _,label in METRICS]+[label+' – kilde' for _,label in METRICS]+['Teknisk status','Avvik','Depotvurdering','KDRS-evidens','GO-vurdering'])
+            for x in items:w.writerow([x['job'],Path(x['extraction']).name,x['name']]+[x['report_metrics'][key]['value'] if x['report_metrics'][key]['value'] is not None else '' for key,_ in METRICS]+[x['report_metrics'][key]['source'] for key,_ in METRICS]+[x['technical_status'],x['deviation_count'],x['assessment_status'],x['external_evidence']['status'],x['go_assessment']['status']])
+            for j in missing_jobs:w.writerow([j['job'],j['name'],'Ingen depotrapport']+['']*(len(METRICS)*2)+['Mangler','','','','AVKLARING'])
         progress(f'CSV klar: {csv_path.name}')
         # Remove a previous PDF before attempting regeneration: stale files must
         # never be mistaken for this run's PDF output.
