@@ -76,6 +76,7 @@ class MultiExtractionOverview(ctk.CTkToplevel):
         self._output = ctk.StringVar(value=initial_output)
         self._prefix = ctk.StringVar(value=saved.get('report_prefix','') if 'saved' in locals() else '')
         self._report_profile = ctk.StringVar(value='Detaljert')
+        self._report_layout = ctk.StringVar(value='Én samlet rapport')
         self._report_sections = None
         ctk.CTkLabel(self, text='Samlet uttrekksoversikt – eksisterende depotrapporter',
                      font=ctk.CTkFont(size=13, weight='bold'), anchor='w').pack(fill='x', padx=18, pady=(18, 7))
@@ -108,6 +109,10 @@ class MultiExtractionOverview(ctk.CTkToplevel):
         ctk.CTkLabel(profile_bar,text='Rapportprofil',width=245,anchor='w').pack(side='left')
         ctk.CTkOptionMenu(profile_bar,variable=self._report_profile,values=['Oversikt','Standard','Detaljert'],command=self._profile_changed,width=185).pack(side='left',padx=8)
         ctk.CTkButton(profile_bar,text='Velg rapportinnhold',command=self._choose_report_content,width=190).pack(side='left',padx=10)
+        layout_bar=ctk.CTkFrame(self, fg_color='transparent')
+        layout_bar.pack(fill='x',padx=18,pady=(3,0))
+        ctk.CTkLabel(layout_bar,text='Rapportstruktur',width=245,anchor='w').pack(side='left')
+        ctk.CTkOptionMenu(layout_bar,variable=self._report_layout,values=['Én samlet rapport','Hovedrapport + vedlegg per uttrekk'],width=255).pack(side='left',padx=8)
         self._quantity_button = ctk.CTkButton(self, text='Velg Arkade 5-mengdetall (valgfritt)', command=self._choose_quantities, width=260)
         self._quantity_button.pack(anchor='w', padx=18, pady=(3, 0))
         actions = ctk.CTkFrame(self, fg_color='transparent')
@@ -391,14 +396,15 @@ class MultiExtractionOverview(ctk.CTkToplevel):
         self._start_button.configure(state='disabled')
         self._state_label.configure(text='Kjører – status oppdateres nedenfor')
         self._append(f'Starter {len(selection)} valgte jobber: {source}')
-        threading.Thread(target=self._worker, args=(script, source, target, selection, self._joblist_path if use_joblist else None, prefix, quantity_payload, self._report_profile.get().lower(), self._report_sections), daemon=True).start()
+        threading.Thread(target=self._worker, args=(script, source, target, selection, self._joblist_path if use_joblist else None, prefix, quantity_payload, self._report_profile.get().lower(), self._report_sections, self._report_layout.get()), daemon=True).start()
 
-    def _worker(self, script, source, target, selection, joblist=None, prefix='', quantity_payload=None, profile='detaljert', sections=None):
+    def _worker(self, script, source, target, selection, joblist=None, prefix='', quantity_payload=None, profile='detaljert', sections=None, layout='Én samlet rapport'):
         try:
             command = [sys.executable, '-u', str(script), '--source', str(source), '--output', str(target), '--select', *selection]
             if joblist: command += ['--joblist', str(joblist)]
             if prefix: command += ['--prefix', prefix]
             command += ['--report-profile', profile]
+            if layout == 'Hovedrapport + vedlegg per uttrekk': command += ['--report-layout', 'attachments']
             if sections is not None: command += ['--report-sections', ','.join(sorted(sections))]
             import tempfile
             # Keep the temporary choice manifest alive until the generator has read it.

@@ -10,7 +10,7 @@ import hashlib
 from datetime import datetime, timezone
 import html
 import json
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 import re
 import sys
 import os
@@ -763,6 +763,32 @@ def render(items, generated):
     return '\n'.join(content)
 
 
+def attachment_filename(index, extension, extraction=None, job=None):
+    """Stable, readable name; index prevents collisions across unrelated JOB IDs."""
+    if not isinstance(index, int) or index < 1 or extension not in ('.html', '.pdf'):
+        raise ValueError('Ugyldig vedleggsidentifikator')
+    if extraction is None:
+        return f'vedlegg-{index:03d}{extension}'  # Existing callers remain supported.
+    name = PureWindowsPath(str(extraction)).name if '\\' in str(extraction) else Path(str(extraction)).name
+    safe = re.sub(r'[^A-Za-z0-9_-]+', '-', name).strip('-_')[:90] or 'uttrekk'
+    jobpart = re.sub(r'[^A-Za-z0-9_-]+', '-', str(job or '')).strip('-_')[:24]
+    suffix = ('-' + jobpart) if jobpart else ''
+    return f'vedlegg-{index:03d}{suffix}-{safe}{extension}'
+
+
+def render_extraction_attachment(item, generated, profile, sections):
+    """Render only the extraction detail section, never the repeated shared overview."""
+    document = render([item], generated)
+    match = re.search(r'<section class="page">.*?</section>', document, flags=re.S)
+    if match is None:
+        raise ValueError('Vedlegg mangler uttrekksdetaljer')
+    head = document.split('<body>', 1)[0]
+    extraction = Path(str(item['extraction'])).name
+    page = (head + '<body><h1>Vedlegg – ' + e(extraction) + '</h1>'
+            + match.group(0) + '</body></html>')
+    return filter_report_html(page, profile, sections)
+
+
 def main(argv=None):
     parser=argparse.ArgumentParser(description='DWM Noark 5: samlet oversikt over valgte rapportjobber')
     parser.add_argument('--source',type=Path,required=True,help='Arbeidsrot eller depot_validation_report.json')
@@ -771,6 +797,7 @@ def main(argv=None):
     parser.add_argument('--joblist',type=Path,help='Eksisterende .n5jobs med jobber fordelt på flere mapper')
     parser.add_argument('--prefix',default='',help='Valgfritt prefiks for alle fire rapportfiler')
     parser.add_argument('--quantity-selections',type=Path,help='JSON med eksplisitte, kildekontrollerte rapportvalg')
+    parser.add_argument('--report-layout', choices=['single','attachments'], default='single', help='Samlet rapport eller hovedrapport med vedlegg per uttrekk')
     parser.add_argument('--report-profile', choices=sorted(REPORT_PROFILES), default='detaljert', help='Oversikt, standard eller detaljert')
     parser.add_argument('--report-sections', help='Kommaseparerte rapportseksjoner; overstyrer profilens seksjonsvalg')
     parser.add_argument('--list',action='store_true',help='Vis oppdagede jobber uten rapportgenerering')
@@ -853,12 +880,34 @@ def main(argv=None):
         pdf_path = args.output / (basename+'.pdf')
         sections = selected_report_sections(args.report_profile, args.report_sections.split(',') if args.report_sections is not None and args.report_sections else ([] if args.report_sections == '' else None))
         html_content=filter_report_html(render(items, generated), args.report_profile, sections)
+        attachments=[]
+        if args.report_layout == 'attachments':
+            # The main document always retains the full selected-extraction overview.
+            # Each attachment uses existing rendering/selection rules, without new analysis.
+            attachments_dir=args.output / (basename+'-vedlegg')
+            attachments_dir.mkdir(parents=True,exist_ok=True)
+            for idx,item in enumerate(items,1):
+                file_html=attachments_dir / attachment_filename(idx,'.html',item['extraction'],item['job'])
+                detail=render_extraction_attachment(item,generated,args.report_profile,sections)
+                file_html.write_text(detail,encoding='utf-8')
+                attachments.append({'job':item['job'],'extraction':item['extraction'],
+                     'html':str(file_html.relative_to(args.output)).replace('\\','/'),
+                     'pdf':str((attachments_dir/attachment_filename(idx,'.pdf',item['extraction'],item['job'])).relative_to(args.output)).replace('\\','/')})
+            # A concise main document; detailed evidence resides in named attachments.
+            main_sections=set()
+            html_content=filter_report_html(render(items,generated),'oversikt',main_sections)
+            index='<h2>Vedlegg per uttrekk</h2><ol>'+''.join(
+                '<li>'+e(a['job'])+' – '+e(Path(a['extraction']).name)+': '
+                '<a href="'+e(a['html'])+'">HTML</a> / '
+                '<a href="'+e(a['pdf'])+'">PDF</a></li>' for a in attachments)+'</ol>'
+            html_content=html_content.replace('</body></html>',index+'</body></html>')
+
         if missing_jobs:
             missing_rows=''.join('<tr><td>'+e(j['job'])+'</td><td>'+e(j['name'])+'</td><td>'+e(j['extraction'])+'</td><td>AVKLARING – mangler depotrapport</td></tr>' for j in missing_jobs)
             html_content=html_content.replace('</body></html>', '<h2>Jobber uten depotrapport</h2><table><tr><th>Jobb</th><th>Uttrekk</th><th>Kilde</th><th>Kontrollgrunnlag</th></tr>'+missing_rows+'</table></body></html>')
         html_path.write_text(html_content, encoding='utf-8')
         progress(f'HTML klar: {html_path.name}')
-        json_path.write_text(json.dumps({'generated':generated,'items':items,'coverage':coverage_rows(items),'missing_jobs':missing_jobs,'quantity_selection_count':selection_count,'report_presentation':{'profile':args.report_profile,'sections':sorted(sections),'format':'html/pdf; json/csv full evidence'}},ensure_ascii=False,indent=2),encoding='utf-8')
+        json_path.write_text(json.dumps({'generated':generated,'items':items,'coverage':coverage_rows(items),'missing_jobs':missing_jobs,'quantity_selection_count':selection_count,'attachments':attachments,'report_presentation':{'profile':args.report_profile,'sections':sorted(sections),'layout':args.report_layout,'format':'html/pdf; json/csv full evidence'}},ensure_ascii=False,indent=2),encoding='utf-8')
         progress(f'JSON klar: {json_path.name}')
         with csv_path.open('w',newline='',encoding='utf-8-sig') as f:
             w=csv.writer(f,delimiter=';');w.writerow(['Jobb','Uttrekk','Rapport']+[label for _,label in METRICS]+[label+' – kilde' for _,label in METRICS]+['Teknisk status','Avvik','Depotvurdering','KDRS-evidens','GO-vurdering'])
@@ -879,6 +928,17 @@ def main(argv=None):
             pdf_path.unlink(missing_ok=True)
             print(f'[ADVARSEL] PDF ikke opprettet: {pdf_error}', flush=True)
             print('[STATUS] HTML, JSON og CSV er ferdige og kan brukes.', flush=True)
+        if attachments:
+            for a in attachments:
+                attached_pdf=args.output/a['pdf']
+                attached_html=args.output/a['html']
+                attached_pdf.unlink(missing_ok=True)
+                try:
+                    html_to_pdf(attached_html,attached_pdf)
+                    progress(f'Vedlegg PDF klar: {attached_pdf.name}')
+                except (OSError, ValueError, RuntimeError, NameError) as error:
+                    attached_pdf.unlink(missing_ok=True)
+                    print(f'[ADVARSEL] Vedlegg-PDF mangler: {attached_pdf.name}: {error}',flush=True)
         print(f'OK: {len(items)} rapport(er). Resultat: {args.output.resolve()}')
         return 0
     except (OSError,ValueError,RuntimeError,json.JSONDecodeError) as exc:
