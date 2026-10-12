@@ -8,7 +8,7 @@ from noark5_workflow.analysis.master_results import (
     build_master_result_set,
     load_master_result_set,
 )
-from noark5_workflow.analysis.xpath_diagnostics import run_catalog_profiled
+from noark5_workflow.analysis.xpath_fast_a154 import run_catalog_profiled
 from noark5_workflow.core.artifact_identity import artifact_run_dir, write_artifact_manifest
 from noark5_workflow.core.context import OperationContext
 from noark5_workflow.core.operation import BaseOperation, ExecutionTarget, OperationDefinition

@@ -1,7 +1,7 @@
 from __future__ import annotations
 import json, tempfile, unittest
 from pathlib import Path
-from noark5_workflow.analysis.xpath_test_engine import run_catalog
+from noark5_workflow.analysis.xpath_test_engine import run_catalog, _select_catalog_tests
 
 ROOT=Path(__file__).resolve().parents[1]
 CAT=ROOT/'config/noark5/tests/xpath_catalog_2026_05_26.json'
@@ -37,10 +37,14 @@ class A20XpathCatalogTests(unittest.TestCase):
             (root/'arkivstruktur.xml').write_text(xml,encoding='utf-8')
             index=run_catalog(CAT,root,out,include_disabled=True,execution_profile='normal')
             c=json.loads(CAT.read_text(encoding='utf-8'))
-            normal_selected=list(c['tests'])
+            normal_selected, normal_excluded = _select_catalog_tests(
+                c, execution_profile='normal', include_disabled=True
+            )
+            self.assertEqual(58,len(normal_selected))
             self.assertEqual(len(normal_selected),len(index['tests']))
             self.assertEqual('normal',index['execution_profile'])
-            self.assertEqual([], index['excluded_tests'])
+            self.assertEqual({'kdrs.u01', 'kdrs.u02'}, {t['test_id'] for t in normal_excluded})
+            self.assertEqual({'kdrs.u01', 'kdrs.u02'}, {t['test_id'] for t in index['excluded_tests']})
             self.assertTrue((out/'definitions.json').is_file())
             self.assertTrue((out/'index.json').is_file())
             self.assertEqual(len(normal_selected),len(list((out/'results').glob('*.json'))))

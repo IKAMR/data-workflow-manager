@@ -4308,7 +4308,9 @@
   "execution_profiles": {
     "normal": {
       "description": "Ordinær materialisering av hele 2026 XPath-grunnlaget. Presentasjon og prioritering skjer etter lagring.",
-      "exclude_lifecycle_roles": []
+      "exclude_lifecycle_roles": [
+        "development_regression_reference"
+      ]
     },
     "regression": {
       "description": "Utviklings-/regresjonskjøring. Inkluderer legacy-referanser som U01/U02.",
