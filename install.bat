@@ -102,7 +102,13 @@ exit /b 0
 echo.
 echo Installerer GUI-avhengigheter...
 py -m pip install --disable-pip-version-check --user -r requirements-gui.txt
-exit /b %errorlevel%
+if errorlevel 1 exit /b 1
+echo.
+echo Installerer PDF-avhengigheter for rapporteksport...
+py -m pip install --disable-pip-version-check --user reportlab beautifulsoup4
+if errorlevel 1 exit /b 1
+echo [OK] PDF-avhengigheter installert.
+exit /b 0
 
 :install_cli
 echo.
