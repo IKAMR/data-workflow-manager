@@ -41,7 +41,10 @@ def review_candidate(data):
         'source_years': {k: list(v) if v else None for k, v in series.items()},
         'conflicting_sources': inconsistent,
         'proposed_years': list(doc) if inconsistent else (list(reported) if reported else None),
-        'needs_review': inconsistent or (bool(reported and declared_years and reported != declared_years)),
+        # None means no observed DWM XPath period, NOT an approved/no-review result.
+        'needs_review': (inconsistent or bool(declared_years and reported != declared_years)) if reported else None,
+        'evaluation_status': ('vurdering_kreves' if (inconsistent or (reported and declared_years and reported != declared_years))
+                              else 'ingen_periodeavvik' if reported else 'kan_ikke_vurderes'),
     }
 
 

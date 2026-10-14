@@ -84,6 +84,22 @@ class V017A1DepotResultCenterDialog(DepotResultCenterDialogA19_5):
             source, text="Vis KDRS Query-resultater",
             width=235, command=self._open_v017_kdrs_query,
         ).grid(row=0, column=1, rowspan=2, sticky="e", padx=12, pady=12)
+        # Arkade 5 / PRONOM use the same saved-import evidence as report export.
+        # Keep these controls in the existing source panel, without adding tabs.
+        ctk.CTkLabel(
+            source, text="Arkade 5 – Noark 5-tester og PRONOM",
+            anchor="w", font=ctk.CTkFont(weight="bold"),
+        ).grid(row=2, column=0, sticky="w", padx=12, pady=(2, 10))
+        arkade_actions = ctk.CTkFrame(source, fg_color="transparent")
+        arkade_actions.grid(row=2, column=1, sticky="e", padx=12, pady=(2, 8))
+        ctk.CTkButton(
+            arkade_actions, text="Vis Arkade 5-tester", width=185,
+            command=lambda: self._open_a18_arkade5('tests'),
+        ).pack(side="left", padx=(0, 6))
+        ctk.CTkButton(
+            arkade_actions, text="Vis PRONOM", width=145,
+            command=lambda: self._open_a18_arkade5('pronom'),
+        ).pack(side="left")
         report_actions = ctk.CTkFrame(tab, fg_color="transparent")
         report_actions.grid(row=9, column=0, sticky="w", padx=20, pady=(0, 12))
         ctk.CTkButton(
@@ -137,7 +153,7 @@ class V017A1DepotResultCenterDialog(DepotResultCenterDialogA19_5):
         self._a5_metric_choice.pack(side='left', padx=(0, 8))
         ctk.CTkButton(choice_row, text='Velg evidens for arkivdel', width=220,
                       command=self._choose_a5_part_evidence).pack(side='left')
-        self._a5_part_evidence_table = ctk.CTkScrollableFrame(tab, height=290)
+        self._a5_part_evidence_table = ctk.CTkScrollableFrame(tab, height=235)
         self._a5_part_evidence_table.grid(row=8, column=0, sticky="nsew", padx=20, pady=(4, 8))
         self._a5_part_evidence_table.grid_columnconfigure(0, weight=1)
         tab.grid_rowconfigure(8, weight=1)
@@ -407,6 +423,16 @@ class V017A1DepotResultCenterDialog(DepotResultCenterDialogA19_5):
             KdrsQueryResultsDialog(self, work_operations=work, report_path=self.report_path)
         except Exception as exc:
             messagebox.showerror("KDRS Query", str(exc), parent=self)
+
+    def _open_a18_arkade5(self, mode: str = 'tests') -> None:
+        """Open already imported Arkade evidence; never regenerate the depot report."""
+        from .arkade5_external_sources_a18 import open_arkade5_sources
+        open_arkade5_sources(
+            self,
+            report_path=getattr(self, 'report_path', None),
+            display_name=self._v017_display_name,
+            mode=mode,
+        )
 
     def _a5_evidence_count(self, key: str):
         """Resolve a verified explicit decision; retain original result on errors."""

@@ -5,12 +5,14 @@ from pathlib import Path
 from tkinter import filedialog, messagebox
 import customtkinter as ctk
 from noark5_workflow.reporting.job_summary_a16 import SECTIONS, PRESETS, ReportOptions, write_selected_jobs_report
+from noark5_workflow.reporting.depot_metadata import job_display_name
 
 
 def open_selected_report_dialog(parent, jobs):
     jobs = tuple(jobs)
     dialog = ctk.CTkToplevel(parent)
-    dialog.title('Samlerapport for valgte jobber')
+    single = len(jobs) == 1
+    dialog.title('Rapport for ett uttrekk' if single else 'Samlerapport for valgte jobber')
     
     # Scale to work area, leaving room for Windows taskbar and window decorations.
     screen_height = dialog.winfo_screenheight()
@@ -23,7 +25,9 @@ def open_selected_report_dialog(parent, jobs):
     buttons.pack(side='bottom',fill='x',padx=22,pady=(9,14))
     content=ctk.CTkScrollableFrame(dialog)
     content.pack(side='top',fill='both',expand=True,padx=8,pady=8)
-    ctk.CTkLabel(content, text=f'Samlerapport – {len(jobs)} valgte jobber').pack(anchor='w', padx=22, pady=(10,8))
+    heading = (f'Rapport – {jobs[0].job_id} – {job_display_name(jobs[0])}'
+               if single else f'Samlerapport – {len(jobs)} valgte jobber')
+    ctk.CTkLabel(content, text=heading, wraplength=710, justify='left').pack(anchor='w', padx=22, pady=(10,8))
     level = ctk.StringVar(value='Medium')
     ctk.CTkLabel(content,text='Detaljnivå').pack(anchor='w', padx=22)
     ctk.CTkSegmentedButton(content,values=list(PRESETS),variable=level).pack(fill='x',padx=22,pady=(4,12))

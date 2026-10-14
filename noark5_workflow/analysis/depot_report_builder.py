@@ -219,6 +219,8 @@ def build_depot_report_model(
                 "document_description_count": _ok_value(fields.get("document_description_count")),
                 "document_object_count": _ok_value(fields.get("document_object_count")),
                 "yearly_volume": {
+                    **({"registration": _year_counter(_ok_value(fields.get("registration_created_per_year")))}
+                       if _ok_value(fields.get("registration_created_per_year")) is not None else {}),
                     "folder": _year_counter(_ok_value(fields.get("folder_created_per_year"), {})),
                     "journal": _year_counter(_ok_value(fields.get("journal_date_per_year"), {})),
                     "document_description": _year_counter(_ok_value(fields.get("document_description_created_per_year"), {})),

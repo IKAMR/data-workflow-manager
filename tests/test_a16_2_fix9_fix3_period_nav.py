@@ -12,11 +12,28 @@ class TestFix9Fix3(unittest.TestCase):
     def test_approved_period_remark(self):
         job = SimpleNamespace(job_id='JOB-019', progress=1.0, status='Ferdig')
         candidate={'declared_years':[1999,2099], 'observed_years':[1999,2099], 'proposed_years':[1999,2005]}
+        data = {'summary': {}, 'archive_parts': [
+            {'archive_part': {'system_id': 'M', 'title': 'Møteserie'},
+             'yearly_volume': {'folder': {'2005': 105, '2099': 1}}}
+        ]}
         with patch.object(mod, '_extraction_label', return_value='Møteserie'), patch.object(mod,'_archive_names',return_value='Møteserie'), patch.object(mod,'_review_status',return_value='Godkjent'), patch.object(mod,'review_candidate',return_value=candidate), patch.object(mod,'load_assessment',return_value={'x':'y'}), patch.object(mod,'reviewed_years',return_value=[1999,2005]):
-            result=mod._overview_entry(job, {'summary':{}}, '')
+            result=mod._overview_entry(job, data, '')
         self.assertEqual(len(result),8)
-        self.assertIn('2099: 1 observert sak', result[4])
+        self.assertIn('2099: 1 observert sak/mappe', result[4])
         self.assertIn('faglig vurdert 1999–2005',result[4])
+
+    def test_2099_not_fabricated_without_yearly_evidence(self):
+        job = SimpleNamespace(job_id='JOB-019', progress=1.0, status='Ferdig')
+        candidate = {'declared_years': [1999, 2099], 'observed_years': [1999, 2099],
+                     'proposed_years': [1999, 2005]}
+        with patch.object(mod, '_extraction_label', return_value='Møteserie'), patch.object(mod, '_archive_names', return_value='Møteserie'), patch.object(mod, '_review_status', return_value='Godkjent'), patch.object(mod, 'review_candidate', return_value=candidate), patch.object(mod, 'load_assessment', return_value={'x': 'y'}), patch.object(mod, 'reviewed_years', return_value=[1999, 2005]):
+            no_data = mod._overview_entry(job, {'summary': {}}, '')
+            two_folders = mod._overview_entry(job, {'archive_parts': [
+                {'archive_part': {'system_id': 'M'}, 'yearly_volume': {'folder': {'2099': 2}}}
+            ]}, '')
+        self.assertIn('faglig vurdert 1999–2005', no_data[4])
+        self.assertNotIn('2099:', no_data[4])
+        self.assertIn('2099: 2 observerte saker/mapper', two_folders[4])
     def test_eight_column_pdf_smoke(self):
         headings=('Jobb','Uttrekk','Arkivdel(er)','Periodevurdering','Periodemerknad','Status','Fremdrift','Depotrapport')
         table=mod._table(headings,[('JOB-019','Møteserie','Møteserie','Godkjent','Oppgitt 1999–2099; faglig vurdert 1999–2005; 2099: 1 observert sak','Ferdig','100 %','Funnet')]).replace('<table>', '<table class="job-overview">',1)

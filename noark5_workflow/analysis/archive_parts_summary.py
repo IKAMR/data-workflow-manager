@@ -37,6 +37,16 @@ def _sum_yearly(rows: list[dict[str, Any]]) -> dict[str, dict[str, int]]:
                 if len(year_text) != 4 or not year_text.isdigit():
                     continue
                 result[key][year_text] = result[key].get(year_text, 0) + _int(count)
+    # New C16 series is only aggregated when every archive part has it.
+    # Missing values must not become zero or yield a partial total.
+    if rows and all(isinstance((row.get("yearly_volume") or {}).get("registration"), dict) for row in rows):
+        registrations: dict[str, int] = {}
+        for row in rows:
+            for year, count in row["yearly_volume"]["registration"].items():
+                year_text = str(year or "")[:4]
+                if len(year_text) == 4 and year_text.isdigit():
+                    registrations[year_text] = registrations.get(year_text, 0) + _int(count)
+        result["registration"] = dict(sorted(registrations.items()))
     return {key: dict(sorted(values.items())) for key, values in result.items()}
 
 

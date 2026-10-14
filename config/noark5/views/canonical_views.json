@@ -328,6 +328,19 @@
           ]
         },
         {
+          "id": "registration_created_per_year",
+          "label": "Registreringer per år",
+          "source_test": "kdrs.c16",
+          "source_path": "created_per_year",
+          "value_type": "distribution",
+          "presentation_order": 15,
+          "visible_for": [
+            "depot",
+            "archive_creator",
+            "final_report"
+          ]
+        },
+        {
           "id": "journal_date_per_year",
           "label": "Journalposter per år",
           "source_test": "kdrs.c16",

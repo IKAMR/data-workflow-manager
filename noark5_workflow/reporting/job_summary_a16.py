@@ -6,6 +6,10 @@ from datetime import datetime
 from html import escape
 from pathlib import Path
 from noark5_workflow.reporting.period_assessment_a16 import load_assessment, reviewed_years, review_candidate
+from noark5_workflow.reporting.external_report_a18 import (
+    collect_job_evidence, render_job_evidence, external_status_rows, render_external_status,
+    report_count_overview, render_count_overview,
+)
 
 SECTIONS = {
     'overview': 'Jobboversikt', 'totals': 'Hovedtall',
@@ -78,7 +82,7 @@ def _h(v):
 
 def _table(headers, rows):
     head = ''.join('<th>' + _h(x) + '</th>' for x in headers)
-    body = ''.join('<tr>' + ''.join('<td>' + _h(v) + '</td>' for v in row) + '</tr>' for row in rows)
+    body = ''.join('<tr>' + ''.join('<td>' + _h(v).replace('\n', '<br>') + '</td>' for v in row) + '</tr>' for row in rows)
     return '<table><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table>'
 
 
@@ -145,6 +149,8 @@ def _review_status(job, data):
         return 'Godkjent'
     if saved and saved.get('status') == 'undersokes':
         return 'Under undersøkelse'
+    if not _observed_overall_years(data):
+        return 'Kan ikke vurderes'
     candidate = review_candidate(data)
     return 'Krever vurdering' if candidate['needs_review'] else _period_difference(data)
 
@@ -172,7 +178,7 @@ def _extraction_label(job, data):
 
 
 def _archive_names(data):
-    return ', '.join(str((x.get('archive_part') or {}).get('title') or
+    return '\n'.join(str((x.get('archive_part') or {}).get('title') or
                          (x.get('archive_part') or {}).get('system_id') or 'Uten navn')
                      for x in (data or {}).get('archive_parts') or []) or '–'
 
@@ -282,11 +288,10 @@ def render_selected_jobs_report(jobs, options: ReportOptions):
             (j.job_id, _extraction_label(j,d), _archive_names(d), _review_status(j,d), j.status.value, f'{round(j.progress*100)} %', 'Funnet' if d else 'Mangler / kan ikke leses') for j,d,p,diagnostic in rows])))
     keys = [('archive_part_count','Arkivdeler'),('folder_count','Mapper'),('registration_count','Registreringer'),('document_description_count','Dokumentbeskrivelser'),('document_object_count','Dokumentobjekter')]
     if 'totals' in enabled:
-        summaries = [d.get('summary') or {} for _,d,_,_ in rows if d]
-        aggregate = [(label, sum(v.get(key, 0) for v in summaries if isinstance(v.get(key), (int,float)))) for key,label in keys]
-        parts.append(_section('Samlet omfang', '<p>Resultatgrunnlag for ' + str(len(summaries)) + ' av ' + str(len(rows)) + ' valgte jobber.</p>' + _table(('Måltall', 'Sum'), aggregate)))
+        totals = report_count_overview(rows)
+        parts.append(_section('Samlet omfang – DWM og valgt KDRS Query', render_count_overview(totals)))
         parts.append(_section('Hovedtall per uttrekk', _table(('Uttrekk',)+tuple(x[1] for x in keys), [
-            (_extraction_label(j,d),)+(tuple((d.get('summary') or {}).get(k, '–') for k,_ in keys) if d else ('–',)*len(keys)) for j,d,p,diagnostic in rows])))
+            (_extraction_label(j,d),)+(tuple((d.get('summary') or {}).get(k, '–') if (d and (d.get('summary') or {}).get(k) is not None) else '–' for k,_ in keys)) for j,d,p,diagnostic in rows])))
     if 'technical' in enabled:
         parts.append(_section('Tekniske kontroller', _table(('Uttrekk','Teknisk status','XPath OK','XPath feil','Krysskontroll avvik'), [
             (_extraction_label(j,d), (d.get('technical_validation') or {}).get('status','–'),
@@ -297,8 +302,13 @@ def render_selected_jobs_report(jobs, options: ReportOptions):
         parts.append(_section('Vurderingspunkter', _table(('Uttrekk','Antall','Funn'), [
             (_extraction_label(j,d), len(d.get('deviations') or []), '; '.join(str(x.get('summary','')) for x in (d.get('deviations') or []))) if d else (_extraction_label(j,d),'–','Ingen rapport') for j,d,p,diagnostic in rows])))
     if 'external' in enabled:
-        parts.append(_section('Ekstern evidens', '<p>Dette er evidens registrert i siste lagrede depotrapport per jobb. Nyere Arkade- eller KDRS-import krever ny depotrapport for å bli gjenspeilet.</p>' + _table(('Uttrekk','Arkade-versjon','Importer','Kontrollområder med feil','Advarsler','Kun Arkade','PRONOM-statistikksett','PRONOM-filer'), [
-            (_extraction_label(j,d), *_external_values(d)) for j,d,p,diagnostic in rows])))
+        external_html = '<p>Arkade 5, Siegfried/PRONOM og KDRS Query er ekstern evidens. Historiske/importerte kjøringer beholdes separat og endrer ikke DWM-masterresultater eller depotets vurdering.</p>'
+        external_html += _table(('Uttrekk','Arkade-versjon','Importer','Kontrollområder med feil','Advarsler','Kun Arkade','PRONOM-statistikksett','PRONOM-filer'), [
+            (_extraction_label(j,d), *_external_values(d)) for j,d,p,diagnostic in rows])
+        external_html += '<h3>Importstatus per uttrekk</h3>' + render_external_status(external_status_rows(rows))
+        for j,d,_p,_diagnostic in rows:
+            external_html += render_job_evidence(collect_job_evidence(j,d), level=options.level)
+        parts.append(_section('Ekstern evidens', external_html))
     if 'period' in enabled:
         columns = ('Uttrekk', 'Oppgitt (arkivuttrekk.xml)', 'XPath samlet', 'Avstemming') + tuple(label for _,label in _PERIOD_SERIES)
         period_rows = [(_extraction_label(j,d), _period_text(d), _observed_label(d), _review_status(j,d), *_xpath_periods(d)) if d else

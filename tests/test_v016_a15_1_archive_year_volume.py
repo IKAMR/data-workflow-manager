@@ -31,18 +31,21 @@ class V016A151ArchiveYearVolumeTests(unittest.TestCase):
             "2021-03-04T00:00:00": 1,
         })
 
-    def test_archive_part_view_exposes_four_year_series(self):
+    def test_archive_part_view_exposes_five_year_series(self):
         data = json.loads((ROOT / "config/noark5/views/canonical_views.json").read_text(encoding="utf-8"))
         fields = {row["id"]: row for row in data["section_library"]["yearly_volume"]["fields"]}
         self.assertEqual(
             set(fields),
             {
                 "folder_created_per_year",
+                "registration_created_per_year",
                 "journal_date_per_year",
                 "document_description_created_per_year",
                 "document_object_created_per_year",
             },
         )
+        self.assertEqual(fields["registration_created_per_year"]["source_test"], "kdrs.c16")
+        self.assertEqual(fields["registration_created_per_year"]["source_path"], "created_per_year")
         archive = next(x for x in data["compositions"] if x["id"] == "archive_part_overview")
         self.assertIn("yearly_volume", archive["sections"])
 
@@ -99,7 +102,7 @@ class V016A151ArchiveYearVolumeTests(unittest.TestCase):
         main = (ROOT / "main.py").read_text(encoding="utf-8")
         version = (ROOT / "version.py").read_text(encoding="utf-8")
         self.assertIn("from gui.persistent_app_a15_1 import run_gui", main)
-        self.assertRegex(version, r'VERSION = \"0\.1\.6-a(?:1[5-9]|[2-9][0-9]+)(?:\.\d+)*\"')
+        self.assertRegex(version, r'VERSION = "0\.1\.6-a(?:1[5-9]|[2-9][0-9]+)(?:\.\d+)*"')
 
 
 if __name__ == "__main__":

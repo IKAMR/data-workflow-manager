@@ -8,23 +8,65 @@ from tkinter import messagebox
 import customtkinter as ctk
 from noark5_workflow.core.job_runner_a39 import A39JobRunner
 from .persistent_app_v017_a2 import WorkflowApp as V017A2WorkflowApp
+from . import theme
 
 
 class WorkflowApp(V017A2WorkflowApp):
     def __init__(self):
         super().__init__()
         self._a152_restore_xsd_continuation()
+        self._install_active_report_button()
         splitter = getattr(self, "bottom_splitter", None)
         if splitter is not None:
             splitter.configure(border_width=0)
         self.after_idle(self._v017_arrange_log_actions)
 
-    def _v017_a1_report_selected(self, jobs) -> None:
-        """Use existing 'Rapport valgte' selection with configurable read-only report."""
+    def _v017_a1_report_selected(self, jobs, *, parent=None) -> None:
+        """The one-and-many-job entry points use the same report dialog/engine."""
         from .report_selected_dialog_a16 import open_selected_report_dialog
         selected = tuple(jobs)
         if selected:
-            open_selected_report_dialog(self.jobs_window or self, selected)
+            open_selected_report_dialog(parent or self.jobs_window or self, selected)
+
+    def _open_active_job_report(self) -> None:
+        """Open the same report dialog for exactly the currently active job."""
+        job = getattr(self, 'current_job', None)
+        if job is not None:
+            self._v017_a1_report_selected((job,), parent=self)
+
+    def _install_active_report_button(self) -> None:
+        """Place a compact report action after KDRS Query in the JOBB header."""
+        if hasattr(self, 'active_report_button'):
+            return
+        neighbour = getattr(self, 'kdrs_query_button', None) or getattr(self, 'metadata_button', None)
+        if neighbour is None:
+            return
+        header = neighbour.master
+        column = int(neighbour.grid_info().get('column', 6)) + 1
+        for child in header.winfo_children():
+            if child is neighbour:
+                continue
+            info = child.grid_info()
+            if info and int(info.get('column', -1)) >= column:
+                child.grid_configure(column=int(info['column']) + 1)
+        self.active_report_button = ctk.CTkButton(
+            header, text='Rapport', width=78, height=28,
+            font=theme.font(theme.SMALL_SIZE),
+            fg_color=theme.BUTTON_BG, hover_color=theme.BUTTON_HOVER,
+            command=self._open_active_job_report,
+        )
+        self.active_report_button.grid(row=0, column=column, padx=(2, 2), pady=8)
+        self.active_report_button.configure(
+            state='normal' if getattr(self, 'current_job', None) is not None else 'disabled'
+        )
+
+    def _refresh_active_job_label(self) -> None:
+        super()._refresh_active_job_label()
+        button = getattr(self, 'active_report_button', None)
+        if button is not None:
+            button.configure(
+                state='normal' if getattr(self, 'current_job', None) is not None else 'disabled'
+            )
 
     def _a152_restore_xsd_continuation(self) -> None:
         """Restore a39 XSD deviation handling in the current GUI entrypoint."""
