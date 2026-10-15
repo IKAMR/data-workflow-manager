@@ -1,19 +1,16 @@
-"""Read-only period evidence for one or more selected Noark 5 jobs.
+"""Read-only period source comparison with operator-approved extraction/part decisions.
 
-The DWM XPath period and the imported KDRS Query year distributions are
-independent sources. A KDRS observation never becomes an approved period or a
-DWM result merely because it appears in this report.
+KDRS Query Standard, U1 and U2 are independent imported evidence. Neither an
+import nor missing DWM XPath silently approves/invalidates an archival period.
 """
 from __future__ import annotations
 
 from html import escape
 from typing import Any
 
-from .period_assessment_a16 import review_candidate
+from .period_assessment_a16 import review_candidate, load_assessment, reviewed_years
 from .period_kdrs_evidence_a18 import (
-    YEAR_METRICS,
-    format_kdrs_scope,
-    load_job_kdrs_period_evidence,
+    YEAR_METRICS, format_kdrs_scope, load_job_kdrs_period_evidence,
 )
 
 
@@ -33,16 +30,65 @@ def _span(value) -> str:
     return str(value[0]) if value[0] == value[1] else f'{value[0]}–{value[1]}'
 
 
-def collect_period_sources(rows) -> dict[str, Any]:
-    """Build the identical structured source for 1 or N jobs, without writes.
+def _observed_part(data, system_id):
+    for row in ((data or {}).get('period_reconciliation') or {}).get('archive_parts') or []:
+        if str((row.get('archive_part') or {}).get('system_id')) != str(system_id):
+            continue
+        span = row.get('observed_period') or {}
+        try:
+            first, last = int(span['first_year']), int(span['last_year'])
+            if 1000 <= first <= last <= 9999:
+                return [first, last]
+        except (TypeError, ValueError, KeyError):
+            pass
+    return None
 
-    rows follow report_package_a16: (job, native_report, report_path, diagnostic).
-    All KDRS year observations stay grouped by their original import/type/scope.
-    """
+
+def _native_parts(data, assessment):
+    saved_parts = (assessment or {}).get('archive_part_assessments') or {}
+    rows = []
+    for index, row in enumerate((data or {}).get('archive_parts') or [], 1):
+        meta = row.get('archive_part') or {}
+        system_id = str(meta.get('system_id') or '')
+        saved = saved_parts.get(system_id) or {}
+        rows.append({
+            'number': index, 'system_id': system_id or None,
+            'title': meta.get('title') or system_id or 'Uten navn',
+            'dwm_observed_years': _observed_part(data, system_id) if system_id else None,
+            'status': saved.get('status', 'ikke_vurdert'),
+            'approved_years': list(reviewed_years(saved)) if reviewed_years(saved) else None,
+            'selected_years': saved.get('selected_years'),
+            'comment': saved.get('comment') or '',
+            'source_note': saved.get('source_note') or '',
+        })
+    return rows
+
+
+def _source_status(item):
+    approved = item.get('approved_years')
+    if approved:
+        return 'Godkjent – faglig vurdert ' + _span(approved)
+    if item.get('assessment_status') == 'undersokes':
+        return 'Under undersøkelse'
+    has_kdrs_period = any(
+        s.get('scope_id') == 'whole' and s.get('period_observed_years')
+        for run in item.get('kdrs_runs') or [] for s in run.get('scopes') or [])
+    if item.get('dwm_observed_years'):
+        return 'Krever faglig vurdering' if item.get('dwm_review_status') == 'vurdering_kreves' else 'Til vurdering – DWM XPath tilgjengelig'
+    if has_kdrs_period:
+        return 'Krever faglig vurdering – KDRS Query tilgjengelig'
+    if item.get('kdrs_runs'):
+        return 'Krever faglig vurdering – KDRS Query uten entydige ytterår'
+    return 'Mangler observerte ytterår – faglig vurdering mulig'
+
+
+def collect_period_sources(rows) -> dict[str, Any]:
+    """Use one source model for single/multiple job HTML and JSON exports."""
     jobs = []
     for job, data, path, diagnostic in rows:
         candidate = review_candidate(data)
         kdrs = load_job_kdrs_period_evidence(job)
+        saved = load_assessment(job) or {}
         runs = []
         for source in kdrs.get('runs') or []:
             scopes = []
@@ -55,72 +101,80 @@ def collect_period_sources(rows) -> dict[str, Any]:
                     'conflicts': scope.get('conflicts') or [],
                 })
             runs.append({
-                'import_id': source.get('import_id'),
-                'report_type': source.get('report_type'),
-                'source_files': list(source.get('sources') or []),
-                'scopes': scopes,
+                'import_id': source.get('import_id'), 'report_type': source.get('report_type'),
+                'source_files': list(source.get('sources') or []), 'scopes': scopes,
             })
         jobs.append({
-            'job_id': str(job.job_id),
-            'dwm_report_file': str(path) if path else None,
+            'job_id': str(job.job_id), 'dwm_report_file': str(path) if path else None,
             'dwm_report_diagnostic': diagnostic,
             'dwm_observed_years': candidate.get('observed_years'),
             'dwm_declared_years': candidate.get('declared_years'),
             'dwm_review_status': candidate.get('evaluation_status'),
-            'kdrs_runs': runs,
-            'kdrs_diagnostics': list(kdrs.get('diagnostics') or []),
+            'assessment_status': saved.get('status', 'ikke_vurdert'),
+            'approved_years': list(reviewed_years(saved)) if reviewed_years(saved) else None,
+            'selected_years': saved.get('selected_years'),
+            'comment': saved.get('comment') or '',
+            'archive_parts': _native_parts(data, saved),
+            'kdrs_runs': runs, 'kdrs_diagnostics': list(kdrs.get('diagnostics') or []),
         })
     return {
         'schema': 'ikamr.noark5.period_sources.a18.v1',
         'data_role': 'read_only_comparison',
-        'policy': 'No implicit merge of DWM and KDRS year ranges, and no automatic depot approval.',
+        'policy': 'No implicit merge of DWM and KDRS years, and no automatic depot approval.',
         'jobs': jobs,
     }
 
 
 def render_period_source_overview(model: dict) -> str:
-    """Compact cross-source presence status in the main report."""
     entries = []
     for item in model.get('jobs') or []:
         runs = item.get('kdrs_runs') or []
         scopes = [s for run in runs for s in run.get('scopes') or []]
         periods = sum(bool(s.get('period_observed_years')) for s in scopes)
         conflicts = sum(len(s.get('conflicts') or []) for s in scopes)
-        if not runs:
-            kdrs = 'Ingen importerte årsserier dokumentert'
-        else:
-            kdrs = f'{len(runs)} import-/rapportkilder; {periods} med observerte ytterår'
-            if conflicts:
-                kdrs += f'; {conflicts} motstridende årsobservasjoner'
-        entries.append((
-            item.get('job_id'),
-            _span(item.get('dwm_declared_years')),
-            _span(item.get('dwm_observed_years')),
-            kdrs,
-            'Kan ikke vurderes – mangler DWM XPath' if not item.get('dwm_observed_years')
-            else 'Separat evidens – ingen automatisk periodeavstemming',
-        ))
-    return ('<p>DWM XPath og KDRS Query vises hver for seg. KDRS-ytterår er ikke '
-            'automatisk godkjent arkivperiode. Null årsserier betyr ikke null aktivitet.</p>'
-            + _table(('Jobb', 'Oppgitt periode', 'DWM XPath', 'KDRS Query', 'Kildestatus'), entries))
+        kdrs = (f'{len(runs)} import-/rapportkilder; {periods} med observerte ytterår'
+                if runs else 'Ingen importerte årsserier dokumentert')
+        if conflicts:
+            kdrs += f'; {conflicts} motstridende årsobservasjoner'
+        entries.append((item.get('job_id'), _span(item.get('dwm_declared_years')),
+                        _span(item.get('dwm_observed_years')),
+                        _span(item.get('approved_years')), kdrs, _source_status(item)))
+    return ('<p>DWM XPath og KDRS Query er separate kilder. Observerte år er ikke '
+            'automatisk godkjent arkivperiode. Manglende XPath hindrer ikke manuell '
+            'faglig vurdering. Null årsserier betyr ikke null aktivitet.</p>'
+            + _table(('Jobb', 'Oppgitt periode', 'DWM XPath', 'Faglig vurdert periode',
+                      'KDRS Query', 'Vurderingsstatus'), entries))
 
 
 def render_period_source_annex(model: dict) -> str:
-    """Report appendix D: all unambiguous imported annual facts and provenance."""
     output = ['<h2>KDRS Query – importerte årsserier og periodeevidens</h2>',
-              '<p>Opprinnelige DWM XPath-resultater og KDRS Query Standard/U1/U2 holdes adskilt. '
-              'Verdier fra ulike importkjøringer eller arkivdeler summeres ikke. '
-              'Endringslogg gir ikke automatisk arkivperiode. Ingen ny analyse utføres.</p>']
+              '<p>DWM XPath, KDRS Standard/U1/U2 og faglig godkjente perioder '
+              'holdes atskilt. U2-kildenummer og navn kobles aldri automatisk '
+              'til DWM system-ID. Endringslogg er ikke arkivperiode.</p>']
     for item in model.get('jobs') or []:
-        output.append('<h3>' + _h(item.get('job_id')) + ' – datakilder</h3>')
-        output.append(_table(('Oppgitt periode', 'DWM XPath', 'Kildestatus'), [(
-            _span(item.get('dwm_declared_years')),
-            _span(item.get('dwm_observed_years')),
-            'Kan ikke vurderes – DWM XPath mangler' if not item.get('dwm_observed_years')
-            else 'XPath tilgjengelig',
-        )]))
+        output.append('<h3>' + _h(item.get('job_id')) + ' – periodevurdering av hele uttrekket</h3>')
+        output.append(_table(('Oppgitt periode', 'DWM XPath', 'Faglig godkjent periode',
+                              'Vurderingsstatus'), [(
+            _span(item.get('dwm_declared_years')), _span(item.get('dwm_observed_years')),
+            _span(item.get('approved_years')), _source_status(item))]))
+        if item.get('comment'):
+            output.append('<p>Faglig begrunnelse: ' + _h(item['comment']) + '</p>')
         for diagnostic in item.get('kdrs_diagnostics') or []:
             output.append('<p class="muted">' + _h(diagnostic) + '</p>')
+        native_parts = item.get('archive_parts') or []
+        if native_parts:
+            output.append('<h3>' + _h(item.get('job_id')) + ' – periodevurdering per arkivdel</h3>')
+            entries = []
+            for part in native_parts:
+                approved = _span(part.get('approved_years'))
+                status = ('Godkjent' if part.get('approved_years') else
+                          'Under undersøkelse' if part.get('status') == 'undersokes' else
+                          'Ikke faglig godkjent')
+                entries.append((part.get('number'), part.get('title'), part.get('system_id') or 'Ukjent',
+                                _span(part.get('dwm_observed_years')), approved,
+                                status, part.get('comment') or '–'))
+            output.append(_table(('#', 'Arkivdel', 'System-ID', 'DWM XPath',
+                                  'Faglig vurdert', 'Status', 'Begrunnelse'), entries))
         runs = item.get('kdrs_runs') or []
         if not runs:
             output.append('<p>Ingen KDRS-årsserier er tilgjengelige for denne jobben. '

@@ -1,10 +1,12 @@
-"""Compact, source-separated archive-part appendix for 1..N DWM jobs.
+"""Compact, source-separated archive-part appendix with native period decisions.
 
-This consumes the same SHA-bound U2 projection / exact observation model used in
-index and appendix C. It does not parse KDRS text or promote imported counts.
+Evidence comparisons stay SHA-bound to their source; a U2 part is never
+assigned to a native system-ID just because it has the same order or title.
 """
 from __future__ import annotations
 from html import escape
+
+from .period_assessment_a16 import load_part_assessment, reviewed_years
 
 METRICS = (
     ('folder_count','Mapper'),('registration_count','Registreringer'),
@@ -29,14 +31,27 @@ def _table(headings, rows):
             '</tr>' for row in rows) + '</tbody></table>')
 
 
+def _period_status(job, sid):
+    """Only a stored, native system-ID-specific decision is an approved period."""
+    if not sid:
+        return ('Ikke vurdert', '–', 'Ingen entydig system-ID', '')
+    saved = load_part_assessment(job, sid) or {}
+    years = reviewed_years(saved)
+    status = ('Godkjent' if years else 'Under undersøkelse'
+              if saved.get('status') == 'undersokes' else 'Ikke vurdert')
+    period = f'{years[0]}–{years[1]}' if years else '–'
+    return status, period, saved.get('comment') or '', saved.get('source_note') or ''
+
+
 def render_archive_part_annex(rows, u2_model, *, volume_chart=None, year_registration=None,
                                volumes_by_part=None, extraction_label=None, part_period_html=None):
-    """One section per native part; never assign U2 across jobs or system IDs."""
+    """One native part per section; do not assign U2 across jobs/system IDs."""
     source = {(str(p.get('job_id')), str(p.get('system_id'))): p
               for p in u2_model.get('archive_parts') or [] if p.get('system_id')}
     out = [('<p>Hver arkivdel viser DWM XPath, observerte KDRS Query U2-tall og '
-            'rapportverdi separat. Et importert tall er ikke automatisk godkjent. '
-            'Ukjent er ikke null. Full kildehistorikk og kontrollfunn finnes i vedlegg C og JSON.</p>')]
+            'rapportverdi separat. En kildeobservasjon er ikke automatisk godkjent. '
+            'Faglig godkjente ytterår vises separat. Ukjent er ikke null. '
+            'Full kildehistorikk og kontrollfunn finnes i vedlegg C og JSON.</p>')]
     for job, data, _report_path, _diagnostic in rows:
         if not data:
             continue
@@ -51,8 +66,13 @@ def render_archive_part_annex(rows, u2_model, *, volume_chart=None, year_registr
             title = str(info.get('title') or sid or 'Uten navn')
             evidence = source.get((jid,sid))
             out.append('<section class="appendix"><h2>Vedlegg – arkivdel: '+_h(label)+' / '+_h(title)+'</h2>')
-            # Keep the complete available scalar metadata without displaying
-            # dozens of blank count fields or empty synthetic year tables.
+            period_status, period, reason, source_note = _period_status(job, sid)
+            out.append('<p><strong>Periodevurdering:</strong> '+_h(period_status)+
+                       ' · <strong>Faglig vurdert periode:</strong> '+_h(period)+'</p>')
+            if reason:
+                out.append('<p><strong>Begrunnelse:</strong> '+_h(reason)+'</p>')
+            if source_note:
+                out.append('<p><strong>Kildegrunnlag:</strong> '+_h(source_note)+'</p>')
             metas = []
             for field, value in info.items():
                 if field in ('title','description') or value is None or value == '':
@@ -71,10 +91,7 @@ def render_archive_part_annex(rows, u2_model, *, volume_chart=None, year_registr
             else:
                 out.append('<p>KDRS Query U2: '+_h(evidence.get('u2_status') or 'Ukjent tilordning')+'</p>')
             table_rows = []
-            dwm = []
-            kdrs = []
-            report = []
-            selected=[]
+            dwm, kdrs, report, selected = [], [], [], []
             for metric, name in METRICS:
                 item = ((evidence or {}).get('metrics') or {}).get(metric) or {}
                 original = item.get('dwm') if evidence is not None else part.get(metric)
@@ -102,8 +119,6 @@ def render_archive_part_annex(rows, u2_model, *, volume_chart=None, year_registr
                            '; import: '+_h(', '.join(imports) or 'Ukjent')+
                            '; test: '+_h(', '.join(tests) or 'Ukjent')+
                            '. Detaljert SHA-256 og testkobling: vedlegg C / JSON.</p>')
-            # Other real non-empty native scalar counters remain accessible;
-            # do not add duplicate DWM counts already in the comparison table.
             extra = [(k,_v(v) if type(v) is int else v) for k,v in part.items()
                      if k not in ('archive_part','yearly_volume') and k not in dict(METRICS)
                      and v is not None and v != '' and not isinstance(v,(list,dict))]
@@ -114,8 +129,6 @@ def render_archive_part_annex(rows, u2_model, *, volume_chart=None, year_registr
                 if any(str(((record or {}).get('archive_part') or {}).get('system_id') or '') == sid
                        for record in periods):
                     out.append(part_period_html(data, info))
-            # Per-part dates/year volumes exist for some extractions; keep them
-            # when present, but never manufacture a zero chart for empty data.
             year_data = volumes.get(sid) or {}
             if year_data and volume_chart:
                 regs = year_registration(data, archive_part_id=sid) if year_registration else None

@@ -1,4 +1,8 @@
-"""a18-fix7: KDRS annual evidence appears in the shared selected-job report."""
+"""a18-fix7 regression: KDRS periods remain independent evidence in report/JSON.
+
+The historic 'Kan ikke vurderes – DWM XPath mangler' expectation was corrected
+in a18: an operator can review KDRS year evidence without DWM XPath.
+"""
 from __future__ import annotations
 
 import json
@@ -21,23 +25,21 @@ def _job(jobid, base):
 
 
 def _kdrs_evidence():
-    return {
-        'runs': [
-            {'import_id': 'import-024', 'report_type': 'standard',
-             'sources': ['1502_024_standard.txt'],
-             'scopes': [{'scope_id': 'whole', 'label': 'Hele uttrekket',
-                         'period_observed_years': [1993, 2020],
-                         'series': {'registrations_by_creation_year': {'1993': 4, '2020': 7},
-                                    'change_log_events_by_year': {'2099': 5}},
-                         'conflicts': []}]},
-            {'import_id': 'import-024', 'report_type': 'u02',
-             'sources': ['1502_024_u2.txt'],
-             'scopes': [{'scope_id': 'u2:1:Arkivdel A', 'label': 'U2 arkivdel 1: Arkivdel A',
-                         'period_observed_years': None,
-                         'series': {'registrations_by_creation_year': {'2020': None}},
-                         'conflicts': ['Registreringer (opprettet) 2020: ulike KDRS-verdier']}]},
-        ], 'diagnostics': [],
-    }
+    return {'runs': [
+        {'import_id': 'import-024', 'report_type': 'standard',
+         'sources': ['1502_024_standard.txt'],
+         'scopes': [{'scope_id': 'whole', 'label': 'Hele uttrekket',
+                     'period_observed_years': [1993, 2020],
+                     'series': {'registrations_by_creation_year': {'1993': 4, '2020': 7},
+                                'change_log_events_by_year': {'2099': 5}},
+                     'conflicts': []}]},
+        {'import_id': 'import-024', 'report_type': 'u02',
+         'sources': ['1502_024_u2.txt'],
+         'scopes': [{'scope_id': 'u2:1:Arkivdel A', 'label': 'U2 arkivdel 1: Arkivdel A',
+                     'period_observed_years': None,
+                     'series': {'registrations_by_creation_year': {'2020': None}},
+                     'conflicts': ['Registreringer (opprettet) 2020: ulike KDRS-verdier']}]},
+        ], 'diagnostics': []}
 
 
 class TestA18Fix7PeriodReport(TestCase):
@@ -50,17 +52,15 @@ class TestA18Fix7PeriodReport(TestCase):
                 model = collect_period_sources([(j1, {}, None, 'DWM mangler'), (j2, dwm, 'DWM-002.json', '')])
             self.assertEqual(len(model['jobs']), 2)
             self.assertIsNone(model['jobs'][1]['dwm_observed_years'])
-            self.assertIsNone(model['jobs'][1]['dwm_report_file'] if False else model['jobs'][0]['dwm_report_file'])
+            self.assertIsNone(model['jobs'][0]['dwm_report_file'])
             self.assertEqual(model['jobs'][1]['dwm_declared_years'], [1993, 2099])
             self.assertEqual(len(model['jobs'][1]['kdrs_runs']), 2)
             html = render_period_source_annex(model)
-            self.assertIn('Kan ikke vurderes – DWM XPath mangler', html)
-            self.assertIn('1502_024_standard.txt', html)
-            self.assertIn('Registreringer (opprettet)', html)
-            self.assertIn('Endringslogg (ikke arkivperiode)', html)
-            self.assertIn('Konflikt', html)
-            self.assertIn('2020', html)
-            self.assertIn('Arkivdel A', html)
+            self.assertIn('Krever faglig vurdering – KDRS Query tilgjengelig', html)
+            self.assertNotIn('Kan ikke vurderes – DWM XPath mangler', html)
+            for text in ('1502_024_standard.txt', 'Registreringer (opprettet)',
+                         'Endringslogg (ikke arkivperiode)', 'Konflikt', '2020', 'Arkivdel A'):
+                self.assertIn(text, html)
             overview = render_period_source_overview(model)
             self.assertIn('2 import-/rapportkilder', overview)
             self.assertIn('1 med observerte ytterår', overview)
@@ -84,8 +84,7 @@ class TestA18Fix7PeriodReport(TestCase):
     def test_shared_export_for_one_job_keeps_native_report_and_adds_period_json(self):
         with TemporaryDirectory() as directory:
             job = _job('JOB-002', directory)
-            native = {'summary': {'folder_count': 1},
-                      'archive_parts': [],
+            native = {'summary': {'folder_count': 1}, 'archive_parts': [],
                       'period_reconciliation': {'declared_period': {'start_year': 1993, 'end_year': 2099}}}
             work = job.work_operations
             reportdir = work / 'noark5_reports' / 'depot_validation' / 'JOB-002__RUN-1'
@@ -118,8 +117,3 @@ class TestA18Fix7PeriodReport(TestCase):
             self.assertEqual(model['jobs'][0]['kdrs_runs'], [])
             self.assertEqual(model['jobs'][1]['kdrs_runs'][0]['scopes'][0]['period_observed_years'], [1993, 2020])
             self.assertIn('Ikke importert', render_period_source_annex(model))
-
-
-if __name__ == '__main__':
-    import unittest
-    unittest.main()

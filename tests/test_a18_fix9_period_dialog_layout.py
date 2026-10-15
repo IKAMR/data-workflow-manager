@@ -1,10 +1,8 @@
-"""a18-fix9: resizable period evidence and separately selectable KDRS sources."""
+"""a18: resizable period evidence and independently selectable review scopes."""
 from __future__ import annotations
-
 import ast
 from pathlib import Path
 import unittest
-
 from noark5_workflow.reporting.period_kdrs_evidence_a18 import (
     format_kdrs_scope, summarize_kdrs_period_sources,
 )
@@ -27,7 +25,7 @@ class TestA18Fix9PeriodDialog(unittest.TestCase):
         self.assertEqual(2, len(lines))
         self.assertIn('standard / Hele uttrekket: 1899–2099', lines[0])
         self.assertIn('u01 / Hele uttrekket: 1899–2099', lines[1])
-        self.assertNotIn('278', ' '.join(lines))  # 139 + 139 is not a combined total.
+        self.assertNotIn('278', ' '.join(lines))
 
     def test_u2_summary_is_scope_count_not_number_of_dwm_parts(self):
         run = {'report_type': 'u02', 'import_id': 'old', 'scopes': [
@@ -40,8 +38,7 @@ class TestA18Fix9PeriodDialog(unittest.TestCase):
     def test_ambiguous_sources_never_create_a_year_span(self):
         run = {'report_type': 'standard', 'import_id': 'i', 'scopes': [
             {'scope_id': 'whole', 'period_observed_years': None,
-             'conflicts': ['Registreringer 2099: ulike verdier']},
-        ]}
+             'conflicts': ['Registreringer 2099: ulike verdier']} ]}
         lines = summarize_kdrs_period_sources([run])
         self.assertIn('ikke tilgjengelig', lines[0])
         self.assertIn('Motstridende årstall: 1', lines[1])
@@ -56,7 +53,7 @@ class TestA18Fix9PeriodDialog(unittest.TestCase):
         self.assertIn('2099: 139', formatted)
         self.assertIn('1502_003_mk_2TB', formatted)
 
-    def test_gui_uses_draggable_splitter_and_independent_year_window(self):
+    def test_gui_has_draggable_splitter_and_independent_review_selector(self):
         source = (ROOT / 'gui/period_assessment_dialog_a16.py').read_text(encoding='utf-8')
         ast.parse(source)
         self.assertIn('tk.PanedWindow(window, orient=tk.VERTICAL', source)
@@ -64,8 +61,10 @@ class TestA18Fix9PeriodDialog(unittest.TestCase):
         self.assertIn('panes.add(lower, minsize=160', source)
         self.assertIn("volume.pack(fill='both', expand=True", source)
         self.assertIn("body = ctk.CTkScrollableFrame(upper)", source)
-        self.assertIn('summarize_kdrs_period_sources(runs)', source)
-        self.assertIn('kdrs_scopes[label] = (run, part)', source)
+        self.assertIn('summarize_kdrs_period_sources(', source)
+        self.assertIn("current['source_scopes'][label] = run, part", source)
+        self.assertIn("review_scope.configure(command=load_review)", source)
+        self.assertIn('save_part_assessment(', source)
         self.assertNotIn("if part.get('scope_id') == 'whole':\n                    continue", source)
 
 

@@ -1,10 +1,9 @@
-"""a18-fix5: imported annual facts are informative, not native XPath/master values."""
+"""KDRS annual facts remain separate from native XPath; manual review is allowed."""
 from __future__ import annotations
-import json
 from pathlib import Path
 import tempfile
 import unittest
-from types import SimpleNamespace
+from types import SimpleNamespace, ModuleType
 from unittest.mock import patch
 
 from noark5_workflow.reporting.period_kdrs_evidence_a18 import (
@@ -16,17 +15,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def resource(import_id, report_type, metric, values, *, part=None, title=None, raw_status='exact', source='source.txt'):
-    return {
-        'import_id': import_id, 'report_type': report_type,
-        'source_file': source, 'archive_part_index': part,
-        'archive_part_title': title,
-        'semantic_lines': [
-            {'archive_part_index': part, 'archive_part_title': title,
-             'facts': [{'metric_id': metric, 'mapping_status': raw_status,
-                        'value_kind': 'year_count', 'year': int(year), 'value': value}
-                       for year, value in values.items()]}
-        ],
-    }
+    return {'import_id': import_id, 'report_type': report_type,
+            'source_file': source, 'archive_part_index': part,
+            'archive_part_title': title, 'semantic_lines': [
+                {'archive_part_index': part, 'archive_part_title': title,
+                 'facts': [{'metric_id': metric, 'mapping_status': raw_status,
+                            'value_kind': 'year_count', 'year': int(year), 'value': value}
+                           for year, value in values.items()]}]}
 
 
 class TestA18Fix5PeriodKdrs(unittest.TestCase):
@@ -74,8 +69,7 @@ class TestA18Fix5PeriodKdrs(unittest.TestCase):
             resource('one', 'standard', 'unexpected_metric', {2001: 14}),
             resource('one', 'standard', 'registrations_by_creation_year', {2002: -8}),
         ]}
-        result = period_evidence_from_pool(pool)
-        self.assertEqual(result['runs'][0]['scopes'], [])
+        self.assertEqual(period_evidence_from_pool(pool)['runs'][0]['scopes'], [])
 
     def test_change_log_is_visible_but_not_period(self):
         result = period_evidence_from_pool({'resources': [
@@ -85,9 +79,8 @@ class TestA18Fix5PeriodKdrs(unittest.TestCase):
         part = result['runs'][0]['scopes'][0]
         self.assertEqual(part['period_observed_years'], [2008, 2008])
         text = '\n'.join(format_kdrs_scope(result['runs'][0], part))
-        self.assertIn('Endringslogg', text)
-        self.assertIn('2008', text)
-        self.assertIn('2099', text)
+        for fragment in ('Endringslogg', '2008', '2099'):
+            self.assertIn(fragment, text)
 
     def test_conflicting_counts_for_same_year_are_flagged_not_added(self):
         result = period_evidence_from_pool({'resources': [
@@ -107,7 +100,6 @@ class TestA18Fix5PeriodKdrs(unittest.TestCase):
 
     def test_existing_import_is_read_without_modifying_files(self):
         import sys
-        from types import ModuleType
         with tempfile.TemporaryDirectory() as root:
             base = Path(root) / 'dwm'
             imports = base / 'external_evidence' / 'kdrs_query'
@@ -131,14 +123,13 @@ class TestA18Fix5PeriodKdrs(unittest.TestCase):
         ]})
         self.assertEqual(result['runs'][0]['scopes'], [])
 
-    def test_gui_preserves_existing_manual_assessment_and_kdrs_separation(self):
+    def test_gui_allows_manual_review_with_and_without_dwm_xpath(self):
         source = (ROOT / 'gui/period_assessment_dialog_a16.py').read_text(encoding='utf-8')
         for fragment in ('load_job_kdrs_period_evidence(job)',
-                         "'Kan ikke vurderes – DWM XPath mangler'",
-                         'save_assessment(job, data',
-                         'DWM – lagret XPath-årsvolum',
-                         'KDRS Query – egne kilder',
-                         'Registreringer per år: Ikke tilgjengelig'):
+                         'save_assessment(job, report', 'save_part_assessment(job, report',
+                         'DWM – lagret XPath-årsvolum', 'KDRS Query – separate kilder',
+                         'Registreringer per år: Ikke tilgjengelig',
+                         'Vurderingsnivå', 'review_scope.configure(command=load_review)'):
             self.assertIn(fragment, source)
         self.assertNotIn('write_mapped_pool(', source)
         self.assertNotIn('run_xpath(', source)
@@ -149,7 +140,3 @@ class TestA18Fix5PeriodKdrs(unittest.TestCase):
         ]})
         self.assertEqual(result['runs'][0]['scopes'][0]['period_observed_years'], [2020, 2020])
         self.assertEqual(result['runs'][0]['scopes'][0]['series']['registrations_by_creation_year']['1888'], 0)
-
-
-if __name__ == '__main__':
-    unittest.main()
