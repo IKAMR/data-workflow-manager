@@ -1,2 +1,2 @@
 APP_NAME = "Data Workflow Manager"
-VERSION = "0.1.7-a18"
+VERSION = "0.1.7-a19"

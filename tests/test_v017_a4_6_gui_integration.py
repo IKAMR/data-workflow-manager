@@ -22,9 +22,15 @@ class A46GuiIntegrationTests(unittest.TestCase):
 
     def test_live_runtime_preserves_current_baseline_and_layers_fix(self):
         entry = (ROOT / 'gui/persistent_app_a27_2.py').read_text(encoding='utf-8')
+        a47 = (ROOT / 'gui/persistent_app_a4_7_runtime.py').read_text(encoding='utf-8')
         ast.parse(entry)
-        self.assertIn('from .persistent_app_a4_6_runtime import WorkflowApp as CurrentWorkflowApp', entry)
+        ast.parse(a47)
+        # a19 adds an explicit receiving GUI layer, but the a18 runtime must
+        # remain its parent. Do not regress to loading a legacy GUI class.
+        self.assertIn('from .persistent_app_a4_7_runtime import WorkflowApp as CurrentWorkflowApp', entry)
         self.assertIn('app = CurrentWorkflowApp()', entry)
+        self.assertIn('from .persistent_app_a4_6_runtime import WorkflowApp as A46WorkflowApp', a47)
+        self.assertIn('class WorkflowApp(A46WorkflowApp):', a47)
 
     def test_buttons_and_splitter(self):
         source = (ROOT / 'gui/persistent_app_a4_6_runtime.py').read_text(encoding='utf-8')

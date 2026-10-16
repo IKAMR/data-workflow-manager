@@ -34,6 +34,7 @@ DEFAULT_CONFIG = {
     "recent_source_extraction_dirs": [],
     "recent_storage_role_paths": {},
     "last_profile_id": "",
+    "last_ingest_user_profile_file": "",
     "last_dias_output_dir": "",
     "last_mets_import_dir": "",
     "last_dias_add_file_dir": "",
@@ -54,6 +55,11 @@ DEFAULT_CONFIG = {
     "last_report_output_dir": "",
     "arkade5_cli_path": "",
     "arkade5_output_subfolder": "arkade5_<ver>",
+    "receiving_setup_file": "",
+    "last_receiving_root": "",
+    "last_receiving_info_xml": "",
+    "last_ingest_disk": "",
+    "last_ingest_group": "",
 }
 
 def load_config() -> dict:

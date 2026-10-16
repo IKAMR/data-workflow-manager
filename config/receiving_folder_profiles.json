@@ -1,0 +1,36 @@
+{
+  "file_type": "dwm-receiving-folder-profiles",
+  "format_version": 1,
+  "profiles": [
+    {
+      "id": "ikamr_karantene",
+      "name": "IKAMR - mottak / karantene",
+      "name_template": "{label}",
+      "receipt_number_template": "{date}-{time}",
+      "audit_file": "ingest.events.jsonl",
+      "folders": [],
+      "grouped_ingest": {
+        "group_prefix": "arkiv-karantene-",
+        "receipt_log": "ingest.events.jsonl",
+        "operations_folder": "repository_operations",
+        "extraction_pattern": "{date}_{extraction_id}_{receipt_number}",
+        "extraction_folders": [
+          "content/sip",
+          "content/tar",
+          "descriptive_metadata",
+          "repository_operations/abstract",
+          "repository_operations/quarantine",
+          "repository_operations/utilities"
+        ]
+      }
+    },
+    {
+      "id": "root_only",
+      "name": "Bare mottaksmappe (uten undermapper)",
+      "name_template": "{label}",
+      "receipt_number_template": "{date}-{time}",
+      "audit_file": "ingest.events.jsonl",
+      "folders": []
+    }
+  ]
+}
