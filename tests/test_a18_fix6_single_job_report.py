@@ -1,4 +1,9 @@
-"""a18-fix6: one active job and selected jobs use the same read-only report flow."""
+"""Single-job and multi-job reporting use the same UI and resumable exporter.
+
+The original a18 test asserted a direct writer call. a20.3 correctly moved
+that call behind write_reconnectable_report; keep the actual behavioural
+contract rather than reverting the production code to satisfy a stale string.
+"""
 from __future__ import annotations
 
 import ast
@@ -53,7 +58,7 @@ class FakeButton(FakeWidget):
 
 
 def runtime_class():
-    """Load the actual production methods while replacing Tk and app dependencies."""
+    """Load actual production methods while replacing Tk/app dependencies."""
     tree = ast.parse(RUNTIME.read_text(encoding='utf-8'))
     definition = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == 'WorkflowApp')
     definition.bases = [ast.Name(id='FakeBase', ctx=ast.Load())]
@@ -127,11 +132,15 @@ class SingleJobReportTests(TestCase):
 
     def test_same_report_options_writer_for_one_and_many(self):
         source = DIALOG.read_text(encoding='utf-8')
-        self.assertIn('write_report_package(Path(target), jobs, opts,', source)
+        # Resumable export is mandatory for both one and many jobs.
+        self.assertIn('write_reconnectable_report(Path(target), jobs, opts,', source)
+        self.assertIn('writer=write_report_package', source)
+        self.assertIn('write_report_package', source)
         self.assertIn("dialog.title('Rapport for ett uttrekk' if single", source)
         self.assertIn('job_display_name(jobs[0])', source)
         self.assertIn('formats=formats', source)
-        self.assertIn("'HTML','PDF','JSON'", source)
+        self.assertIn("'HTML','PDF','JSON','CSV'", source)
+        self.assertIn('threading.Thread', source)
 
     def test_current_entrypoint_installs_button(self):
         source = RUNTIME.read_text(encoding='utf-8')
