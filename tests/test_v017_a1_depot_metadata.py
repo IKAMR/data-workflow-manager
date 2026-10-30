@@ -491,9 +491,8 @@ class V017A1DepotMetadataTests(unittest.TestCase):
         self.assertIn("AKTIV JOBB:", source)
 
     def test_v017_series_keeps_a1_as_historical_start(self):
-        # This test belongs to the a1 feature set, but version.py follows the
-        # current alpha.  Lock the v0.1.7 alpha series here instead of making
-        # every later alpha fail a historical a1 assertion.
+        # This historical a1 test accepts later alphas and the final v0.1.7
+        # release, but rejects unrelated version series.
         import importlib.util
 
         version_path = ROOT / "version.py"
@@ -503,7 +502,7 @@ class V017A1DepotMetadataTests(unittest.TestCase):
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         self.assertEqual(module.APP_NAME, "Data Workflow Manager")
-        self.assertRegex(module.VERSION, r"^0\.1\.7-a\d+$")
+        self.assertRegex(module.VERSION, r"^0\.1\.7(?:-a\d+)?$")
 
 
 if __name__ == "__main__":
