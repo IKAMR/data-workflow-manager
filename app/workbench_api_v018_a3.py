@@ -1,4 +1,4 @@
-"""Desktop-neutral workbench commands for DWM v0.1.8-a3 and a4.
+"""Desktop-neutral workbench commands for DWM v0.1.8 through a7.
 
 The PySide6 UI and future UI implementations use this facade. It deliberately
 reuses the authoritative .n5jobs store, Job model and A39JobRunner from a1.
@@ -12,6 +12,17 @@ from typing import Iterable, Mapping
 
 from app.application_api import DwmApiError, DwmApplication, JobView, WorkspaceView
 from app.job_workflow_policy import configured_sequence
+from app.work_output_layout import effective_work_operations, validate_layout
+from noark5_workflow.core.output_subfolder import render_output_subfolder_rule
+from app.job_preflight_v018_a6 import (
+    PreflightIssue, PreflightReport, inspect_job, paths_to_create,
+    propose_work_location,
+)
+from app.arkade5_setup_v018_a7 import (
+    Arkade5Check, Arkade5DependencyChecker, requires_arkade_cli,
+)
+from app.work_output_layout import validate_app_work_subfolder
+from settings import load_config, save_config
 from noark5_workflow.core.job import Job, JobBatch, JobStatus
 
 
@@ -51,6 +62,7 @@ class DwmWorkbenchAPI(DwmApplication):
         super().__init__(**kwargs)
         self._dirty = False
         self._catalog = None
+        self._arkade_checker = Arkade5DependencyChecker()
 
     @property
     def dirty(self) -> bool:
@@ -193,6 +205,286 @@ class DwmWorkbenchAPI(DwmApplication):
             self._dirty = True
         self._emit("job.checkpoint_changed", job)
         return self.job_details(job_id)
+
+    # ---------- a7: shared Setup and external operation dependencies ----------
+    def check_arkade5_cli(self, *, path: str | Path | None = None,
+                          refresh: bool = False) -> Arkade5Check:
+        """Check a proposed path without changing settings or job data."""
+        selected = dict(self.settings)
+        if path is not None:
+            selected["arkade5_cli_path"] = str(path)
+        return self._arkade_checker.check(selected, refresh=refresh)
+
+    def save_setup(self, changes: Mapping[str, object]) -> dict:
+        """Persist only approved global keys; no silent settings changes.
+
+        Do not mix Qt's view-layout configuration with the DWM core's settings.
+        This changes future runs, never historical results or Source files.
+        """
+        allowed = {
+            "arkade5_cli_path", "arkade5_output_subfolder", "noark5_discovery_workflow",
+            "app_work_subfolder", "temp_dir", "run_log_dir", "setup_dir",
+            "job_list_dir", "operation_visibility",
+        }
+        unknown = set(changes) - allowed
+        if unknown:
+            raise DwmApiError("Ukjente Setup-innstillinger: " + ", ".join(sorted(unknown)))
+        updated = {key: str(value or "").strip() for key, value in changes.items()
+                   if key != "operation_visibility"}
+        if "operation_visibility" in changes:
+            try:
+                visibility = int(changes["operation_visibility"])
+            except (TypeError, ValueError) as exc:
+                raise DwmApiError("Operasjonsnivå må være et tall fra 0 til 2.") from exc
+            if visibility not in (0, 1, 2):
+                raise DwmApiError("Operasjonsnivå må være 0, 1 eller 2.")
+            updated["operation_visibility"] = visibility
+        if "arkade5_cli_path" in updated:
+            selected = updated["arkade5_cli_path"].strip('"')
+            if selected and not Path(selected).is_absolute():
+                raise DwmApiError("Arkade 5 CLI må angis med absolutt sti.")
+            updated["arkade5_cli_path"] = selected
+        if "app_work_subfolder" in updated:
+            updated["app_work_subfolder"] = validate_app_work_subfolder(
+                updated["app_work_subfolder"]
+            )
+        if "arkade5_output_subfolder" in updated:
+            from noark5_workflow.external_tools.arkade5_jobs import resolve_arkade5_output_subfolder
+            resolve_arkade5_output_subfolder(
+                {"arkade5_output_subfolder": updated["arkade5_output_subfolder"]}, "2.13.1"
+            )
+        if "noark5_discovery_workflow" in updated:
+            from app.workflow_sequences import workflow_sequence_by_id
+            sequence = workflow_sequence_by_id(updated["noark5_discovery_workflow"])
+            if sequence is None or sequence.profile_id != "noark5":
+                raise DwmApiError("Ukjent standardprofil for Noark 5.")
+        if "app_work_subfolder" in updated:
+            # Reject collisions before changing a global Work rule; this is
+            # otherwise easy to miss when several jobs share a Work base.
+            try:
+                validate_layout(
+                    updated["app_work_subfolder"], self.output_subfolder_rule,
+                    self._batch.jobs(),
+                )
+            except ValueError as exc:
+                raise DwmApiError("Global DWM-undermappe gir ugyldig Work-oppsett: "
+                                  + str(exc)) from exc
+        with self._guard:
+            self._assert_idle()
+            if not updated:
+                return dict(self.settings)
+            saved = save_config(updated)  # disk first; memory unchanged if save fails
+            self.settings.update(updated)
+            self._arkade_checker.invalidate()
+        self._emit("setup.changed", message="Setup lagret etter brukerens godkjenning")
+        return dict(saved)
+
+    def reload_setup(self) -> dict:
+        """Synchronize in-memory settings after explicit portable import/reset."""
+        with self._guard:
+            self._assert_idle()
+            updated = load_config()
+            self.settings.clear()
+            self.settings.update(updated)
+            self._arkade_checker.invalidate()
+        self._emit("setup.changed", message="Globalt Setup importert / tilbakestilt")
+        return dict(updated)
+
+    # ---------- per-job-list Work output rule (.n5jobs, NOT global Setup) ----------
+    @property
+    def output_subfolder_rule(self) -> str:
+        return str(getattr(self._batch, "output_subfolder_rule", "") or "")
+
+    def preview_output_subfolder_rule(self, rule: str) -> tuple[tuple[str, str, str], ...]:
+        """Validate and preview effective Work paths without any writes.
+
+        Work root is allowed before Work operations has been assigned, as in
+        the beginner flow; preview must then match a6's preflight proposal.
+        """
+        from dataclasses import replace
+        from types import SimpleNamespace
+
+        proposed = str(rule or "").strip()
+        jobs = self._batch.jobs()
+        app_folder = str(self.settings.get("app_work_subfolder", "dwm") or "")
+        try:
+            # Validate tokens even with no jobs or no Work root.
+            if proposed:
+                probe = SimpleNamespace(
+                    job_id="JOB-001", name="Jobb", active_extraction_root=None
+                )
+                render_output_subfolder_rule(proposed, probe, 1)
+            projections = [
+                replace(job, work_operations=(
+                    job.work_operations or (
+                        propose_work_location(
+                            job.work_root, app_subfolder=app_folder,
+                        ).work_operations
+                        if job.work_root is not None else None
+                    )
+                ))
+                for job in jobs
+            ]
+            old_paths = validate_layout(app_folder, self.output_subfolder_rule, projections)
+            new_paths = validate_layout(app_folder, proposed, projections)
+        except ValueError as exc:
+            raise DwmApiError(f"Ugyldig undermappe-regel: {exc}") from exc
+        previous = {job_id: str(path) if path is not None else "(ikke angitt)"
+                    for job_id, path in old_paths}
+        return tuple(
+            (job_id, previous.get(job_id, "(ikke angitt)"),
+             str(path) if path is not None else "(ikke angitt)")
+            for job_id, path in new_paths
+        )
+
+    def set_output_subfolder_rule(self, rule: str, *, confirm_changes: bool = False) -> bool:
+        """Change only the job-list rule, after preview and explicit consent.
+
+        Historical files are never moved and no directory is created here.
+        """
+        proposed = str(rule or "").strip()
+        with self._guard:
+            self._assert_idle()
+            old = self.output_subfolder_rule
+            if proposed == old:
+                return False
+            preview = self.preview_output_subfolder_rule(proposed)
+            changes = tuple(item for item in preview if item[1] != item[2])
+            if changes and not confirm_changes:
+                raise DwmApiError(
+                    "Endringen vil påvirke eksisterende Work-stier. "
+                    "Forhåndsvis og bekreft endringen før den brukes."
+                )
+            self._batch.output_subfolder_rule = proposed
+            self._dirty = True
+        self._emit("joblist.output_rule_changed", message=proposed)
+        return True
+
+    # ---------- a6: explicit preflight before every Qt/API run ----------
+    def _inspect_job(self, job: Job) -> PreflightReport:
+        """Read-only check against the complete effective Work path.
+
+        If Work operations is missing, a set-role action is proposed from an
+        already selected Work root; no configuration is changed here.
+        """
+        base = job.work_operations
+        app_folder = str(self.settings.get("app_work_subfolder", "dwm") or "")
+        if base is None and job.work_root is not None:
+            try:
+                base = propose_work_location(
+                    job.work_root, app_subfolder=app_folder,
+                ).work_operations
+            except ValueError:
+                base = None  # inspect_job adds a helpful blocking error
+        position = next(i for i, candidate in enumerate(self._batch.jobs(), 1)
+                        if candidate.job_id == job.job_id)
+        effective = effective_work_operations(
+            base,
+            str(self.settings.get("app_work_subfolder", "dwm") or ""),
+            str(getattr(self._batch, "output_subfolder_rule", "") or ""),
+            job,
+            position,
+        )
+        report = inspect_job(
+            job, effective_work_operations=effective, app_subfolder=app_folder,
+        )
+        if not requires_arkade_cli(job.workflow_ids):
+            return report
+        check = self._arkade_checker.check(self.settings)
+        if check.severity == "ok":
+            return report
+        severity = "error" if check.severity == "error" else "warning"
+        return PreflightReport(
+            report.job_id,
+            report.issues + (PreflightIssue("ARKADE5_CLI_" + severity.upper(),
+                                           severity, check.message),),
+            report.actions,
+        )
+
+    def preflight_job(self, job_id: str) -> PreflightReport:
+        """No writes, no role changes, no implicit folder creation."""
+        with self._guard:
+            self._assert_idle()
+            return self._inspect_job(self._require_job(job_id))
+
+    def provision_preflight(self, job_id: str, *, approved_report: PreflightReport,
+                            consent: bool) -> PreflightReport:
+        """Create ONLY the explicitly approved, currently valid Work/AIP paths.
+
+        Refuse stale plans and blocking errors. Assignments never touch Source,
+        and no source content, existing result or AIP file is modified.
+        """
+        if not consent:
+            raise DwmApiError("Klargjøring krever brukerens uttrykkelige godkjenning.")
+        with self._guard:
+            self._assert_idle()
+            job = self._require_job(job_id)
+            current = self._inspect_job(job)
+            if current != approved_report:
+                raise DwmApiError("Mappeoppsettet er endret. Kontroller på nytt før du godkjenner.")
+            if current.errors:
+                raise DwmApiError(
+                    "Klargjøring blokkert: " + "; ".join(issue.message for issue in current.errors)
+                )
+            assigned = next((Path(action.path) for action in current.actions
+                             if action.kind == "set_work_operations"), None)
+            original = job.work_operations
+            original_work_root = job.work_root
+            if assigned is not None:
+                job.work_operations = assigned
+                if job.work_root is not None:
+                    job.work_root = propose_work_location(
+                        job.work_root,
+                        app_subfolder=str(self.settings.get("app_work_subfolder", "dwm") or ""),
+                    ).work_root
+            try:
+                errors = self.check_storage()
+                if errors:
+                    raise DwmApiError("Ugyldig Work/AIP-oppsett: " + "; ".join(errors))
+                # Check the re-computed effective path, not only the proposal.
+                updated = self._inspect_job(job)
+                if updated.errors:
+                    raise DwmApiError("Klargjøring blokkert: " + "; ".join(
+                        issue.message for issue in updated.errors))
+                approved = set(paths_to_create(current.actions))
+                actual = set(paths_to_create(updated.actions))
+                if not actual.issubset(approved):
+                    raise DwmApiError("Oppsettet krever andre mapper enn de godkjente. Kontroller på nytt.")
+                for path in sorted(approved, key=lambda item: (len(item.parts), str(item))):
+                    path.mkdir(parents=True, exist_ok=True)
+                    if not path.is_dir():
+                        raise OSError(f"Arbeidsområdet er ikke en mappe: {path}")
+            except Exception as exc:
+                job.work_operations = original
+                job.work_root = original_work_root
+                if isinstance(exc, DwmApiError):
+                    raise
+                raise DwmApiError(f"Kunne ikke opprette godkjente mapper: {exc}") from exc
+            if assigned is not None:
+                self._dirty = True  # Explicit save before execution.
+            result = self._inspect_job(job)
+        self._emit("preflight.provisioned", job, message="Godkjente mapper opprettet / lagringsroller satt")
+        return result
+
+    def run_job(self, job_id: str, *, allow_rerun: bool = False,
+                continue_waiting: bool = False,
+                acknowledge_warnings: bool = False) -> bool:
+        """All DWM Qt workbench runs enforce the same preflight, even via API."""
+        report = self.preflight_job(job_id)
+        if report.errors:
+            raise DwmApiError("Kontroll før kjøring feilet: " + "; ".join(
+                issue.message for issue in report.errors))
+        if report.actions:
+            raise DwmApiError(
+                "Manglende Work/AIP-mapper må godkjennes og klargjøres før kjøring: "
+                + "; ".join(action.path for action in report.actions)
+            )
+        if report.warnings and not acknowledge_warnings:
+            raise DwmApiError("Avvik krever brukerens godkjenning: " + "; ".join(
+                issue.message for issue in report.warnings))
+        return super().run_job(
+            job_id, allow_rerun=allow_rerun, continue_waiting=continue_waiting,
+        )
 
     # ---------- a4: job-list editing without touching extraction/results ----------
     def _effective_path_map(self, jobs: Iterable[Job]) -> dict[str, str | None]:

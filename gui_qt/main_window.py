@@ -1,4 +1,4 @@
-"""Dockable desktop workbench for Data Workflow Manager v0.1.8-a4.
+"""Dockable desktop workbench for Data Workflow Manager v0.1.8-a7.
 
 Qt owns presentation only. DwmWorkbenchAPI is the authoritative job-list and
 execution boundary. The legacy CustomTkinter GUI is not imported here.
@@ -26,6 +26,9 @@ from PySide6.QtWidgets import (
 from app.application_api import DwmApiError
 from app.workbench_api_v018_a3 import DwmWorkbenchAPI, STORAGE_FIELDS
 from app.workbench_recent_v018_a4 import recent_joblists, remember_joblist
+from app.job_preflight_v018_a6 import (
+    check_extraction_folder, propose_work_location,
+)
 from version import APP_NAME, VERSION
 
 
@@ -163,6 +166,10 @@ class DwmMainWindow(QMainWindow):
         self.overview_work = QPushButton("Åpne DWM-arbeidsområde")
         self.overview_work.clicked.connect(self._open_work_dir)
         quick.addWidget(self.overview_work)
+        self.overview_preflight = QPushButton("Kontroller / klargjør")
+        self.overview_preflight.setToolTip("Sjekk uttrekk, lagringsroller og Work-mapper før kjøring")
+        self.overview_preflight.clicked.connect(self._prepare_selected_only)
+        quick.addWidget(self.overview_preflight)
         quick.addStretch(1)
         v.addLayout(quick)
         v.addSpacing(12)
@@ -280,6 +287,30 @@ class DwmMainWindow(QMainWindow):
         self.job_remove_button.clicked.connect(self._remove_job)
         job_buttons.addWidget(self.job_remove_button)
         j.addLayout(job_buttons)
+        # Per-job-list output rule is stored in .n5jobs, independently of
+        # the global app_work_subfolder setting in Setup.
+        rule_form = QHBoxLayout()
+        rule_form.setSpacing(5)
+        rule_form.addWidget(QLabel("Undermappe-regel:"))
+        self.job_output_rule = QLineEdit()
+        self.job_output_rule.setPlaceholderText("Tom = ingen | a01 | <nnn> | <jobno> | <name> …")
+        self.job_output_rule.setToolTip(
+            "Jobblistens undermappe-regel for Work – operations. "
+            "Global DWM-undermappe administreres i Setup."
+        )
+        self.job_output_rule.returnPressed.connect(self._apply_job_output_rule)
+        rule_form.addWidget(self.job_output_rule, 1)
+        self.job_rule_apply = QPushButton("Bruk regel")
+        self.job_rule_apply.clicked.connect(self._apply_job_output_rule)
+        rule_form.addWidget(self.job_rule_apply)
+        j.addLayout(rule_form)
+        self.job_rule_preview = _muted("Ingen jobbliste-regel valgt")
+        self.job_rule_preview.setMaximumHeight(58)
+        self.job_rule_preview.setToolTip(
+            "Eksempel: Work operations / dwm / a01. "
+            "Resultatmappene opprettes først etter kontroll og godkjenning."
+        )
+        j.addWidget(self.job_rule_preview)
         self._job_action_buttons = (
             self.job_rename_button, self.job_up_button,
             self.job_down_button, self.job_remove_button,
@@ -319,6 +350,9 @@ class DwmMainWindow(QMainWindow):
         self.storage_edit_button = QPushButton("Rediger lagringsroller…")
         self.storage_edit_button.clicked.connect(self._edit_storage)
         s.addWidget(self.storage_edit_button)
+        self.storage_prepare_button = QPushButton("Kontroller og klargjør Work…")
+        self.storage_prepare_button.clicked.connect(self._prepare_selected_only)
+        s.addWidget(self.storage_prepare_button)
         self._dock("storage", "Kilde og lagring", storage, Qt.DockWidgetArea.RightDockWidgetArea)
 
         logger = QWidget()
@@ -381,6 +415,9 @@ class DwmMainWindow(QMainWindow):
         file_menu.addAction(self.rename_job_action)
         file_menu.addAction(self.remove_job_action)
         file_menu.addSeparator()
+        self.setup_action = self._action("Setup", self._open_setup)
+        file_menu.addAction(self.setup_action)
+        file_menu.addSeparator()
         file_menu.addAction(self._action("Start gammel CustomTkinter-GUI", self._open_legacy))
         file_menu.addAction(self._action("Avslutt", self.close, "Ctrl+Q"))
 
@@ -388,8 +425,9 @@ class DwmMainWindow(QMainWindow):
         self.run_action = self._action("Kjør valgt jobb", self._run_selected, "F5")
         self.continue_action = self._action("Fortsett ved kontrollpunkt", self._continue_job)
         self.ready_action = self._action("Kjør klare jobber (sekvensielt)", self._run_ready)
+        self.preflight_action = self._action("Kontroller og klargjør valgt jobb…", self._prepare_selected_only)
         self.stop_action = self._action("Stopp etter gjeldende operasjon", self._request_stop, "Shift+F5")
-        for a in (self.run_action, self.continue_action, self.ready_action, self.stop_action):
+        for a in (self.run_action, self.continue_action, self.ready_action, self.preflight_action, self.stop_action):
             run_menu.addAction(a)
         self.stop_action.setEnabled(False)
 
@@ -450,6 +488,8 @@ class DwmMainWindow(QMainWindow):
         self.complexity_tool.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self.complexity_tool.setMenu(self._complexity_menu)
         toolbar.addWidget(self.complexity_tool)
+        toolbar.addSeparator()
+        toolbar.addAction(self.setup_action)
         self._toolbar = toolbar
         self._refresh_recent_menu()
 
@@ -757,7 +797,76 @@ class DwmMainWindow(QMainWindow):
         self._refresh(force=True)
         return True
 
+    def _apply_job_output_rule(self):
+        """Preview changes to Work paths and save rule only with consent."""
+        if self._worker is not None or self.api.running:
+            QMessageBox.information(self, "Jobbliste-regel", "Avslutt kjøringen før du endrer Work-regelen.")
+            return
+        proposed = self.job_output_rule.text().strip()
+        current = self.api.output_subfolder_rule
+        if proposed == current:
+            self.statusBar().showMessage("Jobblistens Work-regel er uendret", 3000)
+            return
+        try:
+            preview = self.api.preview_output_subfolder_rule(proposed)
+        except Exception as exc:
+            self._error(exc)
+            return
+        changed = [item for item in preview if item[1] != item[2]]
+        if changed:
+            rows = [f"{job_id}:\n  Fra: {before}\n  Til:  {after}"
+                    for job_id, before, after in changed[:5]]
+            more = f"\n… og {len(changed) - 5} andre jobber" if len(changed) > 5 else ""
+            answer = QMessageBox.question(
+                self, "Endre jobblistens Work-regel",
+                "Ny regel vil endre hvor DWM forventer å finne resultater:\n\n"
+                + "\n\n".join(rows) + more
+                + "\n\nIngen eksisterende filer flyttes, kopieres eller slettes. "
+                  "Manglende mapper blir først foreslått ved klargjøring.\n\n"
+                  "Vil du bruke denne regelen?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                return
+        try:
+            self.api.set_output_subfolder_rule(proposed, confirm_changes=bool(changed))
+        except Exception as exc:
+            self._error(exc)
+            return
+        self._render_key = None
+        self._refresh(force=True)
+        self.statusBar().showMessage("Work-regel endret. Lagre jobblisten for å bevare den.", 6000)
+
+    def _refresh_joblist_rule(self):
+        """Show the persisted rule and a short effective path example."""
+        rule = self.api.output_subfolder_rule
+        if not self.job_output_rule.hasFocus():
+            self.job_output_rule.setText(rule)
+        self.job_output_rule.setEnabled(self._worker is None)
+        self.job_rule_apply.setEnabled(self._worker is None)
+        try:
+            preview = self.api.preview_output_subfolder_rule(rule)
+            if preview:
+                examples = []
+                for job_id, _before, after in preview[:2]:
+                    components = after.replace("\\", "/").split("/")
+                    short = "/".join(components[-3:]) if len(components) > 3 else after
+                    examples.append(f"{job_id} → …/{short}")
+                extra = f" | +{len(preview)-2}" if len(preview) > 2 else ""
+                self.job_rule_preview.setText(" | ".join(examples) + extra)
+                self.job_rule_preview.setToolTip("\n".join(
+                    f"{job_id}: {after}" for job_id, _before, after in preview
+                ))
+            else:
+                self.job_rule_preview.setText("Ingen jobber – regel: " + (rule or "(tom)"))
+        except Exception as exc:
+            self.job_rule_preview.setText("Work-regel har avvik: " + str(exc))
+
     def _new_job(self):
+        if self._complexity == "Enkel":
+            self._new_job_easy()
+            return
         dialog = QDialog(self)
         dialog.setWindowTitle("Legg til Noark 5-jobb")
         form = QFormLayout(dialog)
@@ -767,7 +876,7 @@ class DwmMainWindow(QMainWindow):
         form.addRow("Jobbnavn (valgfritt)", name)
         self._path_form_row(form, "Source – uttrekk", source)
         self._path_form_row(form, "Work – operations", work)
-        form.addRow(_muted("Ingen mapper opprettes og ingen uttrekk kopieres."))
+        form.addRow(_muted("Ingen mapper opprettes når du lagrer. DWM vil spørre om klargjøring før kjøring."))
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(dialog.accept)
         buttons.rejected.connect(dialog.reject)
@@ -788,6 +897,66 @@ class DwmMainWindow(QMainWindow):
             self._error(exc)
             return
         self._refresh(force=True)
+
+    def _new_job_easy(self):
+        """Two choices for beginners: real extraction and existing Work location.
+
+        DWM proposes repository_operations / dwm / job nesting. Nothing is
+        created until the separate preflight confirmation is accepted.
+        """
+        if self._worker is not None:
+            return
+        source = QFileDialog.getExistingDirectory(
+            self, "1/2 – Velg Noark 5-uttrekksmappe (arkivstruktur.xml)", "",
+        )
+        if not source:
+            return
+        source_issues = check_extraction_folder(source, profile_id="noark5")
+        if source_issues:
+            QMessageBox.warning(
+                self, "Feil uttrekksmappe",
+                "\n\n".join(issue.message for issue in source_issues)
+                + "\n\nVelg mappen med selve Noark 5-uttrekket. Ingen jobb er opprettet.",
+            )
+            return
+        work_root = QFileDialog.getExistingDirectory(
+            self, "2/2 – Velg hvor DWM skal lagre arbeidsfiler (eksisterende hovedmappe)", "",
+        )
+        if not work_root:
+            return
+        try:
+            proposal = propose_work_location(
+                work_root, app_subfolder=str(self.api.settings.get("app_work_subfolder", "dwm") or ""),
+            )
+        except ValueError as exc:
+            QMessageBox.warning(self, "Ugyldig Work-valg", str(exc))
+            return
+        planned_base = proposal.work_operations
+        answer = QMessageBox.question(
+            self, "Ny jobb – kontroller plasseringene",
+            f"Source – uttrekk:\n{source}\n\n"
+            f"Valgt Work-mappe:\n{work_root}\n\n"
+            f"Work – hovedmappe:\n{proposal.work_root}\n\n"
+            f"DWM vil foreslå Work – operations:\n{planned_base}\n\n"
+            "DWM flytter eller kopierer aldri uttrekket. Opprett jobb med disse "
+            "forslagene? Du får godkjenne de nøyaktige nye mappene i neste steg.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            view = self.api.create_job(source_extraction=source, name=Path(source).name)
+            self._active_id = view.job_id
+            self.api.update_storage(view.job_id, {"work_root": str(proposal.work_root)})
+        except Exception as exc:
+            self._error(exc)
+            return
+        self._refresh(force=True)
+        if self._review_preflight((view.job_id,)) is not None:
+            self._refresh(force=True)
+        else:
+            self._append_log(f"{view.job_id}: Klargjøring utsatt. Ingen Work-mapper ble opprettet.")
 
     def _path_form_row(self, form, title, editor: QLineEdit, *, file=False):
         row = QWidget()
@@ -1077,7 +1246,162 @@ class DwmMainWindow(QMainWindow):
         if answer == QMessageBox.StandardButton.Yes:
             self._start_worker(targets)
 
+    def _open_setup(self):
+        """Edit the global DWM setup, without importing any Tk GUI layer."""
+        if self._worker is not None or self.api.running:
+            QMessageBox.information(self, "Setup", "Avslutt kjøringen før du endrer Setup.")
+            return
+        from gui_qt.setup_v018_a7 import DwmSetupDialog
+        dialog = DwmSetupDialog(self.api, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self._append_log("Setup lagret. CLI-avhengigheter kontrolleres på nytt før neste kjøring.")
+            self._refresh(force=True)
+
+    def _prepare_selected_only(self):
+        """User-invoked read-only check followed by explicit consent if needed."""
+        if not self._active_id or self._worker is not None:
+            return
+        approved = self._review_preflight((self._active_id,))
+        if approved is not None:
+            self._refresh(force=True)
+            QMessageBox.information(self, "Klargjøring", "Jobben er kontrollert og klar for kjøring.")
+
+    def _review_preflight(self, job_ids: tuple[str, ...]) -> set[str] | None:
+        """Run preflight on the GUI thread; NEVER create folders by default.
+
+        Return IDs for which the user explicitly acknowledged warnings. None
+        means cancel/block, and no run may start.
+        """
+        approved_warnings: set[str] = set()
+        global_errors = self.api.check_storage()
+        if global_errors:
+            QMessageBox.warning(self, "Lagringskontroll", "\n".join(global_errors))
+            return None
+        for job_id in job_ids:
+            try:
+                report = self.api.preflight_job(job_id)
+            except Exception as exc:
+                self._error(exc)
+                return None
+            if any(item.code == "WORK_NOT_CONFIGURED" for item in report.errors):
+                answer = QMessageBox.question(
+                    self, "Work mangler – " + job_id,
+                    "Work – operations er ikke valgt.\n\n"
+                    "Vil du velge en eksisterende Work-hovedmappe? "
+                    "DWM foreslår da repository_operations / dwm / eventuell jobb-undermappe. "
+                    "Ingenting opprettes uten etterfølgende godkjenning.",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No,
+                )
+                if answer != QMessageBox.StandardButton.Yes:
+                    return None
+                location = QFileDialog.getExistingDirectory(
+                    self, "Velg Work-hovedmappe for " + job_id, "",
+                )
+                if not location:
+                    return None
+                try:
+                    proposal = propose_work_location(
+                        location,
+                        app_subfolder=str(self.api.settings.get("app_work_subfolder", "dwm") or ""),
+                    )
+                except ValueError as exc:
+                    QMessageBox.warning(self, "Ugyldig Work-valg", str(exc))
+                    return None
+                answer = QMessageBox.question(
+                    self, "Kontroller Work-plassering – " + job_id,
+                    f"Du valgte:\n{proposal.selected}\n\n"
+                    f"Work – hovedmappe:\n{proposal.work_root}\n\n"
+                    f"Work – operations:\n{proposal.work_operations}\n\n"
+                    "DWM legger ikke til repository_operations hvis mappen allerede "
+                    "er valgt. Godkjenne denne lagringsrollen? "
+                    "Ingen mapper opprettes før neste godkjenning.",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No,
+                )
+                if answer != QMessageBox.StandardButton.Yes:
+                    return None
+                try:
+                    self.api.update_storage(job_id, {"work_root": str(proposal.work_root)})
+                    report = self.api.preflight_job(job_id)
+                except Exception as exc:
+                    self._error(exc)
+                    return None
+            if report.errors:
+                arkade_error = any(issue.code.startswith("ARKADE5_CLI_") for issue in report.errors)
+                next_action = (
+                    "Vil du åpne Setup og rette Arkade 5 CLI nå?"
+                    if arkade_error else "Vil du åpne lagringsrollene og rette valgene nå?"
+                )
+                response = QMessageBox.question(
+                    self, "Kontroll før kjøring – " + job_id,
+                    "Kjøring er blokkert fordi følgende må rettes:\n\n"
+                    + "\n".join("• " + issue.message for issue in report.errors)
+                    + "\n\n" + next_action,
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.Yes,
+                )
+                if response == QMessageBox.StandardButton.Yes:
+                    self._active_id = job_id
+                    if arkade_error:
+                        self._open_setup()
+                    else:
+                        self._edit_storage()
+                return None  # Re-check after Setup/edit; never auto-run.
+
+            if report.actions or report.warnings:
+                details = []
+                if report.warnings:
+                    details.extend("AVVIK: " + issue.message for issue in report.warnings)
+                if report.actions:
+                    details.extend("GODKJENN: " + action.description + "\n  " + action.path
+                                   for action in report.actions)
+                dialog = QMessageBox(self)
+                dialog.setIcon(QMessageBox.Icon.Question)
+                dialog.setWindowTitle("Godkjenn klargjøring – " + job_id)
+                dialog.setText(
+                    "DWM har funnet forhold som krever ditt samtykke. "
+                    "Source endres aldri, og eksisterende data slettes ikke."
+                )
+                dialog.setInformativeText(
+                    "\n\n".join(details)
+                    + "\n\nVelg Ja for å godkjenne de viste endringene/avvikene. "
+                    "Velg Nei for å avbryte uten å opprette mapper."
+                )
+                dialog.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                dialog.setDefaultButton(QMessageBox.StandardButton.No)
+                if dialog.exec() != QMessageBox.StandardButton.Yes:
+                    self._append_log(f"{job_id}: Preflight avbrutt av bruker. Ingen kjøring startet.")
+                    return None
+                approved_warnings.add(job_id)
+                if report.actions:
+                    try:
+                        after = self.api.provision_preflight(job_id, approved_report=report, consent=True)
+                    except Exception as exc:
+                        self._error(exc)
+                        return None
+                    if after.errors or after.actions:
+                        QMessageBox.warning(self, "Klargjøring", "Det er fortsatt uavklarte forhold. Kontroller på nytt.")
+                        return None
+                    self._append_log(f"{job_id}: Work/AIP-mapper opprettet etter godkjenning.")
+            # Re-check immediately before run: never trust stale paths blindly.
+            try:
+                final = self.api.preflight_job(job_id)
+            except Exception as exc:
+                self._error(exc)
+                return None
+            if final.errors or final.actions:
+                QMessageBox.warning(self, "Klargjøring", "Lagringsforholdene er endret. Kontroller på nytt.")
+                return None
+            if final.warnings and job_id not in approved_warnings:
+                QMessageBox.warning(self, "Klargjøring", "Avvik må godkjennes før kjøring.")
+                return None
+        return approved_warnings
+
     def _start_worker(self, jobs: list[tuple[str, bool, bool]]):
+        warning_approvals = self._review_preflight(tuple(job_id for job_id, _rerun, _cont in jobs))
+        if warning_approvals is None:
+            return
         if not self.api.workspace().job_list_path or self.api.dirty:
             if not self._save():
                 return
@@ -1096,7 +1420,11 @@ class DwmMainWindow(QMainWindow):
                     if self._batch_stop.is_set():
                         break
                     self._worker_messages.put(("selected", job_id))
-                    ok = self.api.run_job(job_id, allow_rerun=allow_rerun, continue_waiting=continuing)
+                    ok = self.api.run_job(
+                        job_id, allow_rerun=allow_rerun,
+                        continue_waiting=continuing,
+                        acknowledge_warnings=job_id in warning_approvals,
+                    )
                     if not ok:
                         self._worker_messages.put(("info", f"{job_id}: Stoppet ved feil/avbrudd."))
                         break
@@ -1119,15 +1447,20 @@ class DwmMainWindow(QMainWindow):
         self._recent_menu.setEnabled(not running)
         for action in (self.open_action, self.new_list_action, self.save_action,
                        self.save_as_action, self.new_job_action, self.run_action,
-                       self.ready_action, self.continue_action):
+                       self.ready_action, self.continue_action, self.preflight_action,
+                       self.setup_action):
             action.setEnabled(not running)
         self.stop_action.setEnabled(running)
         self.overview_run.setEnabled(not running)
         self.overview_continue.setEnabled(not running)
         self.storage_edit_button.setEnabled(not running)
+        self.storage_prepare_button.setEnabled(not running)
+        self.overview_preflight.setEnabled(not running and bool(self._active_id))
         self.workflow_preset_button.setEnabled(not running)
         self.workflow_checkpoint_button.setEnabled(not running)
         self.jobs_tree.setEnabled(not running)
+        self.job_output_rule.setEnabled(not running)
+        self.job_rule_apply.setEnabled(not running)
         self._update_job_actions()
 
     def _poll(self):
@@ -1169,6 +1502,7 @@ class DwmMainWindow(QMainWindow):
         if not force and key == self._render_key:
             return
         self._render_key = key
+        self._refresh_joblist_rule()
         existing = self.jobs_tree.blockSignals(True)
         self.jobs_tree.clear()
         for job in workspace.jobs:
@@ -1230,12 +1564,16 @@ class DwmMainWindow(QMainWindow):
             # Never show files belonging to a previously selected extraction.
             self.file_tree.setModel(None)
             self._file_root = None
+        self.overview_preflight.setEnabled(self._worker is None)
+        self.preflight_action.setEnabled(self._worker is None)
         self.overview_run.setEnabled(self._worker is None and not _is_waiting_status(job.status))
         self.overview_continue.setEnabled(self._worker is None and _is_waiting_status(job.status))
         self.run_action.setEnabled(self._worker is None and not _is_waiting_status(job.status))
         self.continue_action.setEnabled(self._worker is None and _is_waiting_status(job.status))
 
     def _set_empty_actions(self):
+        self.overview_preflight.setEnabled(False)
+        self.preflight_action.setEnabled(False)
         self.overview_run.setEnabled(False)
         self.overview_continue.setEnabled(False)
         self.run_action.setEnabled(False)
