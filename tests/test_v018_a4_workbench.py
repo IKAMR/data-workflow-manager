@@ -161,7 +161,8 @@ class A4QtSourceTests(unittest.TestCase):
         qt = (ROOT / "start.bat").read_text(encoding="utf-8")
         legacy = (ROOT / "start-legacy.bat").read_text(encoding="utf-8")
         self.assertIn("-m gui_qt", qt)
-        self.assertIn("py main.py", legacy)
+        self.assertIn("py -m gui.legacy_runtime_v018_a4", legacy)
+        self.assertNotIn("-m gui_qt", legacy)
 
 
 if __name__ == "__main__":

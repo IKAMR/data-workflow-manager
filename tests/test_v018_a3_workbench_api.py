@@ -162,7 +162,14 @@ class V018A3QtSourceTests(unittest.TestCase):
         self.assertIn("py %QT_PY_FLAG% -m gui_qt", qt)
         self.assertIn("Py_GIL_DISABLED", qt)
         self.assertIn("Py_GIL_DISABLED", (ROOT / "install.bat").read_text(encoding="utf-8"))
-        self.assertIn("py main.py", legacy)
+        # v0.1.8-a4 uses a dedicated entrypoint to keep the classic GUI,
+        # while earlier versions launched the same frontend through main.py.
+        self.assertTrue(
+            "py main.py" in legacy
+            or "py -m gui.legacy_runtime_v018_a4" in legacy,
+            "Legacy launcher must start the CustomTkinter frontend.",
+        )
+        self.assertNotIn("-m gui_qt", legacy)
         self.assertIn("PySide6", (ROOT / "requirements-gui.txt").read_text(encoding="utf-8"))
 
 
