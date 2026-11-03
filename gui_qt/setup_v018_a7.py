@@ -119,6 +119,8 @@ class DwmSetupDialog(QDialog):
         content_layout = QVBoxLayout(content)
         form = QFormLayout()
         form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+        form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
+        form.setVerticalSpacing(14)
         content_layout.addLayout(form)
         content_layout.addStretch(1)
         scroll.setWidget(content)

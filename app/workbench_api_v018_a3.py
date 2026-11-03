@@ -1,4 +1,4 @@
-"""Desktop-neutral workbench commands for DWM v0.1.8 through a7.
+"""Desktop-neutral workbench commands for DWM v0.1.8 through a8.
 
 The PySide6 UI and future UI implementations use this facade. It deliberately
 reuses the authoritative .n5jobs store, Job model and A39JobRunner from a1.
@@ -23,6 +23,7 @@ from app.arkade5_setup_v018_a7 import (
 )
 from app.work_output_layout import validate_app_work_subfolder
 from settings import load_config, save_config
+from app.run_log_history_v018_a8 import RunLogInfo, RunLogStore
 from noark5_workflow.core.job import Job, JobBatch, JobStatus
 
 
@@ -63,6 +64,8 @@ class DwmWorkbenchAPI(DwmApplication):
         self._dirty = False
         self._catalog = None
         self._arkade_checker = Arkade5DependencyChecker()
+        self._a8_run_writer = None
+        self._a8_log_warning = ""
 
     @property
     def dirty(self) -> bool:
@@ -482,9 +485,86 @@ class DwmWorkbenchAPI(DwmApplication):
         if report.warnings and not acknowledge_warnings:
             raise DwmApiError("Avvik krever brukerens godkjenning: " + "; ".join(
                 issue.message for issue in report.warnings))
-        return super().run_job(
-            job_id, allow_rerun=allow_rerun, continue_waiting=continue_waiting,
-        )
+        # A8: DWM already writes analysis/evidence in Work. Keep a separate,
+        # durable, flush-on-each-event human-readable log for Qt runs. Never
+        # place this under Source or silently substitute a new Work location.
+        view = next((item for item in self.workspace().jobs if item.job_id == job_id), None)
+        if view is None or not view.effective_work_operations:
+            raise DwmApiError("Jobben mangler godkjent Work operations for kjørelogg.")
+        try:
+            writer = RunLogStore(view.effective_work_operations, job_id).begin(
+                job_name=view.name, job_list_path=self.workspace().job_list_path or "",
+            )
+        except OSError as exc:
+            raise DwmApiError("Kan ikke opprette varig kjørelogg i Work: " + str(exc)) from exc
+        self._a8_run_writer = writer
+        self._a8_log_warning = ""
+        status = "failed"
+        try:
+            result = super().run_job(
+                job_id, allow_rerun=allow_rerun, continue_waiting=continue_waiting,
+            )
+            if result:
+                status = "finished"
+            else:
+                state = self._require_job(job_id).status
+                status = {
+                    JobStatus.FAILED: "failed",
+                    JobStatus.WAITING: "checkpoint",
+                    JobStatus.SKIPPED: "skipped",
+                }.get(state, "stopped")
+            return result
+        except Exception as exc:
+            try:
+                writer.append("FEIL: " + str(exc))
+            except OSError:
+                pass  # Preserve the original execution failure.
+            raise
+        finally:
+            self._a8_run_writer = None
+            try:
+                writer.finish(status)
+            except OSError as exc:
+                self._a8_log_warning = "Kjøreloggens sluttstatus kunne ikke lagres: " + str(exc)
+
+    def _emit(self, kind, job=None, *, message="", progress=None):
+        writer = getattr(self, "_a8_run_writer", None)
+        if writer is not None and job is not None and job.job_id == writer.store.job_id:
+            if kind in {"run.started", "run.log", "run.error", "run.finished", "run.cancel_requested"}:
+                line = str(message or "") if kind == "run.log" else (
+                    f"[{kind}] " + str(message or getattr(job, "message", "") or "")
+                )
+                try:
+                    writer.append(line)
+                except OSError as exc:
+                    self._a8_log_warning = "Kjøreloggen kunne ikke oppdateres: " + str(exc)
+        return super()._emit(kind, job, message=message, progress=progress)
+
+    def _a8_run_log_store(self, job_id: str) -> RunLogStore | None:
+        self._require_job(job_id)
+        view = next((item for item in self.workspace().jobs if item.job_id == job_id), None)
+        if view is None or not view.effective_work_operations:
+            return None
+        return RunLogStore(view.effective_work_operations, job_id)
+
+    def run_log_history(self, job_id: str) -> tuple[RunLogInfo, ...]:
+        store = self._a8_run_log_store(job_id)
+        return store.list_runs() if store is not None else ()
+
+    def read_run_log(self, job_id: str, run_id: str) -> str:
+        store = self._a8_run_log_store(job_id)
+        if store is None:
+            return "Ingen Work operations-mappe for denne jobben."
+        return store.read(run_id)
+
+    def saved_job_log(self, job_id: str) -> str:
+        """Fallback for older jobs that actually persisted log_entries in .n5jobs."""
+        job = self._require_job(job_id)
+        return "\n".join(str(entry) for entry in (job.log_entries or ()))
+
+    @property
+    def run_log_warning(self) -> str:
+        return self._a8_log_warning
 
     # ---------- a4: job-list editing without touching extraction/results ----------
     def _effective_path_map(self, jobs: Iterable[Job]) -> dict[str, str | None]:

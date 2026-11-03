@@ -141,7 +141,8 @@ class WorkFolderGuiContractTests(unittest.TestCase):
         ast.parse(source)
         self.assertGreaterEqual(source.count("proposal = propose_work_location("), 2)
         self.assertIn('"work_root": str(proposal.work_root)', source)
-        self.assertIn("f\"Work \u2013 operations:\\n{proposal.work_operations}", source)
+        self.assertIn('str(proposal.work_operations)', source)
+        self.assertIn('Velg annen Work-mappe', source)
 
 
 if __name__ == "__main__":

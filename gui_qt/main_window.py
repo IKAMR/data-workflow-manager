@@ -1,4 +1,4 @@
-"""Dockable desktop workbench for Data Workflow Manager v0.1.8-a7.
+"""Dockable desktop workbench for Data Workflow Manager v0.1.8-a8.
 
 Qt owns presentation only. DwmWorkbenchAPI is the authoritative job-list and
 execution boundary. The legacy CustomTkinter GUI is not imported here.
@@ -16,9 +16,9 @@ from PySide6.QtCore import QSettings, QTimer, Qt, QProcess, QUrl
 from PySide6.QtGui import QAction, QActionGroup, QDesktopServices, QFont
 from PySide6.QtWidgets import (
     QApplication, QAbstractItemView, QCheckBox, QDialog, QDialogButtonBox,
-    QDockWidget, QFileDialog, QFileSystemModel, QFormLayout, QFrame,
+    QComboBox, QDockWidget, QFileDialog, QFileSystemModel, QFormLayout, QFrame,
     QHBoxLayout, QHeaderView, QInputDialog, QLabel, QLineEdit, QMainWindow,
-    QMenu, QMessageBox, QPlainTextEdit, QPushButton, QSplitter, QStatusBar,
+    QMenu, QMessageBox, QPlainTextEdit, QProgressBar, QPushButton, QSplitter, QStatusBar,
     QTabWidget, QTableWidget, QTableWidgetItem, QToolBar, QTreeView,
     QTreeWidget, QTreeWidgetItem, QToolButton, QVBoxLayout, QWidget,
 )
@@ -30,10 +30,12 @@ from app.job_preflight_v018_a6 import (
     check_extraction_folder, propose_work_location,
 )
 from version import APP_NAME, VERSION
+from app.result_navigation_v018_a8 import latest_depot_report
+from app.run_progress_v018_a8 import saved_progress
 
 
 # Explicitly separate presentation presets from workflow/report/storage profiles.
-DOCK_NAMES = ("jobs", "workflow", "storage", "log", "info")
+DOCK_NAMES = ("jobs", "workflow", "storage", "log", "run", "system", "info")
 LAYOUT_MODES = ("Laptop", "Analyse", "Depot", "Full", "Workshop", "Topp og bunn")
 COMPLEXITY_MODES = ("Enkel", "Standard", "Avansert")
 
@@ -108,6 +110,11 @@ class DwmMainWindow(QMainWindow):
         self._file_model = None
         self._file_root: Path | None = None
         self._open_report_root: Path | None = None
+        self._job_log_selected_job: tuple[str, str, str] | None = None
+        self._job_log_last_options: tuple[tuple[str, str], ...] = ()
+        self._a8_floating_once: set[str] = set()
+        self._a8_run_context: tuple[str, str] | None = None
+        self._a8_live_job: str | None = None
 
         self.setObjectName("DwmMainWindow")
         self.setWindowTitle(f"{APP_NAME} v{VERSION} – arbeidsflate")
@@ -170,6 +177,13 @@ class DwmMainWindow(QMainWindow):
         self.overview_preflight.setToolTip("Sjekk uttrekk, lagringsroller og Work-mapper før kjøring")
         self.overview_preflight.clicked.connect(self._prepare_selected_only)
         quick.addWidget(self.overview_preflight)
+        self.overview_change_work = QPushButton("Velg annen Work-mappe…")
+        self.overview_change_work.setToolTip(
+            "Endre Work-plassering med forhåndsvisning og godkjenning. "
+            "Ingen mapper opprettes ved valget."
+        )
+        self.overview_change_work.clicked.connect(self._change_selected_work_location)
+        quick.addWidget(self.overview_change_work)
         quick.addStretch(1)
         v.addLayout(quick)
         v.addSpacing(12)
@@ -214,6 +228,9 @@ class DwmMainWindow(QMainWindow):
         b = QPushButton("Vis rapportfiler")
         b.clicked.connect(self._show_result_files)
         rbuttons.addWidget(b)
+        b = QPushButton("Åpne siste depotrapport")
+        b.clicked.connect(self._open_latest_depot_report)
+        rbuttons.addWidget(b)
         b = QPushButton("Åpne gammelt GUI for depotvurdering")
         b.clicked.connect(self._open_legacy)
         rbuttons.addWidget(b)
@@ -236,6 +253,10 @@ class DwmMainWindow(QMainWindow):
         dock.setAllowedAreas(Qt.DockWidgetArea.AllDockWidgetAreas)
         self.addDockWidget(area, dock)
         setattr(self, "dock_" + name, dock)
+        if name in {"log", "run", "system"}:
+            dock.topLevelChanged.connect(
+                lambda floating, n=name: self._a8_dock_floating(n, floating)
+            )
         return dock
 
     def _create_docks(self):
@@ -353,21 +374,73 @@ class DwmMainWindow(QMainWindow):
         self.storage_prepare_button = QPushButton("Kontroller og klargjør Work…")
         self.storage_prepare_button.clicked.connect(self._prepare_selected_only)
         s.addWidget(self.storage_prepare_button)
+        self.storage_change_work = QPushButton("Velg annen Work-mappe…")
+        self.storage_change_work.clicked.connect(self._change_selected_work_location)
+        s.addWidget(self.storage_change_work)
         self._dock("storage", "Kilde og lagring", storage, Qt.DockWidgetArea.RightDockWidgetArea)
 
+        # A8: three independent dockable views, not a mixed session log.
         logger = QWidget()
         l = QVBoxLayout(logger)
-        self.log_text = QPlainTextEdit()
-        self.log_text.setReadOnly(True)
-        self.log_text.setMaximumBlockCount(2500)
-        l.addWidget(self.log_text, 1)
+        log_row = QHBoxLayout()
+        log_row.addWidget(QLabel("Kjøring:"))
+        self.job_run_combo = QComboBox()
+        self.job_run_combo.setMinimumWidth(120)
+        self.job_run_combo.setToolTip("Velg tidligere kjøring for den aktive jobben")
+        self.job_run_combo.currentIndexChanged.connect(self._a8_show_selected_run)
+        log_row.addWidget(self.job_run_combo, 1)
+        refresh = QPushButton("Oppdater")
+        refresh.clicked.connect(lambda: self._a8_refresh_job_log(force=True))
+        log_row.addWidget(refresh)
+        l.addLayout(log_row)
+        self.job_log_text = QPlainTextEdit()
+        self.job_log_text.setReadOnly(True)
+        self.job_log_text.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
+        self.job_log_text.setMaximumBlockCount(10000)
+        l.addWidget(self.job_log_text, 1)
         logtools = QHBoxLayout()
+        self.log_follow = QCheckBox("Følg siste linje")
+        self.log_follow.setChecked(self.config.value("qt/a8_log_follow", True, type=bool))
+        self.log_follow.toggled.connect(lambda value: self.config.setValue("qt/a8_log_follow", value))
+        logtools.addWidget(self.log_follow)
         clear = QPushButton("Tøm visning")
-        clear.clicked.connect(self.log_text.clear)
+        clear.setToolTip("Tøm bare visningen, ikke den lagrede kjøreloggen")
+        clear.clicked.connect(self.job_log_text.clear)
         logtools.addWidget(clear)
+        self.log_window_button = QPushButton("Eget vindu")
+        self.log_window_button.setToolTip("Frikoble eller feste Kjørelogg til hovedvinduet")
+        self.log_window_button.clicked.connect(self._a8_float_job_log)
+        logtools.addWidget(self.log_window_button)
         logtools.addStretch(1)
         l.addLayout(logtools)
-        self._dock("log", "Kjøreløp og logg", logger, Qt.DockWidgetArea.BottomDockWidgetArea)
+        self._dock("log", "Kjørelogg", logger, Qt.DockWidgetArea.BottomDockWidgetArea)
+        self._a8_update_log_window_buttons()
+
+        flow_progress = QWidget()
+        rp = QVBoxLayout(flow_progress)
+        self.run_summary = _muted("Ingen kjøring startet i denne økten.")
+        rp.addWidget(self.run_summary)
+        self.run_progress_bar = QProgressBar()
+        self.run_progress_bar.setRange(0, 100)
+        rp.addWidget(self.run_progress_bar)
+        self.run_events = QPlainTextEdit()
+        self.run_events.setReadOnly(True)
+        self.run_events.setMaximumBlockCount(400)
+        rp.addWidget(self.run_events, 1)
+        self._dock("run", "Kjøreløp", flow_progress, Qt.DockWidgetArea.BottomDockWidgetArea)
+
+        system = QWidget()
+        sy = QVBoxLayout(system)
+        sy.addWidget(_muted("Hendelser i GUI, åpning av jobblister og Setup. "
+                            "Kjøreloggen for en jobb ligger i eget panel."))
+        self.system_text = QPlainTextEdit()
+        self.system_text.setReadOnly(True)
+        self.system_text.setMaximumBlockCount(2500)
+        sy.addWidget(self.system_text, 1)
+        sysclear = QPushButton("Tøm systemvisning")
+        sysclear.clicked.connect(self.system_text.clear)
+        sy.addWidget(sysclear)
+        self._dock("system", "Systemlogg", system, Qt.DockWidgetArea.BottomDockWidgetArea)
 
         info = QWidget()
         i = QVBoxLayout(info)
@@ -387,6 +460,8 @@ class DwmMainWindow(QMainWindow):
         self.splitDockWidget(self.dock_jobs, self.dock_workflow, Qt.Orientation.Vertical)
         self.tabifyDockWidget(self.dock_storage, self.dock_info)
         self.dock_storage.raise_()
+        self.dock_run.hide()
+        self.dock_system.hide()
 
     # ---------- Menus and layout persistence ----------
     def _action(self, title, method, shortcut: str | None = None):
@@ -434,6 +509,17 @@ class DwmMainWindow(QMainWindow):
         view = mb.addMenu("Vis")
         for name in DOCK_NAMES:
             view.addAction(getattr(self, "dock_" + name).toggleViewAction())
+        view.addSeparator()
+        self.show_job_log_action = self._action("Vis kjørelogg", self._a8_show_job_log)
+        view.addAction(self.show_job_log_action)
+        self.float_job_log_action = self._action("Åpne kjørelogg i eget vindu", self._a8_float_job_log)
+        view.addAction(self.float_job_log_action)
+        self._a8_update_log_window_buttons()
+        self.auto_show_log_action = self._action("Vis kjørelogg automatisk ved jobbstart", lambda: None)
+        self.auto_show_log_action.setCheckable(True)
+        self.auto_show_log_action.setChecked(self.config.value("qt/a8_auto_show_log", True, type=bool))
+        self.auto_show_log_action.toggled.connect(lambda value: self.config.setValue("qt/a8_auto_show_log", value))
+        view.addAction(self.auto_show_log_action)
         view.addSeparator()
         preset = view.addMenu("Arbeidsflate")
         self._layout_actions = {}
@@ -490,6 +576,7 @@ class DwmMainWindow(QMainWindow):
         toolbar.addWidget(self.complexity_tool)
         toolbar.addSeparator()
         toolbar.addAction(self.setup_action)
+        toolbar.addAction(self.show_job_log_action)
         self._toolbar = toolbar
         self._refresh_recent_menu()
 
@@ -511,12 +598,18 @@ class DwmMainWindow(QMainWindow):
             "bottom": Qt.DockWidgetArea.BottomDockWidgetArea,
             "top": Qt.DockWidgetArea.TopDockWidgetArea,
         }
-        for key in DOCK_NAMES:
+        for key in ("jobs", "workflow", "storage", "log", "info"):
             dock = getattr(self, "dock_" + key)
             dock.setFloating(False)
             self.removeDockWidget(dock)
             self.addDockWidget(area_map[target[key]], dock)
             dock.show()
+        for key in ("run", "system"):
+            dock = getattr(self, "dock_" + key)
+            dock.setFloating(False)
+            self.removeDockWidget(dock)
+            self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, dock)
+            dock.hide()
         if name in {"Laptop", "Full", "Analyse"}:
             self.splitDockWidget(self.dock_jobs, self.dock_workflow, Qt.Orientation.Vertical)
         if name == "Full":
@@ -545,7 +638,7 @@ class DwmMainWindow(QMainWindow):
         else:
             self.dock_storage.hide()
             self.dock_info.hide()
-            self.dock_log.hide()
+            self.dock_log.show()
             self._set_complexity("Enkel")
             self.pages.setCurrentIndex(0)
         if name == "Full":
@@ -714,8 +807,8 @@ class DwmMainWindow(QMainWindow):
                 # Avoid restoring a wider window than the active laptop monitor.
                 owner = next((area for area in geometries if area.intersects(geo)), safe)
                 if geo.width() > owner.width() or geo.height() > owner.height():
-                    self.resize(min(max(self.minimumWidth(), 720), owner.width()),
-                                min(max(self.minimumHeight(), 480), owner.height()))
+                    self.resize(min(self.width(), owner.width()),
+                                min(self.height(), owner.height()))
 
     # ---------- Job list & editable context ----------
     def _maybe_save(self) -> bool:
@@ -752,6 +845,10 @@ class DwmMainWindow(QMainWindow):
         self._active_id = self.api.workspace().active_job_id
         self._remember_joblist(path)
         self._render_key = None
+        self._job_log_selected_job = None
+        self._job_log_last_options = ()
+        self._a8_run_context = None
+        self._a8_live_job = None
         self._append_log(f"Åpnet jobbliste: {path}")
         self._refresh(force=True)
 
@@ -765,6 +862,8 @@ class DwmMainWindow(QMainWindow):
             return
         self._active_id = None
         self._render_key = None
+        self._a8_run_context = None
+        self._a8_live_job = None
         self.config.setValue("qt/skip_auto_reopen", True)
         self.config.setValue("qt/last_job_list", "")
         self._refresh_recent_menu()
@@ -1266,11 +1365,107 @@ class DwmMainWindow(QMainWindow):
             self._refresh(force=True)
             QMessageBox.information(self, "Klargjøring", "Jobben er kontrollert og klar for kjøring.")
 
-    def _review_preflight(self, job_ids: tuple[str, ...]) -> set[str] | None:
-        """Run preflight on the GUI thread; NEVER create folders by default.
+    def _change_selected_work_location(self):
+        """Explicit Work selection, also available after a previous proposal."""
+        if self._active_id and self._worker is None and not self.api.running:
+            self._choose_work_location(self._active_id)
 
-        Return IDs for which the user explicitly acknowledged warnings. None
-        means cancel/block, and no run may start.
+    def _choose_work_location(self, job_id: str) -> bool:
+        """Select, preview and approve Work roles; never mkdir or change Source.
+
+        The role update remains in-memory until the user saves the job list.
+        Existing results are not moved when a user changes the Work base.
+        """
+        try:
+            details = self.api.job_details(job_id)
+        except Exception as exc:
+            self._error(exc)
+            return False
+        previous = details.storage
+        current_work = previous.get("work_root") or previous.get("work_operations") or ""
+        starting = current_work if Path(current_work).is_dir() else ""
+        while True:
+            selected = QFileDialog.getExistingDirectory(
+                self, "Velg Work-hovedmappe eller repository_operations for " + job_id,
+                starting,
+            )
+            if not selected:
+                return False
+            starting = selected
+            try:
+                proposal = propose_work_location(
+                    selected,
+                    app_subfolder=str(self.api.settings.get("app_work_subfolder", "dwm") or ""),
+                )
+            except ValueError as exc:
+                QMessageBox.warning(self, "Ugyldig Work-valg", str(exc))
+                continue
+            app_folder = str(self.api.settings.get("app_work_subfolder", "dwm") or "").strip()
+            rule = str(self.api.output_subfolder_rule or "").strip()
+            suffix = (app_folder + " / " if app_folder else "") + (rule or "(ingen jobbregel)")
+            preview = QMessageBox(self)
+            preview.setWindowTitle("Bekreft Work-plassering – " + job_id)
+            preview.setIcon(QMessageBox.Icon.Question)
+            preview.setText("DWM foreslår følgende lagringsroller:")
+            preview.setInformativeText(
+                "Valgt mappe:\n" + str(proposal.selected)
+                + "\n\nWork – hovedmappe:\n" + str(proposal.work_root)
+                + "\n\nWork – operations:\n" + str(proposal.work_operations)
+                + "\n\nUndermapper etter gjeldende regler:\n" + suffix
+                + "\n\nEksisterende Work – operations:\n"
+                + (previous.get("work_operations") or "(ikke angitt)")
+                + "\n\nIngen filer eller mapper opprettes, flyttes eller slettes nå. "
+                  "Ny plassering må klargjøres og godkjennes før kjøring."
+            )
+            use = preview.addButton("Bruk denne mappen", QMessageBox.ButtonRole.AcceptRole)
+            again = preview.addButton("Velg annen mappe", QMessageBox.ButtonRole.ActionRole)
+            cancel = preview.addButton("Avbryt", QMessageBox.ButtonRole.RejectRole)
+            preview.setDefaultButton(cancel)
+            preview.exec()
+            if preview.clickedButton() is again:
+                continue
+            if preview.clickedButton() is not use:
+                return False
+            changes = {
+                "work_root": str(proposal.work_root),
+                "work_operations": str(proposal.work_operations),
+            }
+            if all(previous.get(field, "") == value for field, value in changes.items()):
+                return True
+            try:
+                self.api.update_storage(job_id, changes)
+                errors = self.api.check_storage()
+                if errors:
+                    self.api.update_storage(job_id, {
+                        "work_root": previous.get("work_root", ""),
+                        "work_operations": previous.get("work_operations", ""),
+                    })
+                    QMessageBox.warning(self, "Work-konflikt", "\n".join(errors))
+                    continue
+            except Exception as exc:
+                try:
+                    self.api.update_storage(job_id, {
+                        "work_root": previous.get("work_root", ""),
+                        "work_operations": previous.get("work_operations", ""),
+                    })
+                except Exception:
+                    pass
+                self._error(exc)
+                return False
+            self._file_root = None
+            self._open_report_root = None
+            self._job_log_selected_job = None
+            self._refresh(force=True)
+            self.statusBar().showMessage(
+                "Work-plassering valgt. Kontroller / klargjør og lagre jobblisten.", 7000,
+            )
+            return True
+
+    def _review_preflight(self, job_ids: tuple[str, ...]) -> set[str] | None:
+        """Read-only checks, with explicit consent for every Work mutation.
+
+        The user may choose a different Work directory *inside* the approval
+        flow. Cancel never starts execution or creates folders.
         """
         approved_warnings: set[str] = set()
         global_errors = self.api.check_storage()
@@ -1278,123 +1473,92 @@ class DwmMainWindow(QMainWindow):
             QMessageBox.warning(self, "Lagringskontroll", "\n".join(global_errors))
             return None
         for job_id in job_ids:
-            try:
-                report = self.api.preflight_job(job_id)
-            except Exception as exc:
-                self._error(exc)
-                return None
-            if any(item.code == "WORK_NOT_CONFIGURED" for item in report.errors):
-                answer = QMessageBox.question(
-                    self, "Work mangler – " + job_id,
-                    "Work – operations er ikke valgt.\n\n"
-                    "Vil du velge en eksisterende Work-hovedmappe? "
-                    "DWM foreslår da repository_operations / dwm / eventuell jobb-undermappe. "
-                    "Ingenting opprettes uten etterfølgende godkjenning.",
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                    QMessageBox.StandardButton.No,
-                )
-                if answer != QMessageBox.StandardButton.Yes:
-                    return None
-                location = QFileDialog.getExistingDirectory(
-                    self, "Velg Work-hovedmappe for " + job_id, "",
-                )
-                if not location:
-                    return None
+            for _attempt in range(12):
                 try:
-                    proposal = propose_work_location(
-                        location,
-                        app_subfolder=str(self.api.settings.get("app_work_subfolder", "dwm") or ""),
-                    )
-                except ValueError as exc:
-                    QMessageBox.warning(self, "Ugyldig Work-valg", str(exc))
-                    return None
-                answer = QMessageBox.question(
-                    self, "Kontroller Work-plassering – " + job_id,
-                    f"Du valgte:\n{proposal.selected}\n\n"
-                    f"Work – hovedmappe:\n{proposal.work_root}\n\n"
-                    f"Work – operations:\n{proposal.work_operations}\n\n"
-                    "DWM legger ikke til repository_operations hvis mappen allerede "
-                    "er valgt. Godkjenne denne lagringsrollen? "
-                    "Ingen mapper opprettes før neste godkjenning.",
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                    QMessageBox.StandardButton.No,
-                )
-                if answer != QMessageBox.StandardButton.Yes:
-                    return None
-                try:
-                    self.api.update_storage(job_id, {"work_root": str(proposal.work_root)})
                     report = self.api.preflight_job(job_id)
                 except Exception as exc:
                     self._error(exc)
                     return None
-            if report.errors:
-                arkade_error = any(issue.code.startswith("ARKADE5_CLI_") for issue in report.errors)
-                next_action = (
-                    "Vil du åpne Setup og rette Arkade 5 CLI nå?"
-                    if arkade_error else "Vil du åpne lagringsrollene og rette valgene nå?"
-                )
-                response = QMessageBox.question(
-                    self, "Kontroll før kjøring – " + job_id,
-                    "Kjøring er blokkert fordi følgende må rettes:\n\n"
-                    + "\n".join("• " + issue.message for issue in report.errors)
-                    + "\n\n" + next_action,
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                    QMessageBox.StandardButton.Yes,
-                )
-                if response == QMessageBox.StandardButton.Yes:
-                    self._active_id = job_id
-                    if arkade_error:
-                        self._open_setup()
-                    else:
-                        self._edit_storage()
-                return None  # Re-check after Setup/edit; never auto-run.
-
-            if report.actions or report.warnings:
-                details = []
-                if report.warnings:
-                    details.extend("AVVIK: " + issue.message for issue in report.warnings)
-                if report.actions:
-                    details.extend("GODKJENN: " + action.description + "\n  " + action.path
-                                   for action in report.actions)
-                dialog = QMessageBox(self)
-                dialog.setIcon(QMessageBox.Icon.Question)
-                dialog.setWindowTitle("Godkjenn klargjøring – " + job_id)
-                dialog.setText(
-                    "DWM har funnet forhold som krever ditt samtykke. "
-                    "Source endres aldri, og eksisterende data slettes ikke."
-                )
-                dialog.setInformativeText(
-                    "\n\n".join(details)
-                    + "\n\nVelg Ja for å godkjenne de viste endringene/avvikene. "
-                    "Velg Nei for å avbryte uten å opprette mapper."
-                )
-                dialog.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-                dialog.setDefaultButton(QMessageBox.StandardButton.No)
-                if dialog.exec() != QMessageBox.StandardButton.Yes:
-                    self._append_log(f"{job_id}: Preflight avbrutt av bruker. Ingen kjøring startet.")
+                if any(issue.code in {"WORK_NOT_CONFIGURED", "WORK_ROOT_AMBIGUOUS"}
+                       for issue in report.errors):
+                    if not self._choose_work_location(job_id):
+                        return None
+                    continue
+                if report.errors:
+                    arkade_error = any(issue.code.startswith("ARKADE5_CLI_") for issue in report.errors)
+                    response = QMessageBox.question(
+                        self, "Kontroll før kjøring – " + job_id,
+                        "Kjøring er blokkert:\n\n"
+                        + "\n".join("• " + issue.message for issue in report.errors)
+                        + "\n\n"
+                        + ("Åpne Setup for å rette CLI?" if arkade_error
+                           else "Åpne lagringsrollene for å rette valgene?"),
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                        QMessageBox.StandardButton.Yes,
+                    )
+                    if response == QMessageBox.StandardButton.Yes:
+                        self._active_id = job_id
+                        if arkade_error:
+                            self._open_setup()
+                        else:
+                            self._edit_storage()
+                    return None  # Recheck explicitly; never auto-run after edits.
+                if report.actions or report.warnings:
+                    details = []
+                    if report.warnings:
+                        details.extend("AVVIK: " + issue.message for issue in report.warnings)
+                    if report.actions:
+                        details.extend("GODKJENN: " + action.description + "\n  " + action.path
+                                       for action in report.actions)
+                    dialog = QMessageBox(self)
+                    dialog.setIcon(QMessageBox.Icon.Question)
+                    dialog.setWindowTitle("Godkjenn klargjøring – " + job_id)
+                    dialog.setText("DWM har funnet forhold som krever ditt samtykke.")
+                    dialog.setInformativeText(
+                        "\n\n".join(details)
+                        + "\n\nSource endres aldri; eksisterende data flyttes eller slettes ikke."
+                    )
+                    approve = dialog.addButton("Godkjenn og klargjør", QMessageBox.ButtonRole.AcceptRole)
+                    choose = dialog.addButton("Velg annen Work-mappe", QMessageBox.ButtonRole.ActionRole)
+                    cancel = dialog.addButton("Avbryt", QMessageBox.ButtonRole.RejectRole)
+                    dialog.setDefaultButton(cancel)
+                    dialog.exec()
+                    if dialog.clickedButton() is choose:
+                        if not self._choose_work_location(job_id):
+                            return None
+                        continue  # New proposal must always go through preflight again.
+                    if dialog.clickedButton() is not approve:
+                        self._append_log(f"{job_id}: Klargjøring avbrutt uten mappeopprettelse.")
+                        return None
+                    approved_warnings.add(job_id)
+                    if report.actions:
+                        try:
+                            after = self.api.provision_preflight(
+                                job_id, approved_report=report, consent=True,
+                            )
+                        except Exception as exc:
+                            self._error(exc)
+                            return None
+                        if after.errors or after.actions:
+                            QMessageBox.warning(
+                                self, "Klargjøring", "Fortsatt uavklarte forhold. Kontroller på nytt.",
+                            )
+                            return None
+                        self._append_log(f"{job_id}: Godkjente Work/AIP-mapper er klargjort.")
+                try:
+                    final = self.api.preflight_job(job_id)
+                except Exception as exc:
+                    self._error(exc)
                     return None
-                approved_warnings.add(job_id)
-                if report.actions:
-                    try:
-                        after = self.api.provision_preflight(job_id, approved_report=report, consent=True)
-                    except Exception as exc:
-                        self._error(exc)
-                        return None
-                    if after.errors or after.actions:
-                        QMessageBox.warning(self, "Klargjøring", "Det er fortsatt uavklarte forhold. Kontroller på nytt.")
-                        return None
-                    self._append_log(f"{job_id}: Work/AIP-mapper opprettet etter godkjenning.")
-            # Re-check immediately before run: never trust stale paths blindly.
-            try:
-                final = self.api.preflight_job(job_id)
-            except Exception as exc:
-                self._error(exc)
-                return None
-            if final.errors or final.actions:
-                QMessageBox.warning(self, "Klargjøring", "Lagringsforholdene er endret. Kontroller på nytt.")
-                return None
-            if final.warnings and job_id not in approved_warnings:
-                QMessageBox.warning(self, "Klargjøring", "Avvik må godkjennes før kjøring.")
+                if final.errors or final.actions:
+                    QMessageBox.warning(self, "Klargjøring", "Lagringsforholdene er endret. Kontroller på nytt.")
+                    return None
+                if final.warnings and job_id not in approved_warnings:
+                    QMessageBox.warning(self, "Klargjøring", "Avvik må godkjennes før kjøring.")
+                    return None
+                break
+            else:
+                QMessageBox.warning(self, "Klargjøring", "For mange endringer. Start kontrollen på nytt.")
                 return None
         return approved_warnings
 
@@ -1455,6 +1619,8 @@ class DwmMainWindow(QMainWindow):
         self.overview_continue.setEnabled(not running)
         self.storage_edit_button.setEnabled(not running)
         self.storage_prepare_button.setEnabled(not running)
+        self.storage_change_work.setEnabled(not running)
+        self.overview_change_work.setEnabled(not running)
         self.overview_preflight.setEnabled(not running and bool(self._active_id))
         self.workflow_preset_button.setEnabled(not running)
         self.workflow_checkpoint_button.setEnabled(not running)
@@ -1463,12 +1629,194 @@ class DwmMainWindow(QMainWindow):
         self.job_rule_apply.setEnabled(not running)
         self._update_job_actions()
 
+    # ---------- A8: durable job history and independent dock windows ----------
+    def _a8_show_job_log(self):
+        self.dock_log.show()
+        self.dock_log.raise_()
+        self._a8_refresh_job_log(force=True)
+
+    def _a8_float_job_log(self):
+        """Toggle the SAME dock between floating and docked; never clone the log."""
+        self._a8_show_job_log()
+        floating = not self.dock_log.isFloating()
+        self.dock_log.setFloating(floating)
+        if floating:
+            self.dock_log.raise_()
+            self.dock_log.activateWindow()
+        self._a8_update_log_window_buttons()
+
+    def _a8_update_log_window_buttons(self):
+        dock = getattr(self, "dock_log", None)
+        floating = bool(dock is not None and dock.isFloating())
+        button = getattr(self, "log_window_button", None)
+        if button is not None:
+            button.setText("Fest til hovedvindu" if floating else "Eget vindu")
+        action = getattr(self, "float_job_log_action", None)
+        if action is not None:
+            action.setText(
+                "Fest kjørelogg til hovedvindu" if floating
+                else "Åpne kjørelogg i eget vindu"
+            )
+
+    def _a8_dock_floating(self, name: str, floating: bool):
+        if name == "log":
+            self._a8_update_log_window_buttons()
+        if not floating:
+            return
+        dock = getattr(self, "dock_" + name)
+        if name not in self._a8_floating_once:
+            self._a8_floating_once.add(name)
+            if dock.width() < 680 or dock.height() < 380:
+                dock.resize(940, 540)
+        self._recover_windows()
+
+    def _a8_refresh_job_log(self, *, force: bool = False):
+        job_id = self._active_id
+        if not job_id:
+            self._job_log_selected_job = None
+            self._job_log_last_options = ()
+            self.job_run_combo.blockSignals(True)
+            self.job_run_combo.clear()
+            self.job_run_combo.blockSignals(False)
+            self.job_log_text.setPlainText("Velg en jobb for å se kjøreloggen.")
+            return
+        workspace = self.api.workspace()
+        view = next((row for row in workspace.jobs if row.job_id == job_id), None)
+        key = (workspace.job_list_path or "", job_id,
+               str(view.effective_work_operations or "") if view else "")
+        try:
+            runs = self.api.run_log_history(job_id)
+            legacy_text = self.api.saved_job_log(job_id)
+            details = self.api.job_details(job_id)
+            snapshot = saved_progress(details)
+        except Exception as exc:
+            self.job_log_text.setPlainText("Kan ikke hente jobblogg: " + str(exc))
+            return
+        options = tuple((run.run_id, run.status) for run in runs)
+        if legacy_text:
+            options += (("__legacy__", "saved"),)
+        # Even when a7 did not persist individual log lines, show useful
+        # historical state rather than claiming that the whole job is empty.
+        options += (("__snapshot__", snapshot.title),)
+        job_changed = key != self._job_log_selected_job
+        changed = options != self._job_log_last_options
+        if job_changed or changed:
+            previous = self.job_run_combo.currentData() if not job_changed else None
+            self.job_run_combo.blockSignals(True)
+            self.job_run_combo.clear()
+            for run in runs:
+                label = f"{run.started_at.replace('T', ' ')[:19]}  ·  {run.status}"
+                self.job_run_combo.addItem(label, run.run_id)
+            if legacy_text:
+                self.job_run_combo.addItem("Eldre loggoppføringer fra jobblisten", "__legacy__")
+            self.job_run_combo.addItem("Lagret jobbstatus (ikke detaljlogg)", "__snapshot__")
+            wanted = previous if any(item[0] == previous for item in options) else options[0][0]
+            idx = self.job_run_combo.findData(wanted)
+            self.job_run_combo.setCurrentIndex(max(0, idx))
+            self.job_run_combo.blockSignals(False)
+            self._job_log_selected_job = key
+            self._job_log_last_options = options
+        if force or job_changed or changed:
+            self._a8_show_selected_run()
+
+    def _a8_show_selected_run(self, _index=None):
+        job_id = self._active_id
+        if not job_id:
+            return
+        run_id = self.job_run_combo.currentData()
+        if run_id == "__legacy__":
+            content = self.api.saved_job_log(job_id)
+        elif run_id == "__snapshot__":
+            content = saved_progress(self.api.job_details(job_id)).log_text
+        elif run_id:
+            try:
+                content = self.api.read_run_log(job_id, run_id)
+            except (OSError, ValueError) as exc:
+                content = "Kunne ikke åpne lagret kjørelogg: " + str(exc)
+        else:
+            content = "Velg en jobb og en kjøring for å se kjøreloggen."
+        scrollbar = self.job_log_text.verticalScrollBar()
+        position = scrollbar.value()
+        self.job_log_text.setPlainText(content)
+        if self.log_follow.isChecked():
+            scrollbar.setValue(scrollbar.maximum())
+        else:
+            scrollbar.setValue(min(position, scrollbar.maximum()))
+
+    def _a8_restore_run_context(self, *, force: bool = False):
+        """Show persisted per-operation state when opening/switching jobs.
+
+        A job list snapshot is not presented as a recovered chronological log.
+        """
+        workspace = self.api.workspace()
+        key = (workspace.job_list_path or "", self._active_id or "")
+        if key == self._a8_run_context and not force:
+            return
+        self._a8_run_context = key
+        if not self._active_id:
+            self.run_summary.setText("Velg en jobb for å se kjøreløp og lagret status.")
+            self.run_progress_bar.setValue(0)
+            self.run_events.clear()
+            self._a8_live_job = None
+            return
+        try:
+            snapshot = saved_progress(self.api.job_details(self._active_id))
+        except Exception as exc:
+            self.run_summary.setText("Kan ikke hente lagret jobbstatus: " + str(exc))
+            self.run_progress_bar.setValue(0)
+            self.run_events.clear()
+            return
+        self.run_summary.setText(snapshot.title)
+        self.run_progress_bar.setValue(snapshot.percent)
+        self.run_events.setPlainText(
+            "Lagret operasjonsstatus (ikke en gjenskapt kjørelogg):\n"
+            + "\n".join(snapshot.lines)
+        )
+        self._a8_live_job = None
+
+    def _a8_process_run_event(self, event):
+        job_id = event.job_id or ""
+        if job_id != self._active_id:
+            return
+        message = str(event.message or "")
+        if event.kind == "run.started":
+            self._a8_live_job = job_id
+            self.run_events.clear()
+            self.run_events.appendPlainText(f"{job_id}: Startet")
+            self.run_summary.setText(f"Kjører {job_id} – operasjonene oppdateres fortløpende")
+            self.run_progress_bar.setValue(0)
+            if self.auto_show_log_action.isChecked():
+                self._a8_show_job_log()
+        elif event.kind == "run.progress":
+            self.run_summary.setText(f"{job_id}: {message[:180]}")
+            if event.progress is not None:
+                self.run_progress_bar.setValue(round(100 * float(event.progress)))
+        elif event.kind == "run.state":
+            if event.progress is not None:
+                self.run_progress_bar.setValue(round(100 * float(event.progress)))
+        elif event.kind == "run.log":
+            if message.startswith(("START:", "OK:", "FEIL:", "AVBRUTT")):
+                self.run_events.appendPlainText(f"{job_id}: {message[:280]}")
+        elif event.kind in {"run.error", "run.finished", "run.cancel_requested"}:
+            self.run_events.appendPlainText(f"{job_id}: {event.kind} {message}")
+            if event.kind == "run.finished":
+                self.run_summary.setText(f"{job_id}: Kjøringen er avsluttet")
+                self.run_progress_bar.setValue(round(100 * float(event.progress or 0)))
+            if event.kind == "run.error":
+                self.run_summary.setText(f"{job_id}: Feil – {message[:180]}")
+            if event.kind in {"run.finished", "run.error"}:
+                self._a8_live_job = None
+
     def _poll(self):
         events = self.api.poll_events(150)
+        job_log_changed = False
         for event in events:
-            if event.kind in {"run.log", "run.error", "run.finished", "run.cancel_requested"}:
-                message = event.message or (f"{event.job_id}: {event.kind}" if event.job_id else event.kind)
-                self._append_log(message)
+            if event.kind.startswith("run."):
+                self._a8_process_run_event(event)
+                if event.kind in {"run.log", "run.error", "run.finished", "run.started"}:
+                    job_log_changed = job_log_changed or event.job_id == self._active_id
+            elif event.kind in {"joblist.opened", "joblist.new"}:
+                self._append_log(f"{event.kind}: {event.message}")
         try:
             while True:
                 kind, data = self._worker_messages.get_nowait()
@@ -1482,15 +1830,20 @@ class DwmMainWindow(QMainWindow):
                     self._append_log(data)
                     self._worker = None
                     self._set_running_ui(False)
+                    self._a8_refresh_job_log(force=True)
+                    if self.api.run_log_warning:
+                        self._append_log("ADVARSEL: " + self.api.run_log_warning)
         except Empty:
             pass
         self._refresh(force=any(event.kind in {"joblist.opened", "run.state", "run.finished", "job.selected"} for event in events))
+        if job_log_changed or any(event.kind == "run.started" for event in events):
+            self._a8_refresh_job_log(force=True)
 
     def _append_log(self, message: str):
         content = str(message or "")
         if len(content) > 4500:
             content = content[:4500] + "\n[Loggvisning avkortet; råresultat bevares i DWM-arbeidsområdet.]"
-        self.log_text.appendPlainText(content)
+        self.system_text.appendPlainText(content)
 
     # ---------- Read models and result navigation ----------
     def _refresh(self, *, force: bool = False):
@@ -1531,6 +1884,8 @@ class DwmMainWindow(QMainWindow):
             self.workflow_label.setText("Velg en jobb.")
             self.results_root_label.setText("Ingen resultatområde valgt")
             self._set_empty_actions()
+            self._a8_restore_run_context()
+            self._a8_refresh_job_log(force=True)
             return
         try:
             details = self.api.job_details(self._active_id)
@@ -1570,6 +1925,10 @@ class DwmMainWindow(QMainWindow):
         self.overview_continue.setEnabled(self._worker is None and _is_waiting_status(job.status))
         self.run_action.setEnabled(self._worker is None and not _is_waiting_status(job.status))
         self.continue_action.setEnabled(self._worker is None and _is_waiting_status(job.status))
+        self.overview_change_work.setEnabled(self._worker is None)
+        self.storage_change_work.setEnabled(self._worker is None)
+        self._a8_restore_run_context()
+        self._a8_refresh_job_log()
 
     def _set_empty_actions(self):
         self.overview_preflight.setEnabled(False)
@@ -1578,6 +1937,8 @@ class DwmMainWindow(QMainWindow):
         self.overview_continue.setEnabled(False)
         self.run_action.setEnabled(False)
         self.continue_action.setEnabled(False)
+        self.overview_change_work.setEnabled(False)
+        self.storage_change_work.setEnabled(False)
 
     def _page_changed(self, _index):
         # Never walk a work directory automatically at page change.
@@ -1610,6 +1971,16 @@ class DwmMainWindow(QMainWindow):
         path = Path(self._file_model.filePath(index))
         if path.is_file():
             QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
+
+    def _open_latest_depot_report(self):
+        report = latest_depot_report(self._open_report_root)
+        if report is None:
+            QMessageBox.information(
+                self, "Depotrapport", "Ingen generert depotrapport ble funnet for aktiv jobb. "
+                "Bruk Resultater / filer for å undersøke Work operations."
+            )
+            return
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(report)))
 
     def _open_work_dir(self):
         if self._open_report_root and self._open_report_root.is_dir():
