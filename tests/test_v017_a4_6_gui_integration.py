@@ -24,13 +24,23 @@ class A46GuiIntegrationTests(unittest.TestCase):
         entry = (ROOT / 'gui/persistent_app_a27_2.py').read_text(encoding='utf-8')
         a47 = (ROOT / 'gui/persistent_app_a4_7_runtime.py').read_text(encoding='utf-8')
         ast.parse(entry)
-        ast.parse(a47)
-        # a19 adds an explicit receiving GUI layer, but the a18 runtime must
-        # remain its parent. Do not regress to loading a legacy GUI class.
+        tree = ast.parse(a47)
+        # The current runtime must retain A46 as the underlying GUI baseline.
+        # New UI-only mixins (such as the v0.1.8-a2 embedded workbench) are
+        # allowed ahead of that baseline without changing the job engine.
         self.assertIn('from .persistent_app_a4_7_runtime import WorkflowApp as CurrentWorkflowApp', entry)
         self.assertIn('app = CurrentWorkflowApp()', entry)
         self.assertIn('from .persistent_app_a4_6_runtime import WorkflowApp as A46WorkflowApp', a47)
-        self.assertIn('class WorkflowApp(A46WorkflowApp):', a47)
+        workflow = next(
+            node for node in tree.body
+            if isinstance(node, ast.ClassDef) and node.name == 'WorkflowApp'
+        )
+        bases = [ast.unparse(base) for base in workflow.bases]
+        self.assertTrue(bases, 'WorkflowApp must retain its runtime base class')
+        self.assertEqual(bases[-1], 'A46WorkflowApp')
+        if 'EmbeddedJobsMixin' in bases:
+            self.assertEqual(bases[0], 'EmbeddedJobsMixin')
+            self.assertIn('from .embedded_jobs_v018_a2 import EmbeddedJobsMixin', a47)
 
     def test_buttons_and_splitter(self):
         source = (ROOT / 'gui/persistent_app_a4_6_runtime.py').read_text(encoding='utf-8')

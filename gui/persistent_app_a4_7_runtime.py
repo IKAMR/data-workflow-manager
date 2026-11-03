@@ -1,16 +1,25 @@
-"""Receiving-folder action added to the current, stable DWM runtime."""
+"""Receiving-folder action added to the current, stable DWM runtime.
+
+v0.1.8-a2 adds a laptop workbench while retaining the same job engine.
+"""
 from __future__ import annotations
 
 import customtkinter as ctk
 
 from . import theme
+from .embedded_jobs_v018_a2 import EmbeddedJobsMixin
 from .persistent_app_a4_6_runtime import WorkflowApp as A46WorkflowApp
 
 
-class WorkflowApp(A46WorkflowApp):
+class WorkflowApp(EmbeddedJobsMixin, A46WorkflowApp):
     def __init__(self):
         super().__init__()
         self._install_receiving_folder_action()
+        self._a2_install_workbench()
+
+    def _v017_restore_job_list_window(self):
+        """a2 starts with embedded Jobs, not a restored floating Jobbliste."""
+        return
 
     def _install_receiving_folder_action(self):
         if getattr(self, 'receiving_folder_button', None) is not None:

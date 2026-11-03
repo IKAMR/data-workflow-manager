@@ -100,15 +100,57 @@ exit /b 0
 
 :install_gui
 echo.
-echo Installerer GUI-avhengigheter...
-py -m pip install --disable-pip-version-check --user -r requirements-gui.txt
+echo Finner vanlig Python for PySide6...
+call :select_qt_python
 if errorlevel 1 exit /b 1
+echo [OK] PySide6 skal bruke Python %QT_PY_FLAG% ^(ikke free-threaded^).
+
 echo.
-echo Installerer PDF-avhengigheter for rapporteksport...
+echo Installerer det eksisterende CustomTkinter-GUI-et med standard Python...
+py -m pip install --disable-pip-version-check --user "customtkinter>=5.2.2"
+if errorlevel 1 exit /b 1
 py -m pip install --disable-pip-version-check --user reportlab beautifulsoup4
 if errorlevel 1 exit /b 1
-echo [OK] PDF-avhengigheter installert.
+
+echo.
+echo Installerer DWM Core med vanlig Python %QT_PY_FLAG% for nytt GUI...
+py %QT_PY_FLAG% -m pip install --disable-pip-version-check --user -r requirements-core.txt
+if errorlevel 1 exit /b 1
+
+echo.
+echo Installerer PySide6 og GUI-avhengigheter med vanlig Python %QT_PY_FLAG%...
+py %QT_PY_FLAG% -m pip install --disable-pip-version-check --user -r requirements-gui.txt
+if errorlevel 1 exit /b 1
+
+echo.
+echo Installerer PDF-avhengigheter for nytt GUI...
+py %QT_PY_FLAG% -m pip install --disable-pip-version-check --user reportlab beautifulsoup4
+if errorlevel 1 exit /b 1
+
+py %QT_PY_FLAG% -c "from PySide6.QtWidgets import QApplication" >nul 2>&1
+if errorlevel 1 (
+ echo [FEIL] PySide6 ble installert, men kan ikke importeres med Python %QT_PY_FLAG%.
+ exit /b 1
+)
+echo [OK] Begge GUI-rammeverk installert, PySide6 verifisert.
 exit /b 0
+
+:select_qt_python
+set "QT_PY_FLAG="
+for %%V in (3.14 3.13 3.12 3.11 3.10) do (
+ if not defined QT_PY_FLAG (
+  py -%%V -c "import sys,sysconfig; sys.exit(1 if sysconfig.get_config_var('Py_GIL_DISABLED') else 0)" >nul 2>&1
+  if not errorlevel 1 set "QT_PY_FLAG=-%%V"
+ )
+)
+if defined QT_PY_FLAG exit /b 0
+echo.
+echo [FEIL] Fant ingen vanlig Python 3.10-3.14 som kan bruke PySide6.
+echo Din Python 3.14t er free-threaded og stottes ikke av PySide6-hjulene.
+echo Installer vanlig 64-bit Python 3.14 fra https://www.python.org/downloads/windows/
+echo Behold gjerne Python 3.14t ved siden av.
+echo Oversikt over installerte Python-versjoner: py -0p
+exit /b 1
 
 :install_cli
 echo.
