@@ -136,6 +136,13 @@ class FakeWindow(headless_ui_methods()):
         self.dock_log=FakeDock()
         self.log_window_button=FakeLabel()
         self.float_job_log_action=FakeLabel()
+        self._detached_log_window=None
+
+    def _a9_sync_detached_log_choices(self):
+        pass
+
+    def _a9_sync_detached_run(self):
+        pass
 
 
 class UiBehaviorTest(unittest.TestCase):
@@ -145,13 +152,13 @@ class UiBehaviorTest(unittest.TestCase):
         ui._a8_refresh_job_log()
         self.assertIn('JOB-001',ui.run_summary.value)
         self.assertEqual(ui.run_progress_bar.value,0)
-        self.assertIn('Ingen fullført kjøring',ui.job_log_text.value)
+        self.assertIn('Ingen faktisk kjørelogg',ui.job_log_text.value)
         ui._active_id='JOB-002'
         ui._a8_restore_run_context()
         ui._a8_refresh_job_log()
         self.assertIn('JOB-002',ui.run_summary.value)
         self.assertEqual(ui.run_progress_bar.value,100)
-        self.assertIn('9/9',ui.job_log_text.value)
+        self.assertIn('Ingen faktisk kjørelogg',ui.job_log_text.value)
         self.assertNotIn('JOB-001',ui.job_log_text.value)
 
     def test_old_joblist_entries_are_selectable_when_no_a8_file_exists(self):
@@ -161,9 +168,9 @@ class UiBehaviorTest(unittest.TestCase):
         ui._a8_refresh_job_log()
         self.assertEqual(ui.job_run_combo.currentData(),'__legacy__')
         self.assertIn('Gammelt testløp',ui.job_log_text.value)
-        ui.job_run_combo.setCurrentIndex(ui.job_run_combo.findData('__snapshot__'))
-        ui._a8_show_selected_run()
-        self.assertIn('Status: Ferdig',ui.job_log_text.value)
+        self.assertEqual(ui.job_run_combo.findData('__snapshot__'), -1)
+        self.assertEqual(ui.job_run_combo.currentData(), '__legacy__')
+        self.assertIn('Gammelt testløp',ui.job_log_text.value)
 
     def test_changing_joblist_with_same_job_id_clears_history_context(self):
         ui=FakeWindow()
@@ -184,20 +191,21 @@ class UiBehaviorTest(unittest.TestCase):
         ui._a8_refresh_job_log()
         self.assertEqual(ui.job_run_combo.currentData(),run.run_id)
         self.assertIn(run.run_id,ui.job_log_text.value)
-        ui.job_run_combo.setCurrentIndex(ui.job_run_combo.findData('__snapshot__'))
-        ui._a8_show_selected_run()
-        self.assertIn('9/9',ui.job_log_text.value)
+        self.assertEqual(ui.job_run_combo.findData('__snapshot__'), -1)
+        self.assertEqual(ui.job_run_combo.currentData(), run.run_id)
+        self.assertIn(run.run_id, ui.job_log_text.value)
 
-    def test_float_button_toggles_both_ways(self):
-        ui=FakeWindow()
-        ui._a8_float_job_log()
-        self.assertTrue(ui.dock_log.isFloating())
-        self.assertEqual(ui.log_window_button.value,'Fest til hovedvindu')
-        self.assertEqual(ui.float_job_log_action.value,'Fest kjørelogg til hovedvindu')
-        ui._a8_float_job_log()
-        self.assertFalse(ui.dock_log.isFloating())
-        self.assertEqual(ui.log_window_button.value,'Eget vindu')
-        self.assertEqual(ui.float_job_log_action.value,'Åpne kjørelogg i eget vindu')
+    def test_log_button_uses_normal_independent_window_instead_of_floating_dock(self):
+        # A native floating QDockWidget stays above the main window on Windows.
+        # Since a9 the user-facing 'Eget vindu' action opens an independent
+        # Qt.Window, so overlapping windows follow ordinary OS stacking rules.
+        source=(ROOT/'gui_qt'/'main_window.py').read_text(encoding='utf-8')
+        viewer=(ROOT/'gui_qt'/'detached_log_window_v018_a9.py').read_text(encoding='utf-8')
+        self.assertIn('viewer = DetachedJobLogWindow()', source)
+        self.assertIn('self._a9_redock_job_log()', source)
+        self.assertIn('self.dock_log.hide()', source)
+        self.assertNotIn('self.dock_log.setFloating(floating)', source)
+        self.assertIn('super().__init__(None, Qt.WindowType.Window)', viewer)
 
 
 if __name__=='__main__':unittest.main()

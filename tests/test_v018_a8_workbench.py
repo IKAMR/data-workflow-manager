@@ -134,7 +134,7 @@ class A8QtContractTests(unittest.TestCase):
             self.assertIn(text, self.source)
 
     def test_user_can_float_log_and_select_other_work_with_confirmation(self):
-        for text in ('self.dock_log.setFloating(floating)',
+        for text in ('viewer = DetachedJobLogWindow()',
                      '"Velg annen Work-mappe"',
                      '"Bruk denne mappen"',
                      'Ingen filer eller mapper opprettes, flyttes eller slettes nå.',

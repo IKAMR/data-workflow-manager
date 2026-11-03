@@ -38,6 +38,9 @@ class RunLogInfo:
     started_at: str
     status: str
     log_path: Path
+    run_kind: str = "workflow"
+    operation_id: str = ""
+    operation_name: str = ""
 
 
 class RunLogStore:
@@ -51,8 +54,14 @@ class RunLogStore:
         self.job_id = _job_id(job_id)
         self.folder = self.base / "run_logs" / self.job_id
 
-    def begin(self, *, job_name: str, job_list_path: str = "") -> "RunLogWriter":
+    def begin(self, *, job_name: str, job_list_path: str = "",
+              run_kind: str = "workflow", operation_id: str = "",
+              operation_name: str = "") -> "RunLogWriter":
         run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid4().hex[:8]
+        if run_kind not in {"workflow", "subjob"}:
+            raise ValueError("Unknown run kind")
+        if run_kind == "subjob" and not _ID_RE.fullmatch(str(operation_id)):
+            raise ValueError("Invalid operation ID")
         started = datetime.now(timezone.utc).isoformat(timespec="seconds")
         self.folder.mkdir(parents=True, exist_ok=True)
         log_file = self.folder / (run_id + ".log")
@@ -60,7 +69,11 @@ class RunLogStore:
         handle = log_file.open("x", encoding="utf-8", newline="\n")
         writer = RunLogWriter(self, run_id, started, handle)
         try:
-            writer._save_metadata("running", job_name=job_name, job_list_path=job_list_path)
+            writer._save_metadata(
+                "running", job_name=job_name, job_list_path=job_list_path,
+                run_kind=run_kind, operation_id=str(operation_id),
+                operation_name=str(operation_name),
+            )
             writer.append(f"DWM kjøring startet: {started}")
             writer.append(f"Jobb: {self.job_id} | {job_name}")
             writer.append(f"Jobbliste: {job_list_path}")
@@ -86,7 +99,10 @@ class RunLogStore:
                     continue
                 found.append(RunLogInfo(run_id, self.job_id,
                                         str(data.get("started_at", "")),
-                                        str(data.get("status", "unknown")), log))
+                                        str(data.get("status", "unknown")), log,
+                                        str(data.get("run_kind", "workflow")),
+                                        str(data.get("operation_id", "")),
+                                        str(data.get("operation_name", ""))))
             except (OSError, ValueError, TypeError, json.JSONDecodeError):
                 continue
         return tuple(found)

@@ -6,7 +6,7 @@ No GUI package is imported here; storage paths remain independent.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Iterable, Mapping
 
@@ -24,6 +24,7 @@ from app.arkade5_setup_v018_a7 import (
 from app.work_output_layout import validate_app_work_subfolder
 from settings import load_config, save_config
 from app.run_log_history_v018_a8 import RunLogInfo, RunLogStore
+from app.subjob_execution_v018_a9 import SelectiveSubjobMixin
 from noark5_workflow.core.job import Job, JobBatch, JobStatus
 
 
@@ -52,7 +53,7 @@ STORAGE_FIELDS = (
 )
 
 
-class DwmWorkbenchAPI(DwmApplication):
+class DwmWorkbenchAPI(SelectiveSubjobMixin, DwmApplication):
     """GUI-agnostic workbench with read models and explicit editing commands.
 
     Commands mutate the existing in-memory job list only when execution is idle.
@@ -364,12 +365,18 @@ class DwmWorkbenchAPI(DwmApplication):
         return True
 
     # ---------- a6: explicit preflight before every Qt/API run ----------
-    def _inspect_job(self, job: Job) -> PreflightReport:
+    def _inspect_job(self, job: Job, *, operation_id: str | None = None) -> PreflightReport:
         """Read-only check against the complete effective Work path.
 
         If Work operations is missing, a set-role action is proposed from an
         already selected Work root; no configuration is changed here.
         """
+        if operation_id is not None:
+            if operation_id not in job.workflow_ids:
+                raise DwmApiError("Deljobben finnes ikke i arbeidsflyten: " + operation_id)
+            inspection_job = replace(job, workflow_ids=[operation_id])
+        else:
+            inspection_job = job
         base = job.work_operations
         app_folder = str(self.settings.get("app_work_subfolder", "dwm") or "")
         if base is None and job.work_root is not None:
@@ -389,9 +396,38 @@ class DwmWorkbenchAPI(DwmApplication):
             position,
         )
         report = inspect_job(
-            job, effective_work_operations=effective, app_subfolder=app_folder,
+            inspection_job, effective_work_operations=effective, app_subfolder=app_folder,
         )
-        if not requires_arkade_cli(job.workflow_ids):
+        # Preserve the a7 full-workflow dependency rule. A selective run is
+        # checked against only its chosen operation, not unrelated CLI tools.
+        if operation_id is None:
+            if not requires_arkade_cli(job.workflow_ids):
+                return report
+        if operation_id == "validate_xml_schema" and job.source_extraction is not None:
+            extraction = Path(job.source_extraction)
+            if extraction.is_dir() and not report.errors:
+                try:
+                    # Established detector searches only metadata locations (not DOKUMENT).
+                    from noark5_workflow.sources.noark5_extraction import Noark5Extraction
+                    if not Noark5Extraction.detect(extraction).xsd_files:
+                        return PreflightReport(report.job_id, report.issues + (
+                            PreflightIssue("XSD_NOT_FOUND", "error",
+                                           "Valgt deljobb trenger en lokal XSD-fil i uttrekket."),
+                        ), report.actions)
+                except (OSError, ValueError) as exc:
+                    return PreflightReport(report.job_id, report.issues + (
+                        PreflightIssue("XSD_CHECK_FAILED", "error", str(exc)),
+                    ), report.actions)
+        if not requires_arkade_cli(inspection_job.workflow_ids):
+            if operation_id in {"compose_noark5_views", "build_noark5_depot_report", "dias_package"}:
+                return PreflightReport(
+                    report.job_id,
+                    report.issues + (PreflightIssue(
+                        "SUBJOB_REQUIRES_RESULTS", "warning",
+                        "Denne deljobben bygger pa resultater fra andre deljobber. "
+                        "Kontroller at de nodvendige resultatene finnes i Work for du starter.",
+                    ),), report.actions,
+                )
             return report
         check = self._arkade_checker.check(self.settings)
         if check.severity == "ok":
@@ -410,8 +446,14 @@ class DwmWorkbenchAPI(DwmApplication):
             self._assert_idle()
             return self._inspect_job(self._require_job(job_id))
 
+    def preflight_subjob(self, job_id: str, operation_id: str) -> PreflightReport:
+        """Check only the selected operation and its actual external dependencies."""
+        with self._guard:
+            self._assert_idle()
+            return self._inspect_job(self._require_job(job_id), operation_id=operation_id)
+
     def provision_preflight(self, job_id: str, *, approved_report: PreflightReport,
-                            consent: bool) -> PreflightReport:
+                            consent: bool, operation_id: str | None = None) -> PreflightReport:
         """Create ONLY the explicitly approved, currently valid Work/AIP paths.
 
         Refuse stale plans and blocking errors. Assignments never touch Source,
@@ -422,7 +464,7 @@ class DwmWorkbenchAPI(DwmApplication):
         with self._guard:
             self._assert_idle()
             job = self._require_job(job_id)
-            current = self._inspect_job(job)
+            current = self._inspect_job(job, operation_id=operation_id)
             if current != approved_report:
                 raise DwmApiError("Mappeoppsettet er endret. Kontroller på nytt før du godkjenner.")
             if current.errors:
@@ -445,7 +487,7 @@ class DwmWorkbenchAPI(DwmApplication):
                 if errors:
                     raise DwmApiError("Ugyldig Work/AIP-oppsett: " + "; ".join(errors))
                 # Check the re-computed effective path, not only the proposal.
-                updated = self._inspect_job(job)
+                updated = self._inspect_job(job, operation_id=operation_id)
                 if updated.errors:
                     raise DwmApiError("Klargjøring blokkert: " + "; ".join(
                         issue.message for issue in updated.errors))
@@ -465,7 +507,7 @@ class DwmWorkbenchAPI(DwmApplication):
                 raise DwmApiError(f"Kunne ikke opprette godkjente mapper: {exc}") from exc
             if assigned is not None:
                 self._dirty = True  # Explicit save before execution.
-            result = self._inspect_job(job)
+            result = self._inspect_job(job, operation_id=operation_id)
         self._emit("preflight.provisioned", job, message="Godkjente mapper opprettet / lagringsroller satt")
         return result
 
@@ -530,8 +572,9 @@ class DwmWorkbenchAPI(DwmApplication):
     def _emit(self, kind, job=None, *, message="", progress=None):
         writer = getattr(self, "_a8_run_writer", None)
         if writer is not None and job is not None and job.job_id == writer.store.job_id:
-            if kind in {"run.started", "run.log", "run.error", "run.finished", "run.cancel_requested"}:
-                line = str(message or "") if kind == "run.log" else (
+            if kind in {"run.started", "run.log", "run.error", "run.finished", "run.cancel_requested",
+                        "subjob.started", "subjob.log", "subjob.error", "subjob.finished"}:
+                line = str(message or "") if kind in {"run.log", "subjob.log"} else (
                     f"[{kind}] " + str(message or getattr(job, "message", "") or "")
                 )
                 try:

@@ -143,11 +143,11 @@ class V018A3QtSourceTests(unittest.TestCase):
         source = (ROOT / "gui_qt" / "main_window.py").read_text(encoding="utf-8")
         for expected in (
             "QDockWidget", "AllDockWidgetAreas", "toggleViewAction", "setFloating",
-            "saveState(3)", "restoreState(", "_save_named_layout", "_recover_windows",
+            "saveState(4)", "restoreState(", "_save_named_layout", "_recover_windows",
             '"Laptop"', '"Analyse"', '"Depot"', '"Workshop"',
             '"Enkel"', '"Standard"', '"Avansert"',
         ):
-            self.assertIn(expected, source)
+            self.assertTrue(expected in source, f"Manglende dock-kontrakt: {expected}")
 
     def test_worker_keeps_gui_event_loop_nonblocking(self):
         source = (ROOT / "gui_qt" / "main_window.py").read_text(encoding="utf-8")
