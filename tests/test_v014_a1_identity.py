@@ -39,7 +39,14 @@ class V014A1IdentityTests(unittest.TestCase):
             (ROOT / "pyproject.toml").read_text(encoding="utf-8")
         )
         self.assertEqual(pyproject["project"]["name"], "noark5-workflow-manager")
-        self.assertRegex(pyproject["project"]["version"], r"^0\.1\.4a\d+$")
+        # The packaging version may advance beyond the historic v0.1.4a1
+        # milestone. Preserve the technical name, not a frozen alpha version.
+        package_version = pyproject["project"]["version"]
+        self.assertRegex(package_version, r"^\d+\.\d+\.\d+(?:a\d+)?$")
+        release = tuple(int(part) for part in re.match(
+            r"^(\d+)\.(\d+)\.(\d+)", package_version
+        ).groups())
+        self.assertGreaterEqual(release, (0, 1, 4))
         self.assertEqual(pyproject["project"]["description"], "Data Workflow Manager")
 
     def test_old_repository_name_is_not_to_be_reused_immediately(self):

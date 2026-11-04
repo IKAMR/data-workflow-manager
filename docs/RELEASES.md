@@ -9,6 +9,24 @@ Versjonene v0.1.0–v0.1.3 ble utgitt under navnet **Noark 5 Workflow Manager**.
 Nyeste ferdige versjon står øverst. Alpha-trinn dokumenteres ikke som egne
 permanente releaseversjoner.
 
+## v0.1.8
+
+Nytt fleksibelt brukergrensesnitt og selvstendige jobber i Work.
+
+Hovedendringer:
+
+- Nytt PySide6-basert GUI med flyttbare paneler, lagrede arbeidsflater og separate visninger av Kjøreløp, Kjørelogg og Systemlogg. Det opprinnelige CustomTkinter-GUI-et beholdes som alternativ.
+- Felles applikasjons-API som skiller brukergrensesnitt fra arbeidsflytmotoren og viderefører eksisterende analyser.
+- Jobbdefinisjon, status og hendelser lagres autoritativt i Work, med varig UUID, jobbliste som indeks og mulighet for gjenoppretting uten opprinnelig jobbliste.
+- Selektiv kjøring av deljobber, varig Kjøreløp, logger og identifiserbare kjøringer.
+- Førkjøringskontroll av uttrekk, lagringsroller, arbeidsflyt og Arkade 5 CLI, med samtykke før opprettelse av manglende Work-mapper.
+- Resultatvisninger og rapportering fra lagrede DWM-, Arkade 5- og KDRS Query-resultater, inkludert årsfordelinger, arkivdeler, periodevurdering og samlerapporter.
+- Forbedret valg av rapportmappe og husking av sist brukte kilde-, Work- og rapportmapper i det nye GUI-et.
+
+En teknisk fullført arbeidsflyt innebærer ikke at et uttrekk er faglig godkjent. Resultatgrunnlag og manuelle vurderinger holdes adskilt.
+
+SIARD-analyser, analyser på tvers av ulike uttrekkstyper og en separat parallell arbeidsmotor inngår ikke i denne releasen.
+
 ## Navneovergang etter v0.1.3
 
 Etter release v0.1.3 ble repositoryet renamet fra

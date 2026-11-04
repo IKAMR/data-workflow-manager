@@ -3,10 +3,10 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-# Technical distribution identity is intentionally kept for compatibility in
-# v0.1.4-a1. Repository/app branding is Data Workflow Manager.
+# Technical distribution identity is intentionally retained for compatibility.
+# Distribution and application versions match for this release.
 name = "noark5-workflow-manager"
-version = "0.1.4a1"
+version = "0.1.8"
 description = "Data Workflow Manager"
 requires-python = ">=3.10"
 
