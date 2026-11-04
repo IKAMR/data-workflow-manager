@@ -93,6 +93,8 @@ class DwmApplication:
         self._batch = JobBatch()
         self._path: Path | None = None
         self._active_job_id: str | None = None
+        self._work_references: dict[str, Path] = {}
+        self._unavailable_work_ids: frozenset[str] = frozenset()
         self._events: Queue[DwmEvent] = Queue(maxsize=4096)
         self._running = False
         self._guard = Lock()
@@ -153,6 +155,8 @@ class DwmApplication:
             self._batch = loaded.batch
             self._path = target
             self._active_job_id = loaded.active_job_id
+            self._work_references = dict(loaded.work_references)
+            self._unavailable_work_ids = loaded.unavailable_work_job_ids
             view = self.workspace()
         self._emit("joblist.opened", message=str(target))
         return view
@@ -169,17 +173,24 @@ class DwmApplication:
             return str(value) if value is not None else None
 
         rule = str(getattr(self._batch, "output_subfolder_rule", "") or "")
-        output = effective_work_operations(
-            job.work_operations,
-            str(self.settings.get("app_work_subfolder", "dwm") or ""),
-            rule,
-            job,
-            position,
+        if job.job_id in self._work_references:
+            # A Work-backed job keeps its actual Work location even if a local
+            # job-list output rule or global setting is later changed.
+            output = self._work_references[job.job_id].parent
+        else:
+            output = effective_work_operations(
+                job.work_operations,
+                str(self.settings.get("app_work_subfolder", "dwm") or ""),
+                rule, job, position,
+            )
+        status = (
+            f"Frakoblet (sist: {job.status.value})"
+            if job.job_id in self._unavailable_work_ids else job.status.value
         )
         return JobView(
             job_id=job.job_id,
             name=job.name,
-            status=job.status.value,
+            status=status,
             progress=float(job.progress),
             current_operation=int(job.next_operation_index),
             operation_count=len(job.workflow_ids),
@@ -209,13 +220,24 @@ class DwmApplication:
             raise DwmApiError(f"Ukjent jobb: {job_id}")
         return job
 
+    def _write_job_list_file(self, target: Path, active_job_id: str | None) -> Path:
+        """Overridden by Work-first workbenches; legacy callers keep v4."""
+        return save_job_list(
+            target, self._batch, active_job_id=active_job_id, app_version=VERSION,
+        )
+
+    def _persist_updated_job(self, job: Job, active_job_id: str) -> None:
+        """Runner callback. Work-first backends persist Work before the index."""
+        assert self._path is not None
+        self._write_job_list_file(self._path, active_job_id)
+
     def save_job_list(self, path: str | Path | None = None) -> Path:
         with self._guard:
             self._assert_idle()
             target = Path(path) if path is not None else self._path
             if target is None:
                 raise DwmApiError("Ingen lagringssti for jobblisten er valgt.")
-            output = save_job_list(target, self._batch, active_job_id=self._active_job_id, app_version=VERSION)
+            output = self._write_job_list_file(target, self._active_job_id)
             self._path = output
         self._emit("joblist.saved", message=str(output))
         return output
@@ -227,11 +249,32 @@ class DwmApplication:
         for conflict in JobPreflight().check_outputs(jobs):
             problems.append(f"AIP/utdata-kollisjon: {conflict.first_job_id} / {conflict.second_job_id}: {conflict.output_root}")
         try:
-            validate_layout(
-                str(self.settings.get("app_work_subfolder", "dwm") or ""),
-                str(getattr(self._batch, "output_subfolder_rule", "") or ""),
-                jobs,
-            )
+            if not self._work_references:
+                validate_layout(
+                    str(self.settings.get("app_work_subfolder", "dwm") or ""),
+                    str(getattr(self._batch, "output_subfolder_rule", "") or ""),
+                    jobs,
+                )
+            else:
+                # Pinned Work paths are canonical. Different joblists can
+                # group Noark 5/SIARD jobs without inheriting an older folder
+                # rule, even when their original Work bases are identical.
+                from app.work_output_layout import validate_app_work_subfolder
+                validate_app_work_subfolder(
+                    str(self.settings.get("app_work_subfolder", "dwm") or "")
+                )
+                seen: dict[str, str] = {}
+                for position, job in enumerate(jobs, 1):
+                    path = self._view(job, position).effective_work_operations
+                    if path is None:
+                        continue
+                    key = str(Path(path).resolve(strict=False)).casefold()
+                    other = seen.get(key)
+                    if other and other != job.job_id:
+                        problems.append(
+                            f"To jobber peker til samme Work-område: {other} og {job.job_id}"
+                        )
+                    seen[key] = job.job_id
         except ValueError as exc:
             problems.append(str(exc))
         return tuple(problems)
@@ -275,6 +318,9 @@ class DwmApplication:
                 job,
                 position,
             )
+            if job_id in self._work_references:
+                # Work is canonical, including when the original list/rule is gone.
+                effective = self._work_references[job_id].parent
             self._running = True
             self._cancel.clear()
             self._active_job_id = job_id
@@ -284,9 +330,9 @@ class DwmApplication:
         self._emit("run.started", job)
 
         def persist(updated: Job) -> None:
-            # Current joblist format, including all storage roles, is reused.
-            assert self._path is not None
-            save_job_list(self._path, self._batch, active_job_id=job_id, app_version=VERSION)
+            # The Work-first adapter writes the authoritative Work state
+            # before updating its disposable job-list index.
+            self._persist_updated_job(updated, job_id)
             self._emit("run.state", updated, message=updated.message, progress=updated.progress)
 
         def progress(value: float, message: str) -> None:
@@ -296,7 +342,19 @@ class DwmApplication:
             self._emit("run.log", job, message=message)
 
         try:
-            runner = self._runner_factory(self.settings)
+            # A10: one stable identity for the whole workflow.  Never mutate
+            # global Setup settings: a future job/batch may run in another
+            # process or thread with its own run/job identity.
+            from uuid import uuid4
+            runtime_settings = dict(self.settings)
+            run_id = str(getattr(job, "_active_run_id", "") or "")
+            generated_here = not run_id
+            if generated_here:
+                run_id = "RUN-" + uuid4().hex
+                job._active_run_id = run_id
+            runtime_settings["_current_run_id"] = run_id
+            runtime_settings["_current_job_uid"] = str(getattr(job, "job_uid", "") or "")
+            runner = self._runner_factory(runtime_settings)
             callbacks = dict(progress_cb=progress, log_cb=log,
                              cancelled_cb=self._cancel.is_set, state_cb=persist)
             if continue_waiting:
@@ -323,6 +381,8 @@ class DwmApplication:
             # storage role or output rule before the next run.
             if hasattr(job, "_effective_work_operations"):
                 delattr(job, "_effective_work_operations")
+            if "generated_here" in locals() and generated_here and hasattr(job, "_active_run_id"):
+                delattr(job, "_active_run_id")
             with self._guard:
                 self._running = False
                 self._cancel.clear()

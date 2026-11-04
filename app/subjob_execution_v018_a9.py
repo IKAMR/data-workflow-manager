@@ -67,10 +67,13 @@ class SelectiveSubjobMixin:
                     job_name=view.name, job_list_path=str(self._path),
                     run_kind="subjob", operation_id=operation_id,
                     operation_name=name,
+                    job_uid=str(getattr(job, "job_uid", "") or ""),
                 )
             except OSError as exc:
                 raise DwmApiError("Kan ikke opprette deljobblogg i Work: " + str(exc)) from exc
             self._a8_run_writer = writer
+            job._active_run_id = writer.run_id
+            job._active_run_kind = "subjob"
             self._emit("subjob.started", job, message=f"Deljobb {position}: {name}", progress=0.0)
 
             def on_log(message: str) -> None:
@@ -85,6 +88,7 @@ class SelectiveSubjobMixin:
 
             runtime_settings = dict(self.settings)
             runtime_settings["_current_run_id"] = writer.run_id
+            runtime_settings["_current_job_uid"] = str(getattr(job, "job_uid", "") or "")
             runner = self._runner_factory(runtime_settings)
             method = getattr(runner, "run_operation", None)
             if not callable(method):
@@ -114,8 +118,9 @@ class SelectiveSubjobMixin:
         finally:
             job.status, job.progress, job.next_operation_index, job.message = parent_state
             self._a8_run_writer = None
-            if hasattr(job, "_effective_work_operations"):
-                delattr(job, "_effective_work_operations")
+            for attribute in ("_active_run_id", "_active_run_kind", "_effective_work_operations"):
+                if hasattr(job, attribute):
+                    delattr(job, attribute)
             with self._guard:
                 self._running = False
                 self._cancel.clear()

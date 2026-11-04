@@ -56,7 +56,7 @@ class RunLogStore:
 
     def begin(self, *, job_name: str, job_list_path: str = "",
               run_kind: str = "workflow", operation_id: str = "",
-              operation_name: str = "") -> "RunLogWriter":
+              operation_name: str = "", job_uid: str = "") -> "RunLogWriter":
         run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid4().hex[:8]
         if run_kind not in {"workflow", "subjob"}:
             raise ValueError("Unknown run kind")
@@ -72,7 +72,7 @@ class RunLogStore:
             writer._save_metadata(
                 "running", job_name=job_name, job_list_path=job_list_path,
                 run_kind=run_kind, operation_id=str(operation_id),
-                operation_name=str(operation_name),
+                operation_name=str(operation_name), job_uid=str(job_uid or ""),
             )
             writer.append(f"DWM kjøring startet: {started}")
             writer.append(f"Jobb: {self.job_id} | {job_name}")

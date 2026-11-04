@@ -25,6 +25,7 @@ from app.work_output_layout import validate_app_work_subfolder
 from settings import load_config, save_config
 from app.run_log_history_v018_a8 import RunLogInfo, RunLogStore
 from app.subjob_execution_v018_a9 import SelectiveSubjobMixin
+from app.work_persistence_v018_a10 import WorkPersistenceMixin
 from noark5_workflow.core.job import Job, JobBatch, JobStatus
 
 
@@ -53,7 +54,7 @@ STORAGE_FIELDS = (
 )
 
 
-class DwmWorkbenchAPI(SelectiveSubjobMixin, DwmApplication):
+class DwmWorkbenchAPI(WorkPersistenceMixin, SelectiveSubjobMixin, DwmApplication):
     """GUI-agnostic workbench with read models and explicit editing commands.
 
     Commands mutate the existing in-memory job list only when execution is idle.
@@ -91,6 +92,8 @@ class DwmWorkbenchAPI(SelectiveSubjobMixin, DwmApplication):
             self._assert_idle()
             self._batch = JobBatch()
             self._batch.output_subfolder_rule = ""
+            self._work_references = {}
+            self._unavailable_work_ids = frozenset()
             self._path = None
             self._active_job_id = None
             self._dirty = False
@@ -169,6 +172,19 @@ class DwmWorkbenchAPI(SelectiveSubjobMixin, DwmApplication):
         unknown = set(paths) - set(STORAGE_FIELDS)
         if unknown:
             raise DwmApiError("Ukjente lagringsroller: " + ", ".join(sorted(unknown)))
+        if job_id in self._unavailable_work_ids:
+            raise DwmApiError("Work er frakoblet. Jobbdefinisjonen kan ikke endres fra et statusutdrag.")
+        if job_id in self._work_references and (set(paths) & {"work_root", "work_operations"}):
+            current = self._require_job(job_id)
+            from dataclasses import replace as dataclass_replace
+            proposed = dataclass_replace(current)
+            for key, value in paths.items():
+                setattr(proposed, key, Path(value) if value else None)
+            if self._work_root_for(proposed, ignore_reference=True).resolve() != self._work_references[job_id].parent.resolve():
+                raise DwmApiError(
+                    "Denne jobben har varig historikk i Work. Endring av Work-plasseringen "
+                    "krever en kontrollert flytting (ikke tilgjengelig i a10)."
+                )
         with self._guard:
             self._assert_idle()
             job = self._require_job(job_id)
@@ -263,6 +279,13 @@ class DwmWorkbenchAPI(SelectiveSubjobMixin, DwmApplication):
             if sequence is None or sequence.profile_id != "noark5":
                 raise DwmApiError("Ukjent standardprofil for Noark 5.")
         if "app_work_subfolder" in updated:
+            if self._work_references and updated["app_work_subfolder"] != str(
+                self.settings.get("app_work_subfolder", "dwm") or ""
+            ):
+                raise DwmApiError(
+                    "Global DWM Work-undermappe kan ikke endres mens jobber har "
+                    "varige Work-referanser. Flytting må gjøres som en egen migrering."
+                )
             # Reject collisions before changing a global Work rule; this is
             # otherwise easy to miss when several jobs share a Work base.
             try:
@@ -354,6 +377,12 @@ class DwmWorkbenchAPI(SelectiveSubjobMixin, DwmApplication):
                 return False
             preview = self.preview_output_subfolder_rule(proposed)
             changes = tuple(item for item in preview if item[1] != item[2])
+            if self._work_references and any(job_id in self._work_references
+                                             for job_id, _before, _after in changes):
+                raise DwmApiError(
+                    "Undermappe-regelen ville flytte en Work-forankret jobb. "
+                    "Endring krever egen kontrollert migrering."
+                )
             if changes and not confirm_changes:
                 raise DwmApiError(
                     "Endringen vil påvirke eksisterende Work-stier. "
@@ -388,13 +417,16 @@ class DwmWorkbenchAPI(SelectiveSubjobMixin, DwmApplication):
                 base = None  # inspect_job adds a helpful blocking error
         position = next(i for i, candidate in enumerate(self._batch.jobs(), 1)
                         if candidate.job_id == job.job_id)
-        effective = effective_work_operations(
-            base,
-            str(self.settings.get("app_work_subfolder", "dwm") or ""),
-            str(getattr(self._batch, "output_subfolder_rule", "") or ""),
-            job,
-            position,
-        )
+        if job.job_id in getattr(self, "_work_references", {}):
+            # Work identity is independent of the current joblist's folder rule.
+            effective = self._work_references[job.job_id].parent
+        else:
+            effective = effective_work_operations(
+                base,
+                str(self.settings.get("app_work_subfolder", "dwm") or ""),
+                str(getattr(self._batch, "output_subfolder_rule", "") or ""),
+                job, position,
+            )
         report = inspect_job(
             inspection_job, effective_work_operations=effective, app_subfolder=app_folder,
         )
@@ -508,6 +540,10 @@ class DwmWorkbenchAPI(SelectiveSubjobMixin, DwmApplication):
             if assigned is not None:
                 self._dirty = True  # Explicit save before execution.
             result = self._inspect_job(job, operation_id=operation_id)
+        # The user has explicitly approved the Work directories. Persist the
+        # complete job there immediately, even before any analysis is started.
+        if not result.errors and not result.actions:
+            self._register_work_job(job_id, reason="work.provisioned")
         self._emit("preflight.provisioned", job, message="Godkjente mapper opprettet / lagringsroller satt")
         return result
 
@@ -527,6 +563,12 @@ class DwmWorkbenchAPI(SelectiveSubjobMixin, DwmApplication):
         if report.warnings and not acknowledge_warnings:
             raise DwmApiError("Avvik krever brukerens godkjenning: " + "; ".join(
                 issue.message for issue in report.warnings))
+        if self._path is None:
+            raise DwmApiError("Lagre jobblisten før du starter første kjøring.")
+        # The user has approved this run and Work preflight is complete.
+        # Initialize canonical Work job data before the first log or operation.
+        if job_id not in self._work_references:
+            self._register_work_job(job_id, reason="work.initialized_before_run")
         # A8: DWM already writes analysis/evidence in Work. Keep a separate,
         # durable, flush-on-each-event human-readable log for Qt runs. Never
         # place this under Source or silently substitute a new Work location.
@@ -536,11 +578,16 @@ class DwmWorkbenchAPI(SelectiveSubjobMixin, DwmApplication):
         try:
             writer = RunLogStore(view.effective_work_operations, job_id).begin(
                 job_name=view.name, job_list_path=self.workspace().job_list_path or "",
+                job_uid=str(getattr(self._require_job(job_id), "job_uid", "") or ""),
             )
         except OSError as exc:
             raise DwmApiError("Kan ikke opprette varig kjørelogg i Work: " + str(exc)) from exc
         self._a8_run_writer = writer
+        active_job = self._require_job(job_id)
+        active_job._active_run_id = writer.run_id
+        active_job._active_run_kind = "workflow"
         self._a8_log_warning = ""
+        self._work_index_warning = ""
         status = "failed"
         try:
             result = super().run_job(
@@ -563,11 +610,36 @@ class DwmWorkbenchAPI(SelectiveSubjobMixin, DwmApplication):
                 pass  # Preserve the original execution failure.
             raise
         finally:
+            # Work event history and raw result manifests use the run ID only
+            # during this execution.  A new run will get its own ID.
+            if hasattr(active_job, "_active_run_id"):
+                delattr(active_job, "_active_run_id")
+            if hasattr(active_job, "_active_run_kind"):
+                delattr(active_job, "_active_run_kind")
             self._a8_run_writer = None
             try:
                 writer.finish(status)
             except OSError as exc:
                 self._a8_log_warning = "Kjøreloggens sluttstatus kunne ikke lagres: " + str(exc)
+            if getattr(self, "_work_index_warning", ""):
+                self._a8_log_warning = (
+                    self._a8_log_warning + "\n" if self._a8_log_warning else ""
+                ) + self._work_index_warning
+
+    def run_subjob(self, job_id: str, operation_id: str, *,
+                   allow_rerun: bool = False,
+                   acknowledge_warnings: bool = False) -> bool:
+        # Selective runs also require a canonical Work job record. A10 does
+        # not alter the parent status or move any existing result directory.
+        report = self.preflight_subjob(job_id, operation_id)
+        if self._path is None:
+            raise DwmApiError("Lagre jobblisten før du starter en deljobb.")
+        if not report.errors and not report.actions and job_id not in self._work_references:
+            self._register_work_job(job_id, reason="work.initialized_before_subjob")
+        return super().run_subjob(
+            job_id, operation_id, allow_rerun=allow_rerun,
+            acknowledge_warnings=acknowledge_warnings,
+        )
 
     def _emit(self, kind, job=None, *, message="", progress=None):
         writer = getattr(self, "_a8_run_writer", None)
@@ -592,13 +664,28 @@ class DwmWorkbenchAPI(SelectiveSubjobMixin, DwmApplication):
 
     def run_log_history(self, job_id: str) -> tuple[RunLogInfo, ...]:
         store = self._a8_run_log_store(job_id)
-        return store.list_runs() if store is not None else ()
+        if store is None:
+            return ()
+        job = self._require_job(job_id)
+        aliases = (job_id, *getattr(job, "_work_job_aliases", ()))
+        collected = {}
+        for alias in dict.fromkeys(aliases):
+            try:
+                for info in RunLogStore(store.base, alias).list_runs():
+                    collected[info.run_id] = info
+            except ValueError:
+                continue  # Do not infer folder names from untrusted aliases.
+        return tuple(sorted(collected.values(),
+                            key=lambda info: (info.started_at, info.run_id), reverse=True))
 
     def read_run_log(self, job_id: str, run_id: str) -> str:
         store = self._a8_run_log_store(job_id)
         if store is None:
             return "Ingen Work operations-mappe for denne jobben."
-        return store.read(run_id)
+        matches = [item for item in self.run_log_history(job_id) if item.run_id == run_id]
+        if not matches:
+            raise DwmApiError("Kjøreloggen finnes ikke for denne Work-jobben")
+        return RunLogStore(store.base, matches[0].job_id).read(run_id)
 
     def saved_job_log(self, job_id: str) -> str:
         """Fallback for older jobs that actually persisted log_entries in .n5jobs."""
@@ -694,6 +781,12 @@ class DwmWorkbenchAPI(SelectiveSubjobMixin, DwmApplication):
             self._assert_work_paths_unchanged(before, remaining)
             if not self._batch.remove(job_id):
                 raise DwmApiError(f"Kunne ikke fjerne jobb {job_id}.")
+            # Removing a job changes only the list index. Work files, results
+            # and history stay intact and remain recoverable without the list.
+            self._work_references.pop(job_id, None)
+            self._unavailable_work_ids = frozenset(
+                value for value in self._unavailable_work_ids if value != job_id
+            )
             if self._active_job_id == job_id:
                 self._active_job_id = (
                     remaining[min(old_index, len(remaining) - 1)].job_id

@@ -29,6 +29,7 @@ def _json_value(value: Any) -> Any:
 
 def event_record(event: WorkflowEvent) -> dict[str, Any]:
     user = event.user.as_dict() if event.user is not None else None
+    event_data = event.data if isinstance(event.data, dict) else {}
     return {
         "schema_version": EVENT_STORE_SCHEMA_VERSION,
         "event_id": event.event_id,
@@ -36,6 +37,8 @@ def event_record(event: WorkflowEvent) -> dict[str, Any]:
         "kind": event.kind,
         "run_id": event.run_id,
         "job_id": event.job_id,
+        # Optional v0.1.8-a10 extension.  Historical events remain readable.
+        "job_uid": str(event_data.get("job_uid", "") or ""),
         "operation_id": event.operation_id,
         "operation_name": event.operation_name,
         "parent_event_id": event.parent_event_id,
@@ -61,8 +64,6 @@ class GenericEventStoreSink:
             ensure_ascii=False,
             separators=(",", ":"),
         ) + "\n"
-        # Parallel jobs may emit to the same RUN event store. Serialize the
-        # complete line write so JSONL records cannot interleave.
         with _APPEND_LOCK:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             with self.path.open("a", encoding="utf-8", newline="\n") as handle:

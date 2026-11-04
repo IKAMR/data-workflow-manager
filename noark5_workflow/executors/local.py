@@ -30,6 +30,11 @@ class LocalExecutor(BaseExecutor):
             or ctx.settings.get("_current_run_id", "")
             or ""
         )
+        job_uid = str(
+            ctx.metadata.get("job_uid", "")
+            or ctx.settings.get("_current_job_uid", "")
+            or ""
+        )
         event = WorkflowEvent.now(
             "operation.completed",
             run_id=run_id,
@@ -40,6 +45,7 @@ class LocalExecutor(BaseExecutor):
             operation_name=str(getattr(operation.definition, "name", "") or ""),
             user=identity,
             data={
+                "job_uid": job_uid,
                 "warnings": list(getattr(result, "warnings", []) or []),
                 "result": getattr(result, "data", None),
             },

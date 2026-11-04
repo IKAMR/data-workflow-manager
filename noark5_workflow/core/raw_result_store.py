@@ -31,6 +31,7 @@ class RawResultEnvelope:
     source_root: str = ""
     job_id: str = ""
     run_id: str = ""
+    job_uid: str = ""
 
     @property
     def ref(self) -> RawTestResultRef:
@@ -56,6 +57,7 @@ class RawResultEnvelope:
             "source_root": self.source_root,
             "job_id": self.job_id,
             "run_id": self.run_id,
+            "job_uid": self.job_uid,
         }
 
     @classmethod
@@ -77,6 +79,7 @@ class RawResultEnvelope:
             source_root=str(data.get("source_root", "")),
             job_id=str(data.get("job_id", "")),
             run_id=str(data.get("run_id", "")),
+            job_uid=str(data.get("job_uid", "")),
         )
 
 
@@ -119,6 +122,7 @@ class RawResultStore:
         source_root: str = "",
         job_id: str = "",
         run_id: str = "",
+        job_uid: str = "",
         result_id: str | None = None,
         recorded_at: str | None = None,
     ) -> RawResultEnvelope:
@@ -140,6 +144,7 @@ class RawResultStore:
             source_root=str(source_root or ""),
             job_id=str(job_id or ""),
             run_id=str(run_id or ""),
+            job_uid=str(job_uid or ""),
         )
         record = json.dumps(
             envelope.to_dict(),
@@ -206,6 +211,11 @@ def persist_operation_raw_result(operation, result, ctx) -> RawResultEnvelope | 
         or settings.get("_current_run_id", "")
         or ""
     )
+    job_uid = str(
+        metadata.get("job_uid", "")
+        or settings.get("_current_job_uid", "")
+        or ""
+    )
     envelope = RawResultStore(path).append(
         operation_id=operation_id,
         test_id=test_id,
@@ -218,6 +228,7 @@ def persist_operation_raw_result(operation, result, ctx) -> RawResultEnvelope | 
         source_root=str(getattr(ctx, "input_root", "") or ""),
         job_id=str(metadata.get("job_id", "") or ""),
         run_id=run_id,
+        job_uid=job_uid,
     )
     result_data = getattr(result, "data", None)
     if isinstance(result_data, dict):
@@ -226,6 +237,7 @@ def persist_operation_raw_result(operation, result, ctx) -> RawResultEnvelope | 
             "test_id": envelope.test_id,
             "definition_version": envelope.definition_version,
             "run_id": envelope.run_id,
+            "job_uid": envelope.job_uid,
             "raw_store": str(path),
         }
     try:

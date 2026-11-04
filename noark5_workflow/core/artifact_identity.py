@@ -64,6 +64,7 @@ def write_artifact_manifest(
         "created_at": datetime.now().astimezone().isoformat(timespec="seconds"),
         "run_id": run_id,
         "job_id": str(ctx.metadata.get("job_id", "") or ""),
+        "job_uid": str(ctx.metadata.get("job_uid", "") or ctx.settings.get("_current_job_uid", "") or ""),
         "operation_id": str(operation_id),
         "definition_id": str(definition_id or ""),
         "definition_version": str(definition_version or ""),
@@ -90,6 +91,11 @@ def artifact_belongs_to_context(output_dir: Path, ctx) -> bool:
     expected_job = str(ctx.metadata.get("job_id", "") or "")
     actual_job = str(data.get("job_id", "") or "")
     if expected_job and actual_job and expected_job != actual_job:
+        return False
+
+    expected_uid = str(ctx.metadata.get("job_uid", "") or ctx.settings.get("_current_job_uid", "") or "")
+    actual_uid = str(data.get("job_uid", "") or "")
+    if expected_uid and actual_uid and expected_uid != actual_uid:
         return False
 
     expected_source = str(Path(ctx.extraction_root))

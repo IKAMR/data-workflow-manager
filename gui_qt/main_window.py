@@ -526,6 +526,15 @@ class DwmMainWindow(QMainWindow):
         file_menu.addAction(self.save_action)
         file_menu.addAction(self.save_as_action)
         file_menu.addAction(self.new_job_action)
+        file_menu.addSeparator()
+        self.recover_work_job_action = self._action(
+            "Åpne jobb fra DWM-arbeidsområde…", self._a10_recover_work_job,
+        )
+        self.migrate_work_job_action = self._action(
+            "Lagre valgt jobb i Work…", self._a10_migrate_work_job,
+        )
+        file_menu.addAction(self.recover_work_job_action)
+        file_menu.addAction(self.migrate_work_job_action)
         self.rename_job_action = self._action("Endre navn på jobb…", self._rename_job)
         self.remove_job_action = self._action("Fjern jobb fra listen…", self._remove_job)
         file_menu.addAction(self.rename_job_action)
@@ -961,6 +970,93 @@ class DwmMainWindow(QMainWindow):
         self._remember_joblist(str(output))
         self._refresh(force=True)
         return True
+
+    # ---------- a10: a Work job is independent of the job list ----------
+    def _a10_recover_work_job(self):
+        if self._worker is not None or self.api.running:
+            QMessageBox.warning(self, "Jobb kjører", "Avslutt kjøringen før gjenoppretting.")
+            return
+        selected = QFileDialog.getExistingDirectory(
+            self, "Åpne jobb fra DWM-arbeidsområde (mappen med job.json)", "",
+        )
+        if not selected:
+            return
+        try:
+            view = self.api.recover_job_from_work(selected)
+        except Exception as exc:
+            self._error(exc)
+            return
+        self._active_id = view.job_id
+        self._render_key = None
+        self._refresh(force=True)
+        QMessageBox.information(
+            self, "Jobb gjenopprettet",
+            f"{view.job_id} er hentet fra:\n{selected}\n\n"
+            "Jobben er rekonstruert fra Work, uten den opprinnelige jobblisten. "
+            "Velg «Lagre jobbliste» for å bevare den nye referansen. "
+            "Ingen filer i Work ble flyttet eller slettet.",
+        )
+
+    def _a10_migrate_work_job(self):
+        if self._worker is not None or self.api.running:
+            QMessageBox.warning(self, "Jobb kjører", "Avslutt kjøringen før lagring i Work.")
+            return
+        if not self._active_id:
+            QMessageBox.information(self, "Ingen jobb", "Velg først en jobb i jobblisten.")
+            return
+        try:
+            info = self.api.work_job_info(self._active_id)
+        except Exception as exc:
+            self._error(exc)
+            return
+        if info["work_is_authoritative"]:
+            QMessageBox.information(
+                self, "Jobbdata i Work",
+                "Jobbens autoritative data ligger allerede i Work:\n\n"
+                + str(info["work_manifest"])
+                + "\n\nVarig jobb-ID: " + str(info["job_uid"]),
+            )
+            return
+        try:
+            # No files are created by this read-only inspection.
+            current = self.api.preflight_job(self._active_id)
+        except Exception as exc:
+            self._error(exc)
+            return
+        if current.actions:
+            QMessageBox.information(
+                self, "Work må klargjøres",
+                "Work mangler godkjente mapper. Bruk «Kontroller / klargjør» "
+                "og godkjenn mappeopprettelsen først.",
+            )
+            return
+        if current.errors:
+            QMessageBox.warning(
+                self, "Work-kontroll", "Jobbdata kan ikke lagres i Work ennå:\n\n"
+                + "\n".join(issue.message for issue in current.errors),
+            )
+            return
+        answer = QMessageBox.question(
+            self, "Ta i bruk Work som jobblager?",
+            "DWM lagrer nå full jobbdefinisjon, status og historikk i eksisterende, "
+            "godkjent Work-mappe. Etterpå inneholder jobblisten bare en referanse "
+            "og sist kjent status. Ingen eldre filer slettes. Vil du fortsette?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            path = self.api.migrate_job_to_work(self._active_id)
+        except Exception as exc:
+            self._error(exc)
+            return
+        self._refresh(force=True)
+        QMessageBox.information(
+            self, "Jobbdata lagret i Work",
+            f"Autoritativ jobbdefinisjon:\n{path}\n\n"
+            "Lagre jobblisten for å oppdatere indeksreferansen.",
+        )
 
     def _apply_job_output_rule(self):
         """Preview changes to Work paths and save rule only with consent."""
@@ -1936,7 +2032,8 @@ class DwmMainWindow(QMainWindow):
         for action in (self.open_action, self.new_list_action, self.save_action,
                        self.save_as_action, self.new_job_action, self.run_action,
                        self.ready_action, self.continue_action, self.preflight_action,
-                       self.setup_action):
+                       self.setup_action, self.recover_work_job_action,
+                       self.migrate_work_job_action):
             action.setEnabled(not running)
         self.stop_action.setEnabled(running)
         self.overview_run.setEnabled(not running)
@@ -2379,6 +2476,8 @@ class DwmMainWindow(QMainWindow):
                     job_log_changed = job_log_changed or event.job_id == self._active_id
             elif event.kind in {"joblist.opened", "joblist.new"}:
                 self._append_log(f"{event.kind}: {event.message}")
+            elif event.kind == "joblist.index_write_failed":
+                self._append_log("ADVARSEL: " + str(event.message))
         try:
             while True:
                 kind, data = self._worker_messages.get_nowait()
@@ -2459,11 +2558,20 @@ class DwmMainWindow(QMainWindow):
         job = details.job
         self.overview_label.setText(f"{job.job_id}  ·  {job.name}  ·  {job.status}")
         self.progress_label.setText(f"Fremdrift: {job.progress:.0%}   |   Operasjoner: {job.current_operation}/{job.operation_count}   |   {details.message[:240]}")
+        a10_info = self.api.work_job_info(self._active_id)
+        a10_storage_note = (
+            "Jobbdata: Autoritative i Work | Varig ID: " + str(a10_info["job_uid"])
+            if a10_info["work_is_authoritative"] and a10_info["work_available"]
+            else "Jobbdata: Work frakoblet – status fra jobblisten er ikke oppdatert"
+            if a10_info["work_is_authoritative"]
+            else "Jobbdata: Utkast – ikke lagret i Work ennå"
+        )
         self.overview_storage.setText(
             f"Source: {_format_path(job.source_extraction)}\n"
             f"Work content: {_format_path(job.work_content)}\n"
             f"Work operations: {_format_path(job.effective_work_operations)}\n"
-            f"AIP: {_format_path(job.archive_root)}"
+            f"AIP: {_format_path(job.archive_root)}\n"
+            f"{a10_storage_note}"
         )
         self.storage_text.setPlainText("\n\n".join(f"{field}:\n{details.storage[field] or '(ikke angitt)'}" for field in STORAGE_FIELDS))
         self.workflow_label.setText(f"{job.job_id} · {len(details.operations)} deljobber")
