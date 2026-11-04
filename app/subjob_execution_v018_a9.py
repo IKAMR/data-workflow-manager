@@ -89,6 +89,7 @@ class SelectiveSubjobMixin:
             runtime_settings = dict(self.settings)
             runtime_settings["_current_run_id"] = writer.run_id
             runtime_settings["_current_job_uid"] = str(getattr(job, "job_uid", "") or "")
+            runtime_settings["_current_run_kind"] = "subjob"
             runner = self._runner_factory(runtime_settings)
             method = getattr(runner, "run_operation", None)
             if not callable(method):

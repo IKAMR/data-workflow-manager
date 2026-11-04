@@ -9,7 +9,7 @@ from __future__ import annotations
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox, QComboBox, QHBoxLayout, QLabel, QPlainTextEdit, QProgressBar, QPushButton,
-    QVBoxLayout, QWidget,
+    QVBoxLayout, QWidget, QTreeWidget, QTreeWidgetItem, QSplitter,
 )
 
 
@@ -170,6 +170,8 @@ class DetachedRunWindow(QWidget):
     """Independent normal window showing only Kjøreløp, not the job log."""
 
     redockRequested = Signal()
+    historyLogRequested = Signal(str)
+    historyResultsRequested = Signal(str)
 
     def __init__(self) -> None:
         super().__init__(None, Qt.WindowType.Window)
@@ -185,18 +187,74 @@ class DetachedRunWindow(QWidget):
         self.progress = QProgressBar()
         self.progress.setRange(0, 100)
         content.addWidget(self.progress)
+        self._history_snapshot = None
+        self.history_tree = QTreeWidget()
+        self.history_tree.setHeaderLabels(["Tid", "Deljobb", "Kjøring", "Teknisk", "Resultater"])
+        self.history_tree.setRootIsDecorated(False)
+        self.history_tree.setAlternatingRowColors(True)
+        self.history_tree.itemDoubleClicked.connect(lambda _row, _col: self._request_results())
         self.events = QPlainTextEdit()
         self.events.setReadOnly(True)
         self.events.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
         self.events.setMaximumBlockCount(1000)
-        content.addWidget(self.events, 1)
+        splitter = QSplitter(Qt.Orientation.Vertical)
+        splitter.addWidget(self.history_tree)
+        splitter.addWidget(self.events)
+        splitter.setStretchFactor(0, 3)
+        splitter.setStretchFactor(1, 2)
+        content.addWidget(splitter, 1)
         footer = QHBoxLayout()
-        footer.addWidget(QLabel("Kjøreløp: deljobber og fremdrift. Ikke detaljlogg."))
+        footer.addWidget(QLabel("Teknisk status – ikke depotgodkjenning"))
         footer.addStretch(1)
+        show_log = QPushButton("Logg")
+        show_log.setToolTip("Åpne faktisk kjørelogg for valgt deljobb")
+        show_log.clicked.connect(lambda _checked=False: self._request_log())
+        footer.addWidget(show_log)
+        results = QPushButton("Resultater")
+        results.setToolTip("Åpne lagret resultat fra valgt deljobb")
+        results.clicked.connect(lambda _checked=False: self._request_results())
+        footer.addWidget(results)
         redock = QPushButton("Fest til hovedvindu")
         redock.clicked.connect(lambda _checked=False: self.redockRequested.emit())
         footer.addWidget(redock)
         content.addLayout(footer)
+
+    def _selected_history_key(self) -> str:
+        item = self.history_tree.currentItem()
+        return str(item.data(0, Qt.ItemDataRole.UserRole)) if item else ""
+
+    def _request_log(self):
+        key = self._selected_history_key()
+        if key:
+            self.historyLogRequested.emit(key)
+
+    def _request_results(self):
+        key = self._selected_history_key()
+        if key:
+            self.historyResultsRequested.emit(key)
+
+    def set_history(self, rows, selected=None) -> None:
+        snapshot = tuple(tuple(row) for row in rows)
+        # Live Arkade output can arrive many times per second. A stable
+        # history table must not be rebuilt or steal manual selection.
+        if snapshot == self._history_snapshot:
+            return
+        current = self._selected_history_key() or selected
+        self._history_snapshot = snapshot
+        self.history_tree.blockSignals(True)
+        try:
+            self.history_tree.clear()
+            for at, operation, kind, status, count, run_id, operation_id in rows:
+                row = QTreeWidgetItem([at, operation, kind, status, count])
+                key = run_id + "|" + operation_id
+                row.setData(0, Qt.ItemDataRole.UserRole, key)
+                self.history_tree.addTopLevelItem(row)
+                if key == current:
+                    self.history_tree.setCurrentItem(row)
+            if self.history_tree.currentItem() is None and self.history_tree.topLevelItemCount():
+                self.history_tree.setCurrentItem(self.history_tree.topLevelItem(0))
+        finally:
+            self.history_tree.blockSignals(False)
 
     def set_run_data(self, summary: str, percent: int, events: str) -> None:
         self.summary.setText(summary)

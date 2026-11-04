@@ -354,6 +354,7 @@ class DwmApplication:
                 job._active_run_id = run_id
             runtime_settings["_current_run_id"] = run_id
             runtime_settings["_current_job_uid"] = str(getattr(job, "job_uid", "") or "")
+            runtime_settings["_current_run_kind"] = "workflow"
             runner = self._runner_factory(runtime_settings)
             callbacks = dict(progress_cb=progress, log_cb=log,
                              cancelled_cb=self._cancel.is_set, state_cb=persist)

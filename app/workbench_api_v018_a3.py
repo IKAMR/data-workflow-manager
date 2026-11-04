@@ -24,6 +24,9 @@ from app.arkade5_setup_v018_a7 import (
 from app.work_output_layout import validate_app_work_subfolder
 from settings import load_config, save_config
 from app.run_log_history_v018_a8 import RunLogInfo, RunLogStore
+from noark5_workflow.core.operation_history_a11 import (
+    OperationHistoryStore, OperationRun, OperationResultLink,
+)
 from app.subjob_execution_v018_a9 import SelectiveSubjobMixin
 from app.work_persistence_v018_a10 import WorkPersistenceMixin
 from noark5_workflow.core.job import Job, JobBatch, JobStatus
@@ -686,6 +689,47 @@ class DwmWorkbenchAPI(WorkPersistenceMixin, SelectiveSubjobMixin, DwmApplication
         if not matches:
             raise DwmApiError("Kjøreloggen finnes ikke for denne Work-jobben")
         return RunLogStore(store.base, matches[0].job_id).read(run_id)
+
+    # ---------- a11: read-only Work operation history for Kjøreløp / a13 ----------
+    def operation_history(self, job_id: str, *, operation_id: str | None = None,
+                          limit: int = 250) -> tuple[OperationRun, ...]:
+        """Actual operation executions, not the inferred 9/9 workflow cursor.
+
+        When Work is offline, do not pretend the list's cached status is current.
+        Nothing is created or modified by this read model.
+        """
+        job = self._require_job(job_id)
+        uid = str(getattr(job, "job_uid", "") or "")
+        ref = getattr(self, "_work_references", {}).get(job_id)
+        if not uid or ref is None or job_id in getattr(self, "_unavailable_work_ids", set()):
+            return ()
+        if not ref.is_file():
+            return ()
+        try:
+            return OperationHistoryStore(ref.parent, uid).list_runs(
+                operation_id=operation_id, limit=limit,
+            )
+        except (OSError, ValueError):
+            return ()
+
+    def operation_result_links(self, job_id: str, operation_id: str,
+                               *, run_id: str | None = None) -> tuple[OperationResultLink, ...]:
+        """A13-ready navigation, restricted to existing results inside Work."""
+        job = self._require_job(job_id)
+        if operation_id not in job.workflow_ids:
+            raise DwmApiError("Ukjent deljobb: " + str(operation_id))
+        uid = str(getattr(job, "job_uid", "") or "")
+        ref = getattr(self, "_work_references", {}).get(job_id)
+        if not uid or ref is None or job_id in getattr(self, "_unavailable_work_ids", set()):
+            return ()
+        if not ref.is_file():
+            return ()
+        try:
+            return OperationHistoryStore(ref.parent, uid).result_links(
+                operation_id=operation_id, run_id=run_id,
+            )
+        except (OSError, ValueError):
+            return ()
 
     def saved_job_log(self, job_id: str) -> str:
         """Fallback for older jobs that actually persisted log_entries in .n5jobs."""

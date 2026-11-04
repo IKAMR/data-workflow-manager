@@ -5,6 +5,7 @@ execution boundary. The legacy CustomTkinter GUI is not imported here.
 """
 from __future__ import annotations
 
+from datetime import datetime
 import base64
 import json
 import sys
@@ -127,6 +128,7 @@ class DwmMainWindow(QMainWindow):
         self._detached_run_window: DetachedRunWindow | None = None
         self._a8_run_context: tuple[str, str] | None = None
         self._a8_live_job: str | None = None
+        self._a11_history_cache = ()  # Work-only real operation executions
 
         self.setObjectName("DwmMainWindow")
         self.setWindowTitle(f"{APP_NAME} v{VERSION} – arbeidsflate")
@@ -456,13 +458,37 @@ class DwmMainWindow(QMainWindow):
         self.run_progress_bar = QProgressBar()
         self.run_progress_bar.setRange(0, 100)
         rp.addWidget(self.run_progress_bar)
+        self.run_history_tree = QTreeWidget()
+        self.run_history_tree.setHeaderLabels(["Tid", "Deljobb", "Kjøring", "Teknisk", "Resultater"])
+        self.run_history_tree.setRootIsDecorated(False)
+        self.run_history_tree.setAlternatingRowColors(True)
+        self.run_history_tree.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.run_history_tree.header().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        self.run_history_tree.header().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.run_history_tree.header().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        self.run_history_tree.header().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        self.run_history_tree.header().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+        self.run_history_tree.itemDoubleClicked.connect(self._a11_show_selected_results)
         self.run_events = QPlainTextEdit()
         self.run_events.setReadOnly(True)
         self.run_events.setMaximumBlockCount(400)
-        rp.addWidget(self.run_events, 1)
+        history_splitter = QSplitter(Qt.Orientation.Vertical)
+        history_splitter.addWidget(self.run_history_tree)
+        history_splitter.addWidget(self.run_events)
+        history_splitter.setStretchFactor(0, 3)
+        history_splitter.setStretchFactor(1, 2)
+        rp.addWidget(history_splitter, 1)
         run_tools = QHBoxLayout()
-        run_tools.addWidget(_muted("Kjøreløp: status og deljobber – ikke detaljlogg"))
+        rp.addWidget(_muted("Faktiske deljobbkjøringer – teknisk status, ikke depotgodkjenning"))
         run_tools.addStretch(1)
+        self.a11_run_log_button = QPushButton("Logg")
+        self.a11_run_log_button.setToolTip("Åpne faktisk kjørelogg for valgt deljobbkjøring")
+        self.a11_run_log_button.clicked.connect(self._a11_show_selected_history_log)
+        run_tools.addWidget(self.a11_run_log_button)
+        self.a11_result_button = QPushButton("Resultater")
+        self.a11_result_button.setToolTip("Åpne eksisterende resultatfil for valgt kjøring i Work")
+        self.a11_result_button.clicked.connect(self._a11_show_selected_results)
+        run_tools.addWidget(self.a11_result_button)
         self.run_window_button = QPushButton("Eget vindu")
         self.run_window_button.clicked.connect(self._a9_float_run)
         run_tools.addWidget(self.run_window_button)
@@ -1493,6 +1519,7 @@ class DwmMainWindow(QMainWindow):
         menu.addAction("Kontroller forutsetninger", self._a9_check_selected_subjob)
         menu.addSeparator()
         menu.addAction("Vis tidligere kj\u00f8ringer", self._a9_show_selected_subjob_history)
+        menu.addAction("Åpne resultater fra denne deljobben…", self._a11_open_selected_workflow_results)
         menu.addAction("\u00c5pne Work-mappe", self._open_work_dir)
         menu.exec(self.workflow_tree.viewport().mapToGlobal(point))
 
@@ -2127,6 +2154,10 @@ class DwmMainWindow(QMainWindow):
         viewer = DetachedRunWindow()  # independent Qt.Window, not Qt.Tool
         viewer.setStyleSheet(STYLE)
         viewer.redockRequested.connect(self._a9_redock_run)
+        if hasattr(viewer, "historyLogRequested"):
+            viewer.historyLogRequested.connect(self._a11_open_history_log)
+        if hasattr(viewer, "historyResultsRequested"):
+            viewer.historyResultsRequested.connect(self._a11_open_history_results)
         self._detached_run_window = viewer
         self._a9_sync_detached_run()
         self.dock_run.hide()
@@ -2164,6 +2195,9 @@ class DwmMainWindow(QMainWindow):
                 self.run_progress_bar.value(),
                 self.run_events.toPlainText(),
             )
+            if hasattr(viewer, "set_history"):
+                viewer.set_history(self._a11_history_display_rows(),
+                                   self._a11_selected_history_key())
 
     def _a9_recover_detached_run_geometry(self):
         viewer = self._detached_run_window
@@ -2279,6 +2313,131 @@ class DwmMainWindow(QMainWindow):
                 dock.resize(940, 540)
         self._recover_windows()
 
+    # ---------- a11: real execution history per deljobb; a13 navigation ----------
+    @staticmethod
+    def _a11_execution_label(run):
+        if run.execution_status == "blocked":
+            return "Blokkert"
+        if run.execution_status == "exception":
+            return "Teknisk feil"
+        if run.execution_ok is True:
+            return "Gjennomført"
+        if run.execution_ok is False:
+            return "Avvik / feil"
+        return "Ukjent"
+
+    def _a11_selected_history_key(self):
+        if not hasattr(self, "run_history_tree"):
+            return None
+        item = self.run_history_tree.currentItem()
+        return str(item.data(0, Qt.ItemDataRole.UserRole)) if item else None
+
+    def _a11_history_display_rows(self):
+        def shown_time(stamp):
+            try:
+                # Stored UTC timestamps must be displayed in the operator's
+                # local Windows timezone; do not silently label UTC as local.
+                return datetime.fromisoformat(stamp).astimezone().strftime("%Y-%m-%d %H:%M:%S")
+            except (TypeError, ValueError):
+                return str(stamp).replace("T", " ")[:19]
+        return [(
+            shown_time(item.recorded_at),
+            item.operation_name,
+            "Enkelt" if item.run_kind == "subjob" else "Arbeidsflyt",
+            self._a11_execution_label(item),
+            str(len(item.work_results)), item.run_id, item.operation_id,
+        ) for item in self._a11_history_cache]
+
+    def _a11_refresh_operation_history(self):
+        if not hasattr(self, "run_history_tree"):
+            return  # compatibility with old a8 headless GUI source tests
+        selected = self._a11_selected_history_key()
+        self._a11_history_cache = ()
+        if self._active_id:
+            try:
+                self._a11_history_cache = self.api.operation_history(self._active_id)
+            except (OSError, ValueError, DwmApiError):
+                self._a11_history_cache = ()
+        existing = self.run_history_tree.blockSignals(True)
+        try:
+            self.run_history_tree.clear()
+            for (at, operation, kind, state, files, run_id, operation_id), event in zip(
+                self._a11_history_display_rows(), self._a11_history_cache
+            ):
+                row = QTreeWidgetItem([at, operation, kind, state, files])
+                key = run_id + "|" + operation_id
+                row.setData(0, Qt.ItemDataRole.UserRole, key)
+                row.setToolTip(1, (
+                    "Faktisk kjøring – dette er teknisk utførelse, ikke depotgodkjenning.\n"
+                    "Kjøring: " + run_id + "\n" +
+                    "Resultat: " + event.message[:600] + "\n" +
+                    "Advarsler: " + str(event.warning_count) +
+                    " | Filer: " + str(len(event.work_results))
+                ))
+                self.run_history_tree.addTopLevelItem(row)
+                if key == selected:
+                    self.run_history_tree.setCurrentItem(row)
+            if self.run_history_tree.currentItem() is None and self.run_history_tree.topLevelItemCount():
+                self.run_history_tree.setCurrentItem(self.run_history_tree.topLevelItem(0))
+        finally:
+            self.run_history_tree.blockSignals(existing)
+        self._a9_sync_detached_run()
+
+    def _a11_open_history_log(self, key: str):
+        if not key or "|" not in key:
+            return
+        run_id, _operation_id = key.split("|", 1)
+        self._a8_show_job_log()
+        index = self.job_run_combo.findData(run_id)
+        if index >= 0:
+            self.job_run_combo.setCurrentIndex(index)
+            self._a8_show_selected_run()
+        else:
+            QMessageBox.information(self, "Kjørelogg", "Ingen detaljlogg for denne kjøringen er tilgjengelig.")
+
+    def _a11_show_selected_history_log(self, _checked=False):
+        self._a11_open_history_log(self._a11_selected_history_key() or "")
+
+    def _a11_open_history_results(self, key: str):
+        if not self._active_id or not key or "|" not in key:
+            return
+        run_id, operation_id = key.split("|", 1)
+        self._a11_open_operation_results(operation_id, run_id=run_id)
+
+    def _a11_show_selected_results(self, _checked=False, _column=None):
+        self._a11_open_history_results(self._a11_selected_history_key() or "")
+
+    def _a11_open_selected_workflow_results(self):
+        operation_id = self._a9_selected_operation_id()
+        if operation_id:
+            self._a11_open_operation_results(operation_id)
+
+    def _a11_open_operation_results(self, operation_id: str, *, run_id=None):
+        if not self._active_id:
+            return
+        try:
+            links = self.api.operation_result_links(self._active_id, operation_id, run_id=run_id)
+        except (OSError, ValueError, DwmApiError) as exc:
+            self._error(exc)
+            return
+        if not links:
+            QMessageBox.information(
+                self, "Resultater for deljobb",
+                "Ingen direkte resultatfiler er registrert for valgt kjøring.\n"
+                "Eldre kjøringer før a11 har ikke nødvendigvis en strukturert resultatindeks.\n"
+                "Bruk Resultater / filer for å undersøke Work manuelt."
+            )
+            return
+        if len(links) == 1:
+            chosen = links[0]
+        else:
+            labels = [link.relative_path + ("/" if link.is_directory else "") for link in links]
+            answer, ok = QInputDialog.getItem(self, "Resultatfiler", "Velg lagret resultat i Work:", labels, 0, False)
+            if not ok:
+                return
+            chosen = links[labels.index(answer)]
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(chosen.path)))
+
     def _a8_refresh_job_log(self, *, force: bool = False):
         job_id = self._active_id
         if not job_id:
@@ -2321,7 +2480,8 @@ class DwmMainWindow(QMainWindow):
             # Always pick a real run when one first appears. A saved status
             # snapshot is not an actual log and is shown only in Kjøreløp.
             wanted = (
-                previous if previous != "__legacy__" and any(item[0] == previous for item in options)
+                options[0][0] if options and changed and self._a8_live_job == job_id
+                else previous if previous != "__legacy__" and any(item[0] == previous for item in options)
                 else (options[0][0] if options else None)
             )
             if wanted is not None:
@@ -2374,6 +2534,7 @@ class DwmMainWindow(QMainWindow):
             self.run_progress_bar.setValue(0)
             self.run_events.clear()
             self._a8_live_job = None
+            getattr(self, "_a11_refresh_operation_history", lambda: None)()
             self._a9_sync_detached_run()
             return
         try:
@@ -2398,6 +2559,7 @@ class DwmMainWindow(QMainWindow):
             pass
         self.run_events.setPlainText("\n".join(lines))
         self._a8_live_job = None
+        getattr(self, "_a11_refresh_operation_history", lambda: None)()
         self._a9_sync_detached_run()
 
     def _a8_process_run_event(self, event):
@@ -2500,6 +2662,12 @@ class DwmMainWindow(QMainWindow):
         self._refresh(force=any(event.kind in {"joblist.opened", "run.state", "run.finished", "job.selected", "subjob.finished", "subjob.error"} for event in events))
         if job_log_changed or any(event.kind in {"run.started", "subjob.started"} for event in events):
             self._a8_refresh_job_log(force=True)
+        if (self._active_id and any(
+            event.job_id == self._active_id and (
+                event.kind in {"subjob.finished", "subjob.error", "run.finished", "run.error"}
+                or (event.kind == "run.log" and str(event.message or "").startswith(("OK:", "FEIL:")))
+            ) for event in events)):
+            getattr(self, "_a11_refresh_operation_history", lambda: None)()
 
     def _append_log(self, message: str):
         content = str(message or "")
