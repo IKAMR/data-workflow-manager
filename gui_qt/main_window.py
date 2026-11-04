@@ -1151,7 +1151,8 @@ class DwmMainWindow(QMainWindow):
             QMessageBox.warning(self, "Jobb kjører", "Avslutt kjøringen før gjenoppretting.")
             return
         selected = QFileDialog.getExistingDirectory(
-            self, "Åpne jobb fra DWM-arbeidsområde (mappen med job.json)", "",
+            self, "Åpne jobb fra DWM-arbeidsområde (mappen med job.json)",
+            str(self.config.value("qt/last_recover_work_dir", "") or self.config.value("qt/last_work_dir", "") or ""),
         )
         if not selected:
             return
@@ -1160,6 +1161,7 @@ class DwmMainWindow(QMainWindow):
         except Exception as exc:
             self._error(exc)
             return
+        self.config.setValue("qt/last_recover_work_dir", selected)
         self._active_id = view.job_id
         self._render_key = None
         self._refresh(force=True)
@@ -1391,7 +1393,8 @@ class DwmMainWindow(QMainWindow):
         if self._worker is not None:
             return
         source = QFileDialog.getExistingDirectory(
-            self, "1/2 – Velg Noark 5-uttrekksmappe (arkivstruktur.xml)", "",
+            self, "1/2 – Velg Noark 5-uttrekksmappe (arkivstruktur.xml)",
+            str(self.config.value("qt/last_new_source_dir", "") or ""),
         )
         if not source:
             return
@@ -1403,11 +1406,14 @@ class DwmMainWindow(QMainWindow):
                 + "\n\nVelg mappen med selve Noark 5-uttrekket. Ingen jobb er opprettet.",
             )
             return
+        self.config.setValue("qt/last_new_source_dir", source)
         work_root = QFileDialog.getExistingDirectory(
-            self, "2/2 – Velg hvor DWM skal lagre arbeidsfiler (eksisterende hovedmappe)", "",
+            self, "2/2 – Velg hvor DWM skal lagre arbeidsfiler (eksisterende hovedmappe)",
+            str(self.config.value("qt/last_work_dir", "") or ""),
         )
         if not work_root:
             return
+        self.config.setValue("qt/last_work_dir", work_root)
         try:
             proposal = propose_work_location(
                 work_root, app_subfolder=str(self.api.settings.get("app_work_subfolder", "dwm") or ""),
@@ -1964,7 +1970,8 @@ class DwmMainWindow(QMainWindow):
             return False
         previous = details.storage
         current_work = previous.get("work_root") or previous.get("work_operations") or ""
-        starting = current_work if Path(current_work).is_dir() else ""
+        starting = current_work if current_work and Path(current_work).is_dir() else str(
+            self.config.value("qt/last_work_dir", "") or "")
         while True:
             selected = QFileDialog.getExistingDirectory(
                 self, "Velg Work-hovedmappe eller repository_operations for " + job_id,
@@ -1973,6 +1980,7 @@ class DwmMainWindow(QMainWindow):
             if not selected:
                 return False
             starting = selected
+            self.config.setValue("qt/last_work_dir", selected)
             try:
                 proposal = propose_work_location(
                     selected,

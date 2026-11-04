@@ -9,7 +9,7 @@ from pathlib import Path
 from queue import Empty, Queue
 from threading import Event, Thread
 
-from PySide6.QtCore import QTimer, QUrl
+from PySide6.QtCore import QSettings, QTimer, QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QCheckBox, QComboBox, QDialog, QFileDialog, QFormLayout, QGroupBox,
@@ -37,6 +37,7 @@ class LegacyMultiOverviewDialog(QDialog):
     def __init__(self, snapshots, *, parent=None):
         super().__init__(parent)
         self.shots = tuple(snapshots)
+        self._settings = QSettings("IKAMR", "DWM-Qt")
         self._pending: Thread | None = None
         self._events: Queue = Queue()
         self._stop = Event()
@@ -83,8 +84,11 @@ class LegacyMultiOverviewDialog(QDialog):
         self.prefix.setPlaceholderText("Valgfritt filnavnprefiks")
         target_fields.addRow("Filnavnprefiks", self.prefix)
         target_bar = QHBoxLayout()
-        self.target = QLineEdit()
-        self.target.setPlaceholderText("Velg eksisterende rapportmappe")
+        self.target = QLineEdit(str(
+            self._settings.value("qt/last_report_output_dir", "")
+            or self._settings.value("qt/a12_report_target", "")
+            or ""))
+        self.target.setPlaceholderText("Velg mappe der rapportfilene skal lagres")
         target_bar.addWidget(self.target, 1)
         browse = QPushButton("Velg mappe…")
         browse.clicked.connect(self._browse)
@@ -122,20 +126,23 @@ class LegacyMultiOverviewDialog(QDialog):
 
     def _browse(self):
         directory = QFileDialog.getExistingDirectory(self, "Velg rapportmappe",
-                                                      self.target.text() or str(Path.home()))
+                                                      self.target.text().strip() or str(self._settings.value(
+                                                          "qt/last_report_output_dir", "") or ""))
         if directory:
             self.target.setText(directory)
+            self._settings.setValue("qt/last_report_output_dir", directory)
 
     def _start(self):
         if self._pending is not None:
             return
         target = Path(self.target.text().strip())
         if not self.target.text().strip() or not target.is_dir():
-            QMessageBox.warning(self, "Rapport", "Velg en eksisterende eksportmappe.")
+            QMessageBox.warning(self, "Rapport", "Velg en eksisterende rapportmappe.")
             return
         if any(s.depot is None for s in self.shots):
             QMessageBox.warning(self, "Rapport", "Minst ett uttrekk mangler lesbar depotrapport.")
             return
+        self._settings.setValue("qt/last_report_output_dir", str(target))
         prefix = self.prefix.text().strip()
         basename = (prefix + "_" if prefix else "") + "noark5-uttrekksoversikt"
         existing = [target / (basename + ending) for ending in (".html", ".json", ".csv", ".pdf")]

@@ -118,8 +118,11 @@ class SelectedReportDialog(QDialog):
         self.prefix = QLineEdit()
         self.prefix.setPlaceholderText("Eksempel: 1502_ephorte_hist")
         target_form.addWidget(self.prefix, 0, 1, 1, 2)
-        target_form.addWidget(QLabel("Eksportmappe"), 1, 0)
-        self.target = QLineEdit(str(self._settings.value("qt/a12_report_target", "") or ""))
+        target_form.addWidget(QLabel("Rapportmappe"), 1, 0)
+        self.target = QLineEdit(str(
+            self._settings.value("qt/last_report_output_dir", "")
+            or self._settings.value("qt/a12_report_target", "")
+            or ""))
         target_form.addWidget(self.target, 1, 1)
         browse = QPushButton("Velg mappe…")
         browse.clicked.connect(self._choose_target)
@@ -164,10 +167,12 @@ class SelectedReportDialog(QDialog):
 
     def _choose_target(self):
         selected = QFileDialog.getExistingDirectory(
-            self, "Velg eksportmappe", self.target.text().strip() or str(Path.home()),
+            self, "Velg rapportmappe", self.target.text().strip() or str(self._settings.value(
+                "qt/last_report_output_dir", "") or ""),
         )
         if selected:
             self.target.setText(selected)
+            self._settings.setValue("qt/last_report_output_dir", selected)
 
     def _selected_ids(self) -> tuple[str, ...]:
         return tuple(job["job_id"] for row, job in enumerate(self._candidates)
@@ -213,7 +218,7 @@ class SelectedReportDialog(QDialog):
         except (DwmApiError, ValueError, OSError) as exc:
             QMessageBox.warning(self, "Rapport", str(exc))
             return
-        self._settings.setValue("qt/a12_report_target", str(folder))
+        self._settings.setValue("qt/last_report_output_dir", str(folder))
         self._stop.clear()
         self.start.setEnabled(False)
         self.cancel.setText("Stopp eksport")
