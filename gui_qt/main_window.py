@@ -3178,10 +3178,13 @@ class DwmMainWindow(QMainWindow):
         except DwmApiError as exc:
             self._error(exc)
             return
-        from .result_center_v018_a12 import ResultCenterWindow
+        from .result_center_v018_a13 import ResultCenterWindow
         dialog = ResultCenterWindow(
             job.effective_work_operations,
             display_name=job.job_id + " – " + job.name,
+            available_jobs=self.api.report_candidates(),
+            report_api=self.api,
+            on_generate_report=self._a12_open_selected_report,
         )
         dialog.setStyleSheet(STYLE)
         dialog.setFont(self.font())
