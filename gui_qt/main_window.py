@@ -3186,8 +3186,10 @@ class DwmMainWindow(QMainWindow):
         except DwmApiError as exc:
             self._error(exc)
             return
+        # Keep v0.1.8 result-center available as a read-only compatibility layer.
         from .result_center_v018_a13 import ResultCenterWindow
-        dialog = ResultCenterWindow(
+        from .result_center_v019_a1 import ResultCenterWindow as EvidenceResultCenter
+        dialog = EvidenceResultCenter(
             job.effective_work_operations,
             display_name=job.job_id + " – " + job.name,
             available_jobs=self.api.report_candidates(),
