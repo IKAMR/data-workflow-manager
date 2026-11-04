@@ -129,6 +129,9 @@ class DwmMainWindow(QMainWindow):
         self._a8_run_context: tuple[str, str] | None = None
         self._a8_live_job: str | None = None
         self._a11_history_cache = ()  # Work-only real operation executions
+        self._a12_result_windows: list = []  # Independent normal Windows
+        self._a12_system_split_active = False
+        self._a12_run_splitter_initialized = False
 
         self.setObjectName("DwmMainWindow")
         self.setWindowTitle(f"{APP_NAME} v{VERSION} – arbeidsflate")
@@ -141,11 +144,26 @@ class DwmMainWindow(QMainWindow):
         # Qt 6 builds can crash natively when a floating group is split.
         # Individual docks remain movable, floatable and resizable.
         self.setDockOptions(QMainWindow.DockOption.AllowNestedDocks)
+        # Left job/workflow column extends below the central activity area.
+        self.setCorner(Qt.Corner.BottomLeftCorner, Qt.DockWidgetArea.LeftDockWidgetArea)
         self.setStatusBar(QStatusBar())
         self._create_central()
         self._create_docks()
         self._create_actions_and_menu()
         self._restore_settings()
+        # Connect AFTER restore: initial hidden/show dock signals must not
+        # rearrange a restored user layout before its geometry exists.
+        self.activity_tabs.currentChanged.connect(self._a12_activity_tab_changed)
+        # A12: menu checks indicate the actually visible activity tab,
+        # not just the shared dock's visibility.
+        self.activity_tabs.currentChanged.connect(self._a12_sync_activity_menu)
+        self.dock_log.visibilityChanged.connect(self._a12_sync_activity_menu)
+        self.dock_system.visibilityChanged.connect(self._a12_system_visibility_changed)
+        self._a12_sync_activity_menu()
+        # A saved compact dock can be too small for all 9 status lines.
+        # Grow only undersized layouts, never shrink a user-sized panel.
+        QTimer.singleShot(0, self._a12_ensure_activity_height)
+        QTimer.singleShot(0, self._a12_restore_cramped_system_log)
 
         self._poller = QTimer(self)
         self._poller.setInterval(200)
@@ -219,6 +237,12 @@ class DwmMainWindow(QMainWindow):
         open_button = QPushButton("Åpne mappe")
         open_button.clicked.connect(self._open_work_dir)
         top.addWidget(open_button)
+        view_results = QPushButton("Resultatvisninger…")
+        view_results.clicked.connect(self._a12_open_result_center)
+        top.addWidget(view_results)
+        self.results_report_button = QPushButton("Lag rapport…")
+        self.results_report_button.clicked.connect(self._a12_open_selected_report)
+        top.addWidget(self.results_report_button)
         result_layout.addLayout(top)
         self.file_tree = QTreeView()
         self.file_tree.setAlternatingRowColors(True)
@@ -233,10 +257,17 @@ class DwmMainWindow(QMainWindow):
         label.setFont(QFont("Segoe UI", 14, QFont.Weight.DemiBold))
         depot_layout.addWidget(label)
         depot_layout.addWidget(_muted(
-            "Denne første Qt-versjonen gir tilgang til genererte DWM-rapporter og evidens. "
-            "Full faglig redigering og batch-/metadatafunksjoner er fortsatt i det gamle GUI-et."
+            "Bruk den eksisterende DWM-rapportmotoren til rapport for én jobb eller "
+            "samlerapport for flere Noark 5-jobber. Faglige vurderingsdialoger og "
+            "enkelte metadatafunksjoner er fortsatt i den gamle GUI-en."
         ))
         rbuttons = QHBoxLayout()
+        b = QPushButton("Resultatvisninger…")
+        b.clicked.connect(self._a12_open_result_center)
+        rbuttons.addWidget(b)
+        b = QPushButton("Lag rapport / samlerapport…")
+        b.clicked.connect(self._a12_open_selected_report)
+        rbuttons.addWidget(b)
         b = QPushButton("Vis rapportfiler")
         b.clicked.connect(self._show_result_files)
         rbuttons.addWidget(b)
@@ -268,9 +299,11 @@ class DwmMainWindow(QMainWindow):
             # log/progress docks fixed and use normal, independent Qt.Windows.
             dock.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetClosable)
             header = DetachableDockTitleBar(title)
-            header.detachRequested.connect(
-                self._a8_float_job_log if name == "log" else self._a9_float_run
-            )
+            if name == "log":
+                # The unified activity dock opens whichever tab is selected.
+                header.detachRequested.connect(self._a12_detach_active_tab)
+            else:
+                header.detachRequested.connect(self._a9_float_run)
             header.hideRequested.connect(dock.hide)
             dock.setTitleBarWidget(header)
         dock.setAllowedAreas(Qt.DockWidgetArea.AllDockWidgetAreas)
@@ -286,14 +319,27 @@ class DwmMainWindow(QMainWindow):
         # Job list – no separate top-level window is required.
         jobs = QWidget()
         j = QVBoxLayout(jobs)
+        j.setContentsMargins(7, 6, 7, 6)
+        j.setSpacing(5)
         self.joblist_label = _muted("Ingen jobbliste åpnet")
         j.addWidget(self.joblist_label)
         self.job_search = QLineEdit()
         self.job_search.setPlaceholderText("Søk i jobblisten (navn, ID, status, Source eller Work)…")
         self.job_search.setClearButtonEnabled(True)
         self.job_search.textChanged.connect(self._filter_jobs)
-        j.addWidget(self.job_search)
+        search_row = QHBoxLayout()
+        search_row.setSpacing(5)
+        search_row.addWidget(self.job_search, 1)
+        # Work-output rules are important, but should not permanently squeeze
+        # the job table. Keep the original editor in a collapsible panel.
+        self.job_rule_toggle = QPushButton("Regel ▸")
+        self.job_rule_toggle.setToolTip("Vis eller skjul jobblistens Work-undermappe-regel")
+        self.job_rule_toggle.setFixedWidth(69)
+        self.job_rule_toggle.clicked.connect(self._a12_toggle_job_rule)
+        search_row.addWidget(self.job_rule_toggle)
+        j.addLayout(search_row)
         self.jobs_tree = QTreeWidget()
+        self.jobs_tree.setMinimumHeight(110)
         self.jobs_tree.setHeaderLabels(["Jobb", "Navn / uttrekk", "Status", "%"])
         self.jobs_tree.setAlternatingRowColors(True)
         self.jobs_tree.setRootIsDecorated(False)
@@ -332,7 +378,12 @@ class DwmMainWindow(QMainWindow):
         job_buttons.addWidget(self.job_remove_button)
         j.addLayout(job_buttons)
         # Per-job-list output rule is stored in .n5jobs, independently of
-        # the global app_work_subfolder setting in Setup.
+        # the global app_work_subfolder setting in Setup.  Preserve all
+        # original edit controls, but collapse them by default.
+        self.job_rule_box = QWidget()
+        rule_box_layout = QVBoxLayout(self.job_rule_box)
+        rule_box_layout.setContentsMargins(0, 0, 0, 0)
+        rule_box_layout.setSpacing(3)
         rule_form = QHBoxLayout()
         rule_form.setSpacing(5)
         rule_form.addWidget(QLabel("Undermappe-regel:"))
@@ -347,25 +398,35 @@ class DwmMainWindow(QMainWindow):
         self.job_rule_apply = QPushButton("Bruk regel")
         self.job_rule_apply.clicked.connect(self._apply_job_output_rule)
         rule_form.addWidget(self.job_rule_apply)
-        j.addLayout(rule_form)
+        rule_box_layout.addLayout(rule_form)
         self.job_rule_preview = _muted("Ingen jobbliste-regel valgt")
-        self.job_rule_preview.setMaximumHeight(58)
+        self.job_rule_preview.setMaximumHeight(42)
         self.job_rule_preview.setToolTip(
             "Eksempel: Work operations / dwm / a01. "
             "Resultatmappene opprettes først etter kontroll og godkjenning."
         )
-        j.addWidget(self.job_rule_preview)
+        rule_box_layout.addWidget(self.job_rule_preview)
+        j.addWidget(self.job_rule_box)
+        self._a12_job_rule_visible = self.config.value(
+            "qt/a12_job_rule_visible", False, type=bool,
+        )
+        self.job_rule_box.setVisible(self._a12_job_rule_visible)
+        self.job_rule_toggle.setText("Regel ▾" if self._a12_job_rule_visible else "Regel ▸")
         self._job_action_buttons = (
             self.job_rename_button, self.job_up_button,
             self.job_down_button, self.job_remove_button,
         )
         self._dock("jobs", "Jobber", jobs, Qt.DockWidgetArea.LeftDockWidgetArea)
+        self.dock_jobs.setMinimumWidth(320)
 
         flow = QWidget()
         f = QVBoxLayout(flow)
+        f.setContentsMargins(7, 6, 7, 6)
+        f.setSpacing(5)
         self.workflow_label = _muted("Velg jobb for å se arbeidsflyten.")
         f.addWidget(self.workflow_label)
         self.workflow_tree = QTreeWidget()
+        self.workflow_tree.setMinimumHeight(192)
         self.workflow_tree.setHeaderLabels(["#", "Deljobb", "Status", "Stopp"])
         self.workflow_tree.setRootIsDecorated(False)
         self.workflow_tree.setAlternatingRowColors(True)
@@ -393,6 +454,7 @@ class DwmMainWindow(QMainWindow):
         subjobs_row.addWidget(self.subjob_check_button)
         f.addLayout(subjobs_row)
         self._dock("workflow", "Arbeidsflyt", flow, Qt.DockWidgetArea.LeftDockWidgetArea)
+        self.dock_workflow.setMinimumWidth(320)
 
         storage = QWidget()
         s = QVBoxLayout(storage)
@@ -446,7 +508,6 @@ class DwmMainWindow(QMainWindow):
         logtools.addWidget(self.log_window_button)
         logtools.addStretch(1)
         l.addLayout(logtools)
-        self._dock("log", "Kjørelogg", logger, Qt.DockWidgetArea.BottomDockWidgetArea)
         self.job_log_text.textChanged.connect(self._a9_sync_detached_log_text)
         self.log_follow.toggled.connect(self._a9_sync_detached_log_follow)
         self._a8_update_log_window_buttons()
@@ -477,6 +538,7 @@ class DwmMainWindow(QMainWindow):
         history_splitter.addWidget(self.run_events)
         history_splitter.setStretchFactor(0, 3)
         history_splitter.setStretchFactor(1, 2)
+        self.run_history_splitter = history_splitter
         rp.addWidget(history_splitter, 1)
         run_tools = QHBoxLayout()
         rp.addWidget(_muted("Faktiske deljobbkjøringer – teknisk status, ikke depotgodkjenning"))
@@ -493,7 +555,25 @@ class DwmMainWindow(QMainWindow):
         self.run_window_button.clicked.connect(self._a9_float_run)
         run_tools.addWidget(self.run_window_button)
         rp.addLayout(run_tools)
-        self._dock("run", "Kjøreløp", flow_progress, Qt.DockWidgetArea.BottomDockWidgetArea)
+        # A12: ONE safe dock with two normal QWidget tabs. Not native Qt dock
+        # tabification, which previously crashed when floating groups on Windows.
+        self.activity_tabs = QTabWidget()
+        self.activity_tabs.setDocumentMode(True)
+        self.activity_tabs.setTabsClosable(False)
+        self.activity_tabs.setMovable(False)
+        self.activity_tabs.addTab(logger, "Kjørelogg")
+        self.activity_tabs.addTab(flow_progress, "Kjøreløp")
+        self.activity_tabs.setCurrentIndex(1)
+        self.activity_tabs.currentChanged.connect(
+            lambda index: self.config.setValue("qt/a12_activity_tab", index)
+        )
+        self._dock("log", "Aktivitet", self.activity_tabs,
+                   Qt.DockWidgetArea.BottomDockWidgetArea)
+        # Retain a hidden legacy dock name for QSettings state compatibility.
+        # It must never hold a second visible progress panel.
+        self._dock("run", "Kjøreløp", QWidget(),
+                   Qt.DockWidgetArea.BottomDockWidgetArea)
+        self.dock_run.hide()
 
         system = QWidget()
         sy = QVBoxLayout(system)
@@ -587,12 +667,45 @@ class DwmMainWindow(QMainWindow):
         run_menu.addAction(self.subjob_run_action)
         run_menu.addAction(self.subjob_check_action)
 
+        reports_menu = mb.addMenu("Rapport")
+        self.result_center_action = self._action("Resultatvisninger…", self._a12_open_result_center)
+        self.report_selected_action = self._action(
+            "Lag rapport / samlerapport…", self._a12_open_selected_report,
+        )
+        reports_menu.addAction(self.result_center_action)
+        reports_menu.addAction(self.report_selected_action)
+        reports_menu.addAction(self._action("Åpne siste depotrapport", self._open_latest_depot_report))
+
         view = mb.addMenu("Vis")
+        # Refresh checks whenever the menu opens (also handles returning from
+        # independent Windows windows and a restored native Qt layout).
+        view.aboutToShow.connect(self._a12_sync_activity_menu)
         for name in DOCK_NAMES:
-            view.addAction(getattr(self, "dock_" + name).toggleViewAction())
+            if name == "run":
+                continue  # Legacy placeholder is NEVER exposed as a second dock.
+            toggle = getattr(self, "dock_" + name).toggleViewAction()
+            view.addAction(toggle)
         view.addSeparator()
-        self.show_job_log_action = self._action("Vis kjørelogg", self._a8_show_job_log)
-        view.addAction(self.show_job_log_action)
+        # "Aktivitet" above is the NATIVE panel show/hide toggle.
+        # These two actions select its contents; neither is a visibility
+        # toggle. Putting them under a named submenu avoids the misleading
+        # old "Vis kjørelogg" command alongside the panel toggle.
+        activity_view_menu = view.addMenu("Aktivitetsfane")
+        self.show_job_log_action = self._action("Kjørelogg", self._a8_show_job_log)
+        self.show_job_log_action.setCheckable(True)
+        self.show_job_log_action.setToolTip(
+            "Velg Kjørelogg i Aktivitet (eller hent frem separat loggvindu)."
+        )
+        activity_view_menu.addAction(self.show_job_log_action)
+        self.show_run_tab_action = self._action(
+            "Kjøreløp", self._a12_show_run_tab,
+        )
+        self.show_run_tab_action.setCheckable(True)
+        self.show_run_tab_action.setToolTip(
+            "Velg Kjøreløp i Aktivitet (eller hent frem separat kjøreløpvindu)."
+        )
+        activity_view_menu.addAction(self.show_run_tab_action)
+        view.addSeparator()
         self.float_job_log_action = self._action("Åpne kjørelogg i eget vindu", self._a8_float_job_log)
         view.addAction(self.float_job_log_action)
         self.float_run_action = self._action("Åpne kjøreløp i eget vindu", self._a9_float_run)
@@ -660,13 +773,23 @@ class DwmMainWindow(QMainWindow):
         toolbar.addWidget(self.complexity_tool)
         toolbar.addSeparator()
         toolbar.addAction(self.setup_action)
-        toolbar.addAction(self.show_job_log_action)
+        # Toolbar buttons are commands, not checked/unchecked tab indicators.
+        # A separate QAction prevents its visual state from being confused
+        # with the checkmark that marks the active tab in the Vis submenu.
+        self.goto_job_log_action = self._action(
+            "Gå til kjørelogg", self._a8_show_job_log,
+        )
+        self.goto_job_log_action.setToolTip(
+            "Aktiver Kjørelogg-fanen i Aktivitet. Viser panelet hvis det er skjult."
+        )
+        toolbar.addAction(self.goto_job_log_action)
         self._toolbar = toolbar
         self._refresh_recent_menu()
 
     def _apply_builtin(self, name: str):
         if name not in LAYOUT_MODES:
             raise ValueError(f"Ukjent arbeidsflate: {name}")
+        self._a12_system_split_active = False
         # Re-dock all panels deterministically, even after a floating-window session.
         target = {
             "Laptop": {"jobs": "left", "workflow": "left", "storage": "right", "log": "bottom", "info": "right"},
@@ -734,9 +857,13 @@ class DwmMainWindow(QMainWindow):
         # independent (normally stacked) viewer is showing the same log.
         if self._detached_log_window is not None:
             self.dock_log.hide()
-        if self._detached_run_window is not None:
-            self.dock_run.hide()
+        self.dock_run.hide()  # Never allow the old second bottom dock.
+        self._a12_reconcile_activity_tabs()
+        if name == "Laptop" and self._detached_run_window is None:
+            self.activity_tabs.setCurrentIndex(1)
         self._layout_name = name
+        # Resize only built-in layouts, never arbitrarily move saved custom ones.
+        QTimer.singleShot(0, self._a12_balance_workspace)
         for label, action in self._layout_actions.items():
             action.setChecked(label == name)
         self.statusBar().showMessage(f"Arbeidsflate: {name}", 5000)
@@ -842,10 +969,8 @@ class DwmMainWindow(QMainWindow):
             QMessageBox.warning(self, "Arbeidsflate", "Kunne ikke gjenopprette lagret arbeidsflate.")
             return
         self._a9_normalize_log_dock()
-        if self._detached_log_window is not None:
-            self.dock_log.hide()
-        if self._detached_run_window is not None:
-            self.dock_run.hide()
+        self.dock_run.hide()
+        self._a12_reconcile_activity_tabs()
         self._layout_name = name
         self._set_complexity(str(profile.get("complexity", "Standard")))
         page = profile.get("page", 0)
@@ -865,13 +990,26 @@ class DwmMainWindow(QMainWindow):
                 pass
         state = self.config.value("qt/window_state")
         restored = False
-        if state:
+        # The old a12 state contains two separate bottom docks and cannot
+        # produce a clean one-panel layout. Migrate it ONCE, then save the new
+        # native Qt state normally on close; named layouts remain untouched.
+        migrated = self.config.value(
+            "qt/a12_unified_activity_initialized", False, type=bool,
+        )
+        if state and migrated:
             try:
                 restored = self.restoreState(state, 4)
             except (TypeError, ValueError):
                 pass
         if not restored:
             self._apply_builtin("Laptop")
+        self.dock_run.hide()
+        self._a12_reconcile_activity_tabs()
+        if restored and self._detached_run_window is None:
+            value = self.config.value("qt/a12_activity_tab", 1)
+            selected = int(value) if value is not None else 1
+            self.activity_tabs.setCurrentIndex(1 if selected == 1 else 0)
+        self.config.setValue("qt/a12_unified_activity_initialized", True)
         self._a9_normalize_log_dock()
         self._set_complexity(preferred_complexity)
         self._recover_windows()
@@ -883,6 +1021,16 @@ class DwmMainWindow(QMainWindow):
                 except Exception as exc:
                     self._append_log(f"Kunne ikke åpne sist brukte jobbliste: {exc}")
         self._refresh_recent_menu()
+        # A10/A11 could persist a dock geometry that hides the job row behind
+        # the horizontal scrollbar. Repair only this invalid state, without
+        # discarding valid, deliberately saved window positions.
+        QTimer.singleShot(0, self._a12_repair_cramped_job_panel)
+
+    def _a12_repair_cramped_job_panel(self):
+        if (self.dock_jobs.isVisible() and self.dock_workflow.isVisible()
+                and not self.dock_jobs.isFloating()
+                and self.jobs_tree.viewport().height() < 68):
+            self._a12_balance_left_docks()
 
     def _recover_windows(self):
         # Recover after a second monitor is disconnected. Never resize job data.
@@ -1083,6 +1231,39 @@ class DwmMainWindow(QMainWindow):
             f"Autoritativ jobbdefinisjon:\n{path}\n\n"
             "Lagre jobblisten for å oppdatere indeksreferansen.",
         )
+
+    def _a12_toggle_job_rule(self):
+        """Temporarily show the original Work-output rule editor, not a new setting."""
+        self._a12_job_rule_visible = not self._a12_job_rule_visible
+        self.job_rule_box.setVisible(self._a12_job_rule_visible)
+        self.job_rule_toggle.setText("Regel ▾" if self._a12_job_rule_visible else "Regel ▸")
+        self.config.setValue("qt/a12_job_rule_visible", self._a12_job_rule_visible)
+        if self._a12_job_rule_visible:
+            # Give the editor space without hiding the first job row.
+            QTimer.singleShot(0, self._a12_balance_left_docks)
+
+    def _a12_balance_left_docks(self):
+        """Protect the job table when Qt restores a cramped old dock ratio."""
+        if self.dock_jobs.isFloating() or self.dock_workflow.isFloating():
+            return
+        if not (self.dock_jobs.isVisible() and self.dock_workflow.isVisible()):
+            return
+        if (self.dockWidgetArea(self.dock_jobs) != Qt.DockWidgetArea.LeftDockWidgetArea
+                or self.dockWidgetArea(self.dock_workflow) != Qt.DockWidgetArea.LeftDockWidgetArea):
+            return
+        available = self.dock_jobs.height() + self.dock_workflow.height()
+        if available <= 0:
+            return
+        # The rule editor requires more height when explicitly expanded.
+        minimum_job = 292 if self._a12_job_rule_visible else 228
+        wanted = max(minimum_job, int(available * 0.43))
+        if wanted >= available - 255:
+            wanted = max(0, available - 255)
+        if wanted > 0:
+            self.resizeDocks(
+                [self.dock_jobs, self.dock_workflow],
+                [wanted, available - wanted], Qt.Orientation.Vertical,
+            )
 
     def _apply_job_output_rule(self):
         """Preview changes to Work paths and save rule only with consent."""
@@ -2091,8 +2272,7 @@ class DwmMainWindow(QMainWindow):
             viewer.show()
             viewer.raise_()
         else:
-            self.dock_log.show()
-            self.dock_log.raise_()
+            self._a12_show_log_tab()
         self._a8_refresh_job_log(force=True)
 
     def _a8_float_job_log(self):
@@ -2115,9 +2295,12 @@ class DwmMainWindow(QMainWindow):
         self._a9_sync_detached_log_follow()
         self._a9_sync_detached_log_choices()
         self._a9_sync_detached_log_text()
-        # Do not leave two separate views of the same log visible.
-        self.dock_log.hide()
-        self.dock_log.toggleViewAction().setEnabled(False)
+        # Hide just the log TAB; Kjoereloep remains available in the dock.
+        if hasattr(self, "activity_tabs"):
+            self._a12_reconcile_activity_tabs()
+        else:
+            self.dock_log.hide()
+            self.dock_log.toggleViewAction().setEnabled(False)
         geometry = self.config.value("qt/a9_independent_log_geometry")
         if geometry:
             try:
@@ -2140,11 +2323,176 @@ class DwmMainWindow(QMainWindow):
         self._detached_log_window = None
         viewer.hide()
         viewer.deleteLater()
-        self.dock_log.toggleViewAction().setEnabled(True)
-        self.dock_log.show()
-        self.dock_log.raise_()
+        if hasattr(self, "activity_tabs"):
+            self._a12_show_log_tab()
+        else:
+            self.dock_log.toggleViewAction().setEnabled(True)
+            self.dock_log.show()
+            self.dock_log.raise_()
         self._a8_update_log_window_buttons()
         self._a8_refresh_job_log(force=True)
+
+    def _a12_sync_activity_menu(self, _event=None) -> None:
+        """Keep Vis menu checks in sync with real tab/window visibility.
+
+        Qt checks the native QDockWidget action for 'Aktivitet' automatically.
+        The submenu named 'Aktivitetsfane' marks only the CURRENT visible tab;
+        independent windows are controlled by the separate open/fest actions.
+        Never use a menu action's temporary triggered/unchecked state as truth.
+        """
+        if not hasattr(self, "show_job_log_action"):
+            return
+        dock_visible = self.dock_log.isVisible()
+        index = self.activity_tabs.currentIndex()
+        log_visible = (
+            dock_visible and index == 0 and self.activity_tabs.isTabVisible(0)
+        )
+        run_visible = (
+            dock_visible and index == 1 and self.activity_tabs.isTabVisible(1)
+        )
+        # A detached ordinary Window is not a tab in Aktivitets-panelet.
+        # Therefore a detached log and an active run tab never both receive
+        # checkmarks in the *tab selection* submenu.
+        self.show_job_log_action.setChecked(log_visible)
+        self.show_run_tab_action.setChecked(run_visible)
+
+    def _a12_detach_active_tab(self) -> None:
+        """Header detach is routed to the active tab; no native Qt float."""
+        if self.activity_tabs.currentIndex() == 1:
+            self._a9_float_run()
+        else:
+            self._a8_float_job_log()
+
+    def _a12_reconcile_activity_tabs(self) -> None:
+        """Show only tabs that do not have independent normal windows."""
+        self.activity_tabs.setTabVisible(0, self._detached_log_window is None)
+        self.activity_tabs.setTabVisible(1, self._detached_run_window is None)
+        self.dock_run.hide()
+        if not any(self.activity_tabs.isTabVisible(i) for i in (0, 1)):
+            self.dock_log.hide()
+
+    def _a12_activate_activity_tab(self, index: int) -> None:
+        viewer = (self._detached_log_window if index == 0
+                  else self._detached_run_window)
+        if viewer is not None:
+            viewer.show()
+            viewer.raise_()
+            if hasattr(self, "_a12_sync_activity_menu"):
+                self._a12_sync_activity_menu()
+            return
+        self.activity_tabs.setTabVisible(index, True)
+        self.dock_log.show()
+        self.activity_tabs.setCurrentIndex(index)
+        self.dock_log.raise_()
+        # Selecting an ALREADY active checkable menu item briefly toggles it
+        # off. QTabWidget emits no currentChanged in that case, so explicitly
+        # restore the checked state even if the dock/tab didn't change.
+        if hasattr(self, "_a12_sync_activity_menu"):
+            self._a12_sync_activity_menu()
+
+    def _a12_show_run_tab(self) -> None:
+        self._a12_activate_activity_tab(1)
+
+    def _a12_show_log_tab(self) -> None:
+        self._a12_activate_activity_tab(0)
+
+    def _a12_activity_target_height(self) -> int:
+        """Different usable heights for log text and nine-line run progress."""
+        height = self.height()
+        if self.activity_tabs.currentIndex() == 1:
+            desired = max(355, min(460, int(height * 0.39)))
+        else:
+            desired = max(240, min(315, int(height * 0.28)))
+        # A small laptop window must retain a usable central workspace.
+        return min(desired, max(175, height - 360))
+
+    def _a12_activity_tab_changed(self, index: int) -> None:
+        """Make a newly selected Kjoereloep tab readable without manual drag."""
+        if index == 1:
+            QTimer.singleShot(0, self._a12_ensure_activity_height)
+
+    def _a12_ensure_activity_height(self) -> None:
+        """Only expand a cramped activity area; preserve manual sizes."""
+        if not self.dock_log.isVisible() or self.dock_log.isFloating():
+            return
+        if self.dockWidgetArea(self.dock_log) != Qt.DockWidgetArea.BottomDockWidgetArea:
+            return
+        target = self._a12_activity_target_height()
+        if self.dock_log.height() < target - 20:
+            self.resizeDocks([self.dock_log], [target], Qt.Orientation.Vertical)
+        # The internal history/status splitter sometimes inherits tiny sizes
+        # from the formerly hidden tab. Size it only once, not after user drags.
+        if (self.activity_tabs.currentIndex() == 1
+                and not self._a12_run_splitter_initialized):
+            QTimer.singleShot(0, self._a12_size_initial_run_details)
+
+    def _a12_size_initial_run_details(self) -> None:
+        """Give saved nine-operation status readable space beside run history."""
+        if self.activity_tabs.currentIndex() != 1:
+            return
+        available = self.run_history_splitter.height()
+        if available >= 185:
+            upper = max(80, int(available * 0.40))
+            self.run_history_splitter.setSizes([upper, available - upper])
+            self._a12_run_splitter_initialized = True
+
+    def _a12_restore_cramped_system_log(self) -> None:
+        """Repair only a previously saved tiny Systemlogg on a large screen."""
+        if (self.width() >= 1050 and self.dock_system.isVisible()
+                and 0 < self.dock_system.width() < 225):
+            self._a12_arrange_system_log()
+
+    def _a12_system_visibility_changed(self, visible: bool) -> None:
+        """Opening Systemlogg must not collapse the Kjoereloep view."""
+        if not visible:
+            self._a12_system_split_active = False
+            return
+        QTimer.singleShot(0, self._a12_arrange_system_log)
+
+    def _a12_arrange_system_log(self) -> None:
+        """Split only the bottom activity/system docks, not custom areas."""
+        if (not self.dock_system.isVisible() or self.dock_system.isFloating()
+                or not self.dock_log.isVisible() or self.dock_log.isFloating()):
+            return
+        if (self.dockWidgetArea(self.dock_log) != Qt.DockWidgetArea.BottomDockWidgetArea
+                or self.dockWidgetArea(self.dock_system) != Qt.DockWidgetArea.BottomDockWidgetArea):
+            return
+        if not self._a12_system_split_active:
+            self._a12_system_split_active = True
+            # Native horizontal split of two DIFFERENT docks is safe; never
+            # tabify docks or float a grouped dock on Windows.
+            self.splitDockWidget(self.dock_log, self.dock_system, Qt.Orientation.Horizontal)
+        content_width = max(
+            self.dock_log.width() + self.dock_system.width(),
+            self.width() - self.dock_jobs.width() - 28,
+        )
+        self.resizeDocks(
+            [self.dock_log, self.dock_system],
+            [int(content_width * 0.70), int(content_width * 0.30)],
+            Qt.Orientation.Horizontal,
+        )
+        self._a12_ensure_activity_height()
+        # Let Qt finish the horizontal split before checking vertical sizes.
+        QTimer.singleShot(0, self._a12_ensure_activity_height)
+
+    def _a12_balance_workspace(self) -> None:
+        """Readable left panels and one shared activity dock for both tabs."""
+        if (self.dock_jobs.isVisible() and self.dock_workflow.isVisible()
+                and not self.dock_jobs.isFloating()
+                and not self.dock_workflow.isFloating()
+                and self.dockWidgetArea(self.dock_jobs) == Qt.DockWidgetArea.LeftDockWidgetArea
+                and self.dockWidgetArea(self.dock_workflow) == Qt.DockWidgetArea.LeftDockWidgetArea):
+            self.resizeDocks(
+                [self.dock_jobs, self.dock_workflow], [350, 350],
+                Qt.Orientation.Horizontal,
+            )
+            self._a12_balance_left_docks()
+        if (self.dock_log.isVisible() and not self.dock_log.isFloating()
+                and self.dockWidgetArea(self.dock_log) == Qt.DockWidgetArea.BottomDockWidgetArea):
+            self.resizeDocks(
+                [self.dock_log], [self._a12_activity_target_height()],
+                Qt.Orientation.Vertical,
+            )
 
     def _a9_float_run(self):
         """Toggle Kjøreløp between a dock and a normal Windows window."""
@@ -2160,8 +2508,11 @@ class DwmMainWindow(QMainWindow):
             viewer.historyResultsRequested.connect(self._a11_open_history_results)
         self._detached_run_window = viewer
         self._a9_sync_detached_run()
-        self.dock_run.hide()
-        self.dock_run.toggleViewAction().setEnabled(False)
+        if hasattr(self, "activity_tabs"):
+            self._a12_reconcile_activity_tabs()
+        else:
+            self.dock_run.hide()
+            self.dock_run.toggleViewAction().setEnabled(False)
         geometry = self.config.value("qt/a9_independent_run_geometry")
         if geometry:
             try:
@@ -2182,9 +2533,12 @@ class DwmMainWindow(QMainWindow):
         self._detached_run_window = None
         viewer.hide()
         viewer.deleteLater()
-        self.dock_run.toggleViewAction().setEnabled(True)
-        self.dock_run.show()
-        self.dock_run.raise_()
+        if hasattr(self, "activity_tabs"):
+            self._a12_show_run_tab()
+        else:
+            self.dock_run.toggleViewAction().setEnabled(True)
+            self.dock_run.show()
+            self.dock_run.raise_()
         self._a9_update_run_window_buttons()
 
     def _a9_sync_detached_run(self):
@@ -2814,6 +3168,46 @@ class DwmMainWindow(QMainWindow):
         if path.is_file():
             QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
 
+    # ---------- a12: result center and established multi-job report service ----------
+    def _a12_open_result_center(self, _checked=False):
+        if not self._active_id:
+            QMessageBox.information(self, "Resultatvisninger", "Velg en jobb i jobblisten.")
+            return
+        try:
+            job = self.api.job_details(self._active_id).job
+        except DwmApiError as exc:
+            self._error(exc)
+            return
+        from .result_center_v018_a12 import ResultCenterWindow
+        dialog = ResultCenterWindow(
+            job.effective_work_operations,
+            display_name=job.job_id + " – " + job.name,
+        )
+        dialog.setStyleSheet(STYLE)
+        dialog.setFont(self.font())
+        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
+        self._a12_result_windows.append(dialog)
+        dialog.destroyed.connect(
+            lambda _obj=None, win=dialog: (
+                self._a12_result_windows.remove(win)
+                if win in self._a12_result_windows else None
+            )
+        )
+        dialog.show()
+
+    def _a12_open_selected_report(self, _checked=False):
+        if not self.api.workspace().jobs:
+            QMessageBox.information(self, "Rapport", "Åpne en jobbliste med Noark 5-jobber først.")
+            return
+        if self._worker is not None:
+            QMessageBox.warning(self, "Rapport", "Avslutt pågående jobbkjøring før rapportgenerering.")
+            return
+        from .report_selected_v018_a12 import SelectedReportDialog
+        dialog = SelectedReportDialog(self.api, active_job_id=self._active_id, parent=self)
+        dialog.setStyleSheet(STYLE)
+        dialog.setFont(self.font())
+        dialog.exec()
+
     def _open_latest_depot_report(self):
         report = latest_depot_report(self._open_report_root)
         if report is None:
@@ -2858,11 +3252,20 @@ class DwmMainWindow(QMainWindow):
         if not self._maybe_save():
             event.ignore()
             return
+        # Independent result windows must not keep the app alive after the
+        # main workbench closes. These are read-only and have no unsaved data.
+        for window in tuple(self._a12_result_windows):
+            try:
+                window.close()
+            except RuntimeError:
+                pass
+        self._a12_result_windows.clear()
         # Close a normal independent viewer without sending a dock-close signal.
         if self._detached_log_window is not None:
             self._a9_redock_job_log()
         if self._detached_run_window is not None:
             self._a9_redock_run()
+        self.dock_run.hide()  # Do not persist obsolete bottom split.
         self.config.setValue("qt/window_geometry", self.saveGeometry())
         self.config.setValue("qt/window_state", self.saveState(4))
         self.config.setValue("qt/complexity", self._complexity)

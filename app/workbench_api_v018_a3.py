@@ -123,6 +123,67 @@ class DwmWorkbenchAPI(WorkPersistenceMixin, SelectiveSubjobMixin, DwmApplication
             for i, (key, (name, category)) in enumerate(self._registry_catalog().items(), 1)
         )
 
+    # ---------- a12: read-only report selection across one job list ----------
+    def report_candidates(self) -> tuple[dict[str, str | bool], ...]:
+        """List reportable jobs without changing state or reading Source.
+
+        SIARD and other profiles remain independent jobs. The existing a20
+        report package is specifically a Noark 5 report, not a mixed-format
+        report engine.
+        """
+        with self._guard:
+            result = []
+            for position, job in enumerate(self._batch.jobs(), 1):
+                profile = str(job.profile_id or "")
+                result.append({
+                    "job_id": job.job_id,
+                    "name": job.name,
+                    "profile_id": profile,
+                    "enabled": profile == "noark5",
+                    "work": str(self._view(job, position).effective_work_operations or ""),
+                    "status": job.status.value,
+                })
+            return tuple(result)
+
+    def selected_report_jobs(self, job_ids: Iterable[str]) -> tuple[Job, ...]:
+        """Return isolated immutable-by-convention job snapshots for the a20 renderer.
+
+        Report rendering is read-only and runs on a worker thread. Returning
+        deep copies prevents its compatibility readers from modifying active
+        Work jobs or our in-memory joblist. Retain the resolved Work root so a
+        recovered job stays independent of the original joblist path.
+        """
+        from copy import deepcopy
+        requested = tuple(str(item) for item in job_ids)
+        if not requested or len(requested) != len(set(requested)):
+            raise DwmApiError("Velg én eller flere forskjellige jobber til rapporten.")
+        with self._guard:
+            self._assert_idle()
+            selected = []
+            for job_id in requested:
+                job = self._require_job(job_id)
+                if str(job.profile_id or "") != "noark5":
+                    raise DwmApiError(
+                        "Samlerapporten støtter nå Noark 5. "
+                        f"Jobben {job_id} har profil {job.profile_id or '(ikke valgt)'}."
+                    )
+                if job_id in self._unavailable_work_ids:
+                    raise DwmApiError(
+                        f"Work er frakoblet for {job_id}. Koble til Work før rapporteksport."
+                    )
+                position = next(i for i, candidate in enumerate(self._batch.jobs(), 1)
+                                if candidate.job_id == job_id)
+                view = self._view(job, position)
+                snapshot = deepcopy(job)
+                if view.effective_work_operations:
+                    # The legacy report readers are not all aware of the
+                    # effective Work subfolder. Normalize only the disposable
+                    # report snapshot; never mutate the authoritative Job.
+                    snapshot.work_operations = Path(view.effective_work_operations)
+                    snapshot._effective_work_operations = snapshot.work_operations
+                selected.append(snapshot)
+            return tuple(selected)
+
     def job_details(self, job_id: str) -> JobDetails:
         job = self._require_job(job_id)
         position = next(
