@@ -257,9 +257,9 @@ class DwmMainWindow(QMainWindow):
         label.setFont(QFont("Segoe UI", 14, QFont.Weight.DemiBold))
         depot_layout.addWidget(label)
         depot_layout.addWidget(_muted(
-            "Bruk den eksisterende DWM-rapportmotoren til rapport for én jobb eller "
-            "samlerapport for flere Noark 5-jobber. Faglige vurderingsdialoger og "
-            "enkelte metadatafunksjoner er fortsatt i den gamle GUI-en."
+            "Bruk den etablerte rapportmotoren til rapport for én jobb eller "
+            "samlerapport for flere Noark 5-jobber. Depotvurdering finnes nå her; "
+            "enkelte avanserte metadatafunksjoner ligger fortsatt i gammelt GUI."
         ))
         rbuttons = QHBoxLayout()
         b = QPushButton("Resultatvisninger…")
@@ -271,11 +271,11 @@ class DwmMainWindow(QMainWindow):
         b = QPushButton("Vis rapportfiler")
         b.clicked.connect(self._show_result_files)
         rbuttons.addWidget(b)
+        b = QPushButton("Depotvurdering…")
+        b.clicked.connect(self._a2_open_depot_review)
+        rbuttons.addWidget(b)
         b = QPushButton("Åpne siste depotrapport")
         b.clicked.connect(self._open_latest_depot_report)
-        rbuttons.addWidget(b)
-        b = QPushButton("Åpne gammelt GUI for depotvurdering")
-        b.clicked.connect(self._open_legacy)
         rbuttons.addWidget(b)
         rbuttons.addStretch(1)
         depot_layout.addLayout(rbuttons)
@@ -674,6 +674,7 @@ class DwmMainWindow(QMainWindow):
         )
         reports_menu.addAction(self.result_center_action)
         reports_menu.addAction(self.report_selected_action)
+        reports_menu.addAction(self._action("Depotvurdering…", self._a2_open_depot_review))
         reports_menu.addAction(self._action("Åpne siste depotrapport", self._open_latest_depot_report))
 
         view = mb.addMenu("Vis")
@@ -3177,7 +3178,10 @@ class DwmMainWindow(QMainWindow):
             QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
 
     # ---------- a12: result center and established multi-job report service ----------
-    def _a12_open_result_center(self, _checked=False):
+    def _a2_open_depot_review(self, _checked=False):
+        self._a12_open_result_center(depot=True)
+
+    def _a12_open_result_center(self, _checked=False, *, depot=False):
         if not self._active_id:
             QMessageBox.information(self, "Resultatvisninger", "Velg en jobb i jobblisten.")
             return
@@ -3196,6 +3200,8 @@ class DwmMainWindow(QMainWindow):
             report_api=self.api,
             on_generate_report=self._a12_open_selected_report,
         )
+        if depot:
+            dialog.show_depot_review()
         dialog.setStyleSheet(STYLE)
         dialog.setFont(self.font())
         dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)

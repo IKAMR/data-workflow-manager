@@ -7,10 +7,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QSettings, Qt
+from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import (
-    QComboBox, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QMessageBox,
-    QPushButton, QTreeWidgetItem,
+    QApplication, QComboBox, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QMessageBox,
+    QMenu, QPushButton, QSizePolicy, QToolButton, QTreeWidgetItem,
 )
 
 from app.evidence_workbench_v019_a1 import (
@@ -26,6 +26,20 @@ _RELATION_LABELS = {
     "arkade_only": "Kun Arkade 5",
     "unmapped": "Ikke kartlagt",
 }
+
+
+def _normal_window_geometry(area) -> tuple[int, int, int, int]:
+    """A readable initial window, centered and bounded on ultrawide/laptop screens.
+
+    The operator may resize or maximize manually; initial display never fills
+    an entire ultrawide monitor. Coordinates use QScreen.availableGeometry so
+    a secondary monitor's origin and Windows taskbar are respected.
+    """
+    width = min(1380, max(760, area.width() - 80), area.width())
+    height = min(860, max(540, area.height() - 70), area.height())
+    x = area.x() + (area.width() - width) // 2
+    y = area.y() + (area.height() - height) // 2
+    return x, y, width, height
 
 
 class ResultCenterWindow(_PreviousResultCenter):
@@ -48,8 +62,72 @@ class ResultCenterWindow(_PreviousResultCenter):
         self._create_source_controls()
         self._create_coverage_controls()
         self._create_kdrs_controls()
+        # a2 reuses the same Work snapshots and the established decision APIs.
+        from .depot_review_v019_a2 import DepotReviewPanel
+        self._a2_panel = DepotReviewPanel(self, self.tabs)
+        self.tabs.addTab(self._a2_panel, "Depotvurdering")
         self._a1_ready = True
+        self._configure_responsive_window()
         self.refresh()
+
+    def _configure_responsive_window(self):
+        """Readable normal window with left-aligned, natural-width controls.
+
+        Keep every inherited button and signal. No maximize on startup, and
+        no layout columns that stretch the buttons across an ultrawide screen.
+        """
+        self.setMinimumSize(760, 540)
+        outer = self.layout()
+        # a13 creates a single horizontal footer with seven buttons.
+        # Place them in two compact rows: 4 + 3, aligned to the left.
+        footer_item = outer.takeAt(outer.count() - 1)
+        old_footer = footer_item.layout()
+        if old_footer is not None:
+            buttons = []
+            while old_footer.count():
+                item = old_footer.takeAt(0)
+                if item.widget() is not None:
+                    buttons.append(item.widget())
+            for start in range(0, len(buttons), 4):
+                row = QHBoxLayout()
+                row.setSpacing(6)
+                for button in buttons[start:start + 4]:
+                    button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+                    row.addWidget(button)
+                row.addStretch(1)
+                outer.addLayout(row)
+        else:
+            # Preserve the original footer if a13 changes its structure.
+            outer.addItem(footer_item)
+
+        # Every tab is accessible from the compact menu on narrow monitors.
+        heading = outer.itemAt(0).layout()
+        self.tab_menu_button = QToolButton(self)
+        self.tab_menu_button.setText("Faner...")
+        self.tab_menu_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self._tab_menu = QMenu(self.tab_menu_button)
+        self._tab_menu.aboutToShow.connect(self._populate_tab_menu)
+        self.tab_menu_button.setMenu(self._tab_menu)
+        heading.insertWidget(1, self.tab_menu_button)
+        self.tabs.tabBar().setUsesScrollButtons(True)
+
+        parent = self.parentWidget()
+        screen = parent.screen() if parent is not None else self.screen()
+        if screen is None:
+            screen = QApplication.primaryScreen()
+        if screen is not None:
+            self.setGeometry(*_normal_window_geometry(screen.availableGeometry()))
+        else:
+            self.resize(1280, 800)
+
+    def _populate_tab_menu(self):
+        self._tab_menu.clear()
+        active = self.tabs.currentIndex()
+        for index in range(self.tabs.count()):
+            action = self._tab_menu.addAction(self.tabs.tabText(index))
+            action.setCheckable(True)
+            action.setChecked(index == active)
+            action.triggered.connect(lambda _checked=False, i=index: self.tabs.setCurrentIndex(i))
 
     def _create_source_controls(self):
         title = "Kildeoversikt"
@@ -163,6 +241,10 @@ class ResultCenterWindow(_PreviousResultCenter):
         self._filter_sources()
         self._filter_coverage()
         self._filter_kdrs()
+        self._a2_panel.set_snapshots(self._snapshots, sources=self._a1_sources)
+
+    def show_depot_review(self):
+        self.tabs.setCurrentWidget(self._a2_panel)
 
     @staticmethod
     def _match(item: QTreeWidgetItem, needle: str) -> bool:
