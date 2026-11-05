@@ -25,7 +25,8 @@ from PySide6.QtWidgets import (
 )
 
 from app.application_api import DwmApiError
-from app.workbench_api_v018_a3 import DwmWorkbenchAPI, STORAGE_FIELDS
+from app.workbench_api_v019_a3 import DwmWorkbenchAPI
+from app.workbench_api_v018_a3 import STORAGE_FIELDS
 from app.workbench_recent_v018_a4 import recent_joblists, remember_joblist
 from app.job_preflight_v018_a6 import (
     check_extraction_folder, propose_work_location,
@@ -129,6 +130,8 @@ class DwmMainWindow(QMainWindow):
         self._a8_run_context: tuple[str, str] | None = None
         self._a8_live_job: str | None = None
         self._a11_history_cache = ()  # Work-only real operation executions
+        self._a3_health_by_id = {}  # bounded, explicit Work/Source location probes
+        self._a3_probe_key = None  # do not re-read UNC manifests at every progress tick
         self._a12_result_windows: list = []  # Independent normal Windows
         self._a12_system_split_active = False
         self._a12_run_splitter_initialized = False
@@ -340,7 +343,7 @@ class DwmMainWindow(QMainWindow):
         j.addLayout(search_row)
         self.jobs_tree = QTreeWidget()
         self.jobs_tree.setMinimumHeight(110)
-        self.jobs_tree.setHeaderLabels(["Jobb", "Navn / uttrekk", "Status", "%"])
+        self.jobs_tree.setHeaderLabels(["Jobb", "Navn / uttrekk", "Status", "Work", "%"])
         self.jobs_tree.setAlternatingRowColors(True)
         self.jobs_tree.setRootIsDecorated(False)
         self.jobs_tree.setUniformRowHeights(True)
@@ -349,6 +352,7 @@ class DwmMainWindow(QMainWindow):
         self.jobs_tree.header().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.jobs_tree.header().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         self.jobs_tree.header().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        self.jobs_tree.header().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
         self.jobs_tree.currentItemChanged.connect(self._job_clicked)
         self.jobs_tree.itemDoubleClicked.connect(self._job_double_clicked)
         self.jobs_tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -377,6 +381,18 @@ class DwmMainWindow(QMainWindow):
         self.job_remove_button.clicked.connect(self._remove_job)
         job_buttons.addWidget(self.job_remove_button)
         j.addLayout(job_buttons)
+        a3_row = QHBoxLayout()
+        a3_row.setSpacing(5)
+        self.job_links_button = QPushButton("Tilknytning…")
+        self.job_links_button.setToolTip(
+            "Kontroller Work/Source, koble til eksisterende Work med samme varige ID, "
+            "eller koble til en ny Source-sti etter bekreftelse"
+        )
+        self.job_links_button.clicked.connect(self._a3_job_links_menu)
+        a3_row.addWidget(self.job_links_button)
+        self.job_health_summary = _muted("Work-status ikke kontrollert")
+        a3_row.addWidget(self.job_health_summary, 1)
+        j.addLayout(a3_row)
         # Per-job-list output rule is stored in .n5jobs, independently of
         # the global app_work_subfolder setting in Setup.  Preserve all
         # original edit controls, but collapse them by default.
@@ -641,6 +657,19 @@ class DwmMainWindow(QMainWindow):
         )
         file_menu.addAction(self.recover_work_job_action)
         file_menu.addAction(self.migrate_work_job_action)
+        a3_menu = file_menu.addMenu("Jobbtilkobling")
+        self.check_locations_action = self._action(
+            "Oppdater Work- og Source-status", self._a3_check_locations,
+        )
+        self.relink_work_action = self._action(
+            "Koble til frakoblet Work…", self._a3_reconnect_work,
+        )
+        self.relink_source_action = self._action(
+            "Koble til flyttet uttrekk (Source)…", self._a3_reconnect_source,
+        )
+        a3_menu.addAction(self.check_locations_action)
+        a3_menu.addAction(self.relink_work_action)
+        a3_menu.addAction(self.relink_source_action)
         self.rename_job_action = self._action("Endre navn på jobb…", self._rename_job)
         self.remove_job_action = self._action("Fjern jobb fra listen…", self._remove_job)
         file_menu.addAction(self.rename_job_action)
@@ -1235,6 +1264,136 @@ class DwmMainWindow(QMainWindow):
             "Lagre jobblisten for å oppdatere indeksreferansen.",
         )
 
+    # ---------- a3: explicit, identity-safe reconnection; no scanning of Source ----------
+    def _a3_check_locations(self):
+        self._a3_probe_key = None
+        self._render_key = None
+        self._refresh(force=True)
+        self.statusBar().showMessage(
+            "Work- og Source-stier er kontrollert uten å endre filene.", 6500,
+        )
+
+    def _a3_job_links_menu(self):
+        menu = QMenu(self)
+        menu.addAction(self.check_locations_action)
+        menu.addSeparator()
+        menu.addAction(self.relink_work_action)
+        menu.addAction(self.relink_source_action)
+        menu.exec(self.job_links_button.mapToGlobal(self.job_links_button.rect().bottomLeft()))
+
+    def _a3_reconnect_work(self):
+        if not self._active_id:
+            QMessageBox.information(self, "Work", "Velg en jobb i jobblisten først.")
+            return
+        if self._worker is not None or self.api.running:
+            QMessageBox.warning(self, "Work", "Avslutt kjøringen før du kobler om Work.")
+            return
+        info = self.api.work_job_info(self._active_id)
+        if not info["work_is_authoritative"]:
+            QMessageBox.information(
+                self, "Work", "Dette er et utkast uten varig Work-referanse. "
+                "Bruk «Åpne jobb fra DWM-arbeidsområde» for eksisterende Work, "
+                "eller klargjør og lagre utkastet i Work.",
+            )
+            return
+        original = Path(str(info["work_manifest"])).parent
+        starting = str(original if original.is_dir() else
+                       self.config.value("qt/last_recover_work_dir", "") or "")
+        selected = QFileDialog.getExistingDirectory(
+            self, "Velg DWM Work-mappen med job.json (samme jobb-ID)", starting,
+        )
+        if not selected:
+            return
+        try:
+            preview = self.api.preview_work_reconnection(self._active_id, selected)
+        except (DwmApiError, OSError, ValueError) as exc:
+            self._error(exc)
+            return
+        explanation = (
+            "Kun et eksisterende Work med nøyaktig samme varige jobb-ID kan brukes.\n\n"
+            f"Jobb: {preview.job_id}\nVarig ID: {preview.job_uid}\n"
+            f"Tidligere Work:\n{preview.previous_manifest.parent}\n\n"
+            f"Valgt Work:\n{preview.selected_manifest.parent}\n\n"
+            f"Work – operations før:\n{preview.work_operations_before}\n"
+            f"Work – operations etter:\n{preview.work_operations_after}\n\n"
+            f"Autoritativ status i valgt Work: {preview.status}\n"
+            + ("\n".join(preview.warnings) + "\n\n" if preview.warnings else "\n")
+            + "Ingen filer flyttes eller kopieres. Jobblisteindeksen må lagres etterpå."
+        )
+        if QMessageBox.question(
+            self, "Bekreft Work-tilkobling", explanation,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        ) != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            self.api.reconnect_work(preview, consent=True)
+        except (DwmApiError, OSError, ValueError) as exc:
+            self._error(exc)
+            return
+        self.config.setValue("qt/last_recover_work_dir", str(preview.selected_manifest.parent))
+        self._file_root = None
+        self.file_tree.setModel(None)
+        self._render_key = None
+        self._refresh(force=True)
+        QMessageBox.information(
+            self, "Work tilkoblet",
+            "Work ble verifisert mot varig jobb-ID og koblet til jobblisten. "
+            "Source og AIP er ikke flyttet. Kontroller plasseringene og lagre jobblisten.",
+        )
+
+    def _a3_reconnect_source(self):
+        if not self._active_id:
+            QMessageBox.information(self, "Source", "Velg en jobb i jobblisten først.")
+            return
+        if self._worker is not None or self.api.running:
+            QMessageBox.warning(self, "Source", "Avslutt kjøringen før du endrer Source.")
+            return
+        details = self.api.job_details(self._active_id)
+        original = details.job.source_extraction or details.job.source_root or ""
+        previous = Path(original) if original else None
+        starting = (str(previous if previous.is_dir() else previous.parent)
+                    if previous is not None and previous.parent.is_dir()
+                    else str(self.config.value("qt/last_source_dir", "") or ""))
+        selected = QFileDialog.getExistingDirectory(
+            self, "Velg samme uttrekk på ny Source-plassering", starting,
+        )
+        if not selected:
+            return
+        try:
+            preview = self.api.preview_source_reconnection(self._active_id, selected)
+        except (DwmApiError, OSError, ValueError) as exc:
+            self._error(exc)
+            return
+        explanation = (
+            f"Jobb: {preview.job_id}\nVarig ID: {preview.job_uid or '(utkast)'}\n"
+            f"Tidligere uttrekk:\n{preview.previous_source}\n\n"
+            f"Valgt uttrekk:\n{preview.selected_source}\n\n"
+            f"Metadatakontroll: {preview.info_check}\n"
+            f"Oppdaterer bare: {', '.join(key for key, _ in preview.updates)}\n\n"
+            + "\n".join(preview.warnings)
+            + "\n\nBekreft at dette er SAMME uttrekk. Ingen filer flyttes eller kopieres."
+        )
+        if QMessageBox.question(
+            self, "Bekreft ny Source-sti", explanation,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        ) != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            self.api.reconnect_source(preview, consent=True)
+        except (DwmApiError, OSError, ValueError) as exc:
+            self._error(exc)
+            return
+        self.config.setValue("qt/last_source_dir", str(preview.selected_source))
+        self._render_key = None
+        self._refresh(force=True)
+        QMessageBox.information(
+            self, "Source koblet til",
+            "Stien er oppdatert for samme jobbidentitet. "
+            "Gjennomfør preflight før neste kjøring og lagre jobblisten.",
+        )
+
     def _a12_toggle_job_rule(self):
         """Temporarily show the original Work-output rule editor, not a new setting."""
         self._a12_job_rule_visible = not self._a12_job_rule_visible
@@ -1499,7 +1658,11 @@ class DwmMainWindow(QMainWindow):
             return
         self.jobs_tree.setCurrentItem(item)
         menu = QMenu(self)
-        menu.addAction("Åpne jobb", lambda: self._job_double_clicked(item, 0))
+        menu.addAction("Åpne jobb", lambda: self.pages.setCurrentIndex(0))
+        menu.addAction(self.check_locations_action)
+        menu.addAction(self.relink_work_action)
+        menu.addAction(self.relink_source_action)
+        menu.addSeparator()
         menu.addAction("Endre navn…", self._rename_job)
         menu.addSeparator()
         menu.addAction("Flytt opp", lambda: self._move_job(-1))
@@ -1602,6 +1765,16 @@ class DwmMainWindow(QMainWindow):
         self.job_down_button.setEnabled(idle and selected and order.index(self._active_id) < len(order) - 1)
         self.rename_job_action.setEnabled(idle and selected)
         self.remove_job_action.setEnabled(idle and selected)
+        self.job_links_button.setEnabled(idle)
+        self.check_locations_action.setEnabled(idle)
+        selected_health = self._a3_health_by_id.get(self._active_id)
+        self.relink_work_action.setEnabled(
+            idle and selected and bool(selected_health and selected_health.work_manifest)
+        )
+        self.relink_source_action.setEnabled(
+            idle and selected and bool(selected_health and
+                                   selected_health.work_label not in ("Frakoblet", "Gjenåpne", "ID-konflikt", "Ugyldig"))
+        )
 
     def _edit_storage(self):
         if not self._active_id:
@@ -2250,7 +2423,8 @@ class DwmMainWindow(QMainWindow):
                        self.save_as_action, self.new_job_action, self.run_action,
                        self.ready_action, self.continue_action, self.preflight_action,
                        self.setup_action, self.recover_work_job_action,
-                       self.migrate_work_job_action):
+                       self.migrate_work_job_action, self.check_locations_action,
+                       self.relink_work_action, self.relink_source_action):
             action.setEnabled(not running)
         self.stop_action.setEnabled(running)
         self.overview_run.setEnabled(not running)
@@ -2268,6 +2442,7 @@ class DwmMainWindow(QMainWindow):
         self.subjob_run_action.setEnabled(not running)
         self.subjob_check_action.setEnabled(not running)
         self.jobs_tree.setEnabled(not running)
+        self.job_links_button.setEnabled(not running)
         self.job_output_rule.setEnabled(not running)
         self.job_rule_apply.setEnabled(not running)
         self._update_job_actions()
@@ -3051,10 +3226,47 @@ class DwmMainWindow(QMainWindow):
         self._refresh_joblist_rule()
         existing = self.jobs_tree.blockSignals(True)
         self.jobs_tree.clear()
+        # Only known Work manifest paths, and only on explicit refresh/job changes.
+        # A live progress event must not recheck slow or disconnected UNC shares.
+        probe_key = (
+            workspace.job_list_path,
+            tuple((job.job_id, job.source_root, job.source_extraction,
+                   job.effective_work_operations) for job in workspace.jobs),
+        )
+        if force or self._a3_probe_key != probe_key:
+            try:
+                self._a3_health_by_id = {
+                    item.job_id: item for item in self.api.job_location_health()
+                }
+                self._a3_probe_key = probe_key
+            except (OSError, ValueError, DwmApiError) as exc:
+                self._append_log("Kunne ikke kontrollere Work/Source: " + str(exc))
+                self._a3_health_by_id = {}
+                self._a3_probe_key = None
+        statuses = [health.work_label for health in self._a3_health_by_id.values()]
+        offline = sum(label in ("Frakoblet", "Gjenåpne", "ID-konflikt", "Ugyldig") for label in statuses)
+        drafts = statuses.count("Utkast")
+        missing_source = sum(health.source_label == "Frakoblet" for health in self._a3_health_by_id.values())
+        self.job_health_summary.setText(
+            f"Work: {len(statuses) - offline - drafts} OK, {offline} frakoblet/avvik, "
+            f"{drafts} utkast · Source: {missing_source} frakoblet"
+        )
         for job in workspace.jobs:
-            item = QTreeWidgetItem([job.job_id, job.name, job.status, f"{job.progress:.0%}"])
+            health = self._a3_health_by_id.get(job.job_id)
+            work_label = health.work_label if health else "Ukjent"
+            display_status = ("Sist: " + job.status if work_label == "Frakoblet" and
+                              not job.status.startswith("Frakoblet") else job.status)
+            item = QTreeWidgetItem([job.job_id, job.name, display_status,
+                                    work_label, f"{job.progress:.0%}"])
             item.setData(0, Qt.ItemDataRole.UserRole, job.job_id)
-            item.setToolTip(1, "\n".join([_format_path(job.source_extraction), _format_path(job.effective_work_operations)]))
+            item.setToolTip(1, "\\n".join([_format_path(job.source_extraction), _format_path(job.effective_work_operations)]))
+            if health:
+                item.setToolTip(3, "\\n".join((
+                    health.work_detail,
+                    "Varig jobb-ID: " + health.job_uid,
+                    "Work: " + (health.work_manifest or "(ikke registrert)"),
+                    "Source: " + health.source_label + " – " + (health.source_path or "(ikke angitt)"),
+                )))
             self.jobs_tree.addTopLevelItem(item)
             if job.job_id == self._active_id:
                 self.jobs_tree.setCurrentItem(item)
