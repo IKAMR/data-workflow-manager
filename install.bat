@@ -137,7 +137,7 @@ exit /b 0
 
 :select_qt_python
 set "QT_PY_FLAG="
-for %%V in (3.14 3.13 3.12 3.11 3.10) do (
+for %%V in (3.15 3.14 3.13 3.12 3.11 3.10) do (
  if not defined QT_PY_FLAG (
   py -%%V -c "import sys,sysconfig; sys.exit(1 if sysconfig.get_config_var('Py_GIL_DISABLED') else 0)" >nul 2>&1
   if not errorlevel 1 set "QT_PY_FLAG=-%%V"
@@ -145,10 +145,10 @@ for %%V in (3.14 3.13 3.12 3.11 3.10) do (
 )
 if defined QT_PY_FLAG exit /b 0
 echo.
-echo [FEIL] Fant ingen vanlig Python 3.10-3.14 som kan bruke PySide6.
-echo Din Python 3.14t er free-threaded og stottes ikke av PySide6-hjulene.
-echo Installer vanlig 64-bit Python 3.14 fra https://www.python.org/downloads/windows/
-echo Behold gjerne Python 3.14t ved siden av.
+echo [FEIL] Fant ingen vanlig Python 3.10-3.15 som kan bruke PySide6.
+echo Din Python 3.15t er free-threaded og stottes ikke av PySide6-hjulene.
+echo Installer vanlig 64-bit Python 3.15 fra https://www.python.org/downloads/windows/
+echo Behold gjerne Python 3.15t ved siden av.
 echo Oversikt over installerte Python-versjoner: py -0p
 exit /b 1
 
