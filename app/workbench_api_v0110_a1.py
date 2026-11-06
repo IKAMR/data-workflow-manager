@@ -8,6 +8,9 @@ from pathlib import Path
 from typing import Mapping
 
 from app.application_api import DwmApiError
+from app.presentation_preferences_v0110_a3 import (
+    DISPLAY_KEYS, validate_display_preferences,
+)
 from app.storage_profiles_v0110_a1 import require_storage_profile
 from app.work_output_layout import validate_app_work_subfolder, validate_layout
 from app.workbench_api_v019_a4 import DwmWorkbenchAPI as _PreviousWorkbenchAPI
@@ -16,7 +19,7 @@ from settings import save_config
 
 class DwmWorkbenchAPI(_PreviousWorkbenchAPI):
     def save_setup(self, changes: Mapping[str, object]) -> dict:
-        if 'storage_layout_profile' not in changes:
+        if 'storage_layout_profile' not in changes and not (set(changes) & DISPLAY_KEYS):
             return super().save_setup(changes)
 
         # The existing Setup method is intentionally strict about accepted keys.
@@ -26,20 +29,27 @@ class DwmWorkbenchAPI(_PreviousWorkbenchAPI):
             'arkade5_cli_path', 'arkade5_output_subfolder', 'noark5_discovery_workflow',
             'app_work_subfolder', 'temp_dir', 'run_log_dir', 'setup_dir',
             'job_list_dir', 'operation_visibility', 'storage_layout_profile',
+            'appearance_mode', 'qt_accent_color', 'qt_popup_placement',
+            'qt_palette_preset', 'qt_custom_colors',
         }
         unknown = set(changes) - allowed
         if unknown:
             raise DwmApiError('Ukjente Setup-innstillinger: ' + ', '.join(sorted(unknown)))
         try:
-            selected_profile = require_storage_profile(str(changes['storage_layout_profile'] or ''))
+            display = validate_display_preferences(changes)
         except ValueError as exc:
             raise DwmApiError(str(exc)) from exc
-
         updated = {key: str(value or '').strip() for key, value in changes.items()
-                   if key != 'operation_visibility'}
-        updated['storage_layout_profile'] = selected_profile
-        # a2: distinguish an explicit, saved choice from the old implicit IKAMR default.
-        updated['storage_layout_profile_selected'] = True
+                   if key != 'operation_visibility' and key != 'qt_custom_colors'}
+        updated.update(display)
+        if 'storage_layout_profile' in changes:
+            try:
+                selected_profile = require_storage_profile(str(changes['storage_layout_profile'] or ''))
+            except ValueError as exc:
+                raise DwmApiError(str(exc)) from exc
+            updated['storage_layout_profile'] = selected_profile
+            # a2: distinguish an explicitly saved selection from the old default.
+            updated['storage_layout_profile_selected'] = True
         if 'operation_visibility' in changes:
             try:
                 visibility = int(changes['operation_visibility'])

@@ -157,7 +157,7 @@ class SetupGuiContractTests(unittest.TestCase):
         self.assertNotIn('.mkdir(', self.a2)
 
     def test_new_job_and_work_selection_use_same_effective_default(self):
-        self.assertIn('from gui_qt.setup_v0110_a2 import DwmSetupDialog', self.main)
+        self.assertIn('from gui_qt.setup_v0110_a3 import DwmSetupDialog', self.main)
         self.assertIn('profile_id = pick_profile(api_settings)', self.main)
         self.assertIn('profile_id = resolve_storage_profile(self.api.settings)', self.main)
         self.assertIn('elif resolve_storage_profile(self.api.settings)', self.main)
@@ -165,9 +165,10 @@ class SetupGuiContractTests(unittest.TestCase):
         self.assertIn('suggest_known_source_work(source, profile_id=profile_id)', self.main)
 
     def test_version_matches_distribution_and_has_a2(self):
-        self.assertEqual(VERSION, '0.1.10-a2')
+        self.assertTrue(VERSION.startswith('0.1.10-a'))
+        self.assertGreaterEqual(int(VERSION.rsplit('a', 1)[1]), 2)
         with (ROOT / 'pyproject.toml').open('rb') as f:
-            self.assertEqual(tomllib.load(f)['project']['version'], '0.1.10a2')
+            self.assertEqual(tomllib.load(f)['project']['version'], VERSION.replace('-', ''))
 
 
 if __name__ == '__main__':

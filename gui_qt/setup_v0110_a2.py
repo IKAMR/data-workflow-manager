@@ -25,7 +25,7 @@ def _wrap(text: str, *, strong: bool = False) -> QLabel:
     label.setTextFormat(Qt.TextFormat.PlainText)
     label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
     if strong:
-        label.setStyleSheet('font-weight: 600; color: #edf4fc;')
+        label.setStyleSheet('font-weight: 600;')
     return label
 
 
@@ -33,10 +33,7 @@ def _information(title: str, description: str) -> QFrame:
     """Full-width flow-layout message: no compressed form-row label to clip."""
     panel = QFrame()
     panel.setObjectName('dwmSetupInfo')
-    panel.setStyleSheet(
-        'QFrame#dwmSetupInfo {background: #192638; border: 1px solid #334d68;'
-        'border-radius: 6px;}'
-    )
+    panel.setFrameShape(QFrame.Shape.StyledPanel)
     layout = QVBoxLayout(panel)
     layout.setContentsMargins(15, 11, 15, 12)
     layout.setSpacing(5)
@@ -52,6 +49,7 @@ class _ProfileCard(QFrame):
     def __init__(self, title: str, description: str, recommended: bool = False):
         super().__init__()
         self.setObjectName('dwmStorageProfileCard')
+        self.setFrameShape(QFrame.Shape.StyledPanel)
         self.radio = QRadioButton()
         self.radio.setAccessibleName(title)
         self._recommended = recommended
@@ -68,23 +66,21 @@ class _ProfileCard(QFrame):
         layout.addLayout(header)
         if recommended:
             indicator = QLabel('STANDARD / ANBEFALT')
-            indicator.setStyleSheet('color: #b7d9fb; font-size: 10px; font-weight: 600;')
+            indicator.setObjectName('dwmRecommendation')
             indicator.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
             layout.addWidget(indicator)
         note = _wrap(description)
-        note.setStyleSheet('color: #bbcadc;')
+        note.setObjectName('dwmProfileNote')
         note.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         layout.addWidget(note)
         self.set_chosen(False)
 
     def set_chosen(self, chosen: bool) -> None:
-        border = '#589ad7' if chosen else '#34465c'
-        bg = '#243b56' if chosen else '#192434'
-        self.setStyleSheet(
-            'QFrame#dwmStorageProfileCard {'
-            f'background: {bg}; border: 1px solid {border}; border-radius: 7px;'
-            '}'
-        )
+        self.setProperty('chosen', chosen)
+        style = self.style()
+        style.unpolish(self)
+        style.polish(self)
+        self.update()
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
@@ -181,7 +177,7 @@ class DwmSetupDialog(_A1SetupDialog):
         backend = str(self.settings.get('execution_backend', 'local') or 'local')
         grid.addWidget(_wrap('Kjørebackend:'), len(fields) + 1, 0)
         backend_label = _wrap(f'{backend} (gjeldende innstilling; endres ikke her)')
-        backend_label.setStyleSheet('color: #b9c8d9;')
+        backend_label.setObjectName('dwmSecondary')
         grid.addWidget(backend_label, len(fields) + 1, 1)
         form.addRow(body)
 
@@ -207,10 +203,7 @@ class DwmSetupDialog(_A1SetupDialog):
 
         summary = QFrame()
         summary.setObjectName('dwmProfileSummary')
-        summary.setStyleSheet(
-            'QFrame#dwmProfileSummary {background: #182535; border: 1px solid #35485d;'
-            'border-radius: 6px;}'
-        )
+        summary.setFrameShape(QFrame.Shape.StyledPanel)
         summary_layout = QVBoxLayout(summary)
         summary_layout.setContentsMargins(15, 13, 15, 13)
         summary_layout.setSpacing(7)

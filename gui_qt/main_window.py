@@ -43,6 +43,10 @@ from app.result_navigation_v018_a8 import latest_depot_report
 from app.run_progress_v018_a8 import saved_progress
 from app.subjob_history_v018_a9 import run_history_lines
 from app.run_request_audit_v018_a9 import RunRequestAudit, new_request_id, rerun_reason
+from .appearance_v0110_a3 import (
+    DARK_STYLE, stylesheet_for, apply_appearance,
+)
+from .window_placement_v0110_a3 import place_popup
 from .detached_log_window_v018_a9 import (
     DetachedJobLogWindow, DetachedRunWindow, DetachableDockTitleBar,
 )
@@ -53,33 +57,8 @@ DOCK_NAMES = ("jobs", "workflow", "storage", "log", "run", "system", "info")
 LAYOUT_MODES = ("Laptop", "Analyse", "Depot", "Full", "Workshop", "Topp og bunn")
 COMPLEXITY_MODES = ("Enkel", "Standard", "Avansert")
 
-STYLE = """
-QMainWindow, QWidget { background-color: #10141c; color: #dce5f2; }
-QMenuBar, QMenu, QToolBar, QStatusBar { background: #161c27; color: #e2e8f0; }
-QMenuBar::item:selected, QMenu::item:selected { background: #29496c; }
-QDockWidget { color: #dce5f2; font-weight: 600; }
-QDockWidget::title { background: #202a39; padding: 7px 9px; text-align: left; }
-QTreeWidget, QTableWidget, QPlainTextEdit, QTreeView, QTabWidget::pane {
-  background: #151c28; color: #dce5f2; border: 1px solid #2b3748;
-  selection-background-color: #315e95; selection-color: white;
-  alternate-background-color: #1b2432;
-}
-QHeaderView::section { background: #202c3c; color: #dce5f2; padding: 7px; border: 0; }
-QTabBar::tab { background: #1d2735; color: #b8c5d5; padding: 9px 15px; border: 1px solid #273545; }
-QTabBar::tab:selected { background: #325a82; color: white; }
-QPushButton { background: #26374b; color: #e8edf5; border: 1px solid #33485f;
-  padding: 7px 12px; border-radius: 4px; }
-QPushButton:hover { background: #365273; }
-QToolButton { background: #26374b; color: #e8edf5; border: 1px solid #33485f; padding: 7px 12px; border-radius: 4px; }
-QToolButton:hover { background: #365273; }
-QPushButton:disabled { color: #697688; background: #1b2531; }
-QLineEdit { background: #1b2634; color: #e2e8f0; border: 1px solid #405066;
-  padding: 7px; border-radius: 4px; }
-QLabel#subtle { color: #9aabbd; }
-QSplitter::handle { background: #34445a; }
-QScrollBar:vertical { background: #121923; width: 12px; }
-QScrollBar::handle:vertical { background: #40526a; min-height: 22px; border-radius: 4px; }
-"""
+STYLE = DARK_STYLE  # preserved reference for older headless tests
+
 
 
 def _muted(text: str) -> QLabel:
@@ -145,7 +124,7 @@ class DwmMainWindow(QMainWindow):
 
         self.setObjectName("DwmMainWindow")
         self.setWindowTitle(f"{APP_NAME} v{VERSION} – arbeidsflate")
-        self.setStyleSheet(STYLE)
+        self.setStyleSheet(stylesheet_for(self.api.settings))
         self.setFont(QFont("Segoe UI", 10))
         self.setMinimumSize(720, 480)
         self.resize(1180, 780)
@@ -159,6 +138,7 @@ class DwmMainWindow(QMainWindow):
         self.setStatusBar(QStatusBar())
         self._create_central()
         self._create_docks()
+        self._a3_clear_fixed_dock_title_styles()
         self._create_actions_and_menu()
         self._restore_settings()
         # Connect AFTER restore: initial hidden/show dock signals must not
@@ -2267,14 +2247,46 @@ class DwmMainWindow(QMainWindow):
         if answer == QMessageBox.StandardButton.Yes:
             self._start_worker(targets)
 
+    def _a3_place_dialog(self, dialog, kind: str) -> None:
+        """Position only an opened DWM popup; never resize/move the main window."""
+        place_popup(dialog, self, settings=self.api.settings, kind=kind)
+
+    def _a3_clear_fixed_dock_title_styles(self) -> None:
+        """Avoid legacy always-dark titlebar colours in Windows/light mode."""
+        for titlebar in self.findChildren(DetachableDockTitleBar):
+            titlebar.setStyleSheet('')
+            titlebar.setAutoFillBackground(True)
+
+    def _a3_apply_display_preferences(self) -> None:
+        """Repaint the existing workbench and dependent windows after Save."""
+        app = QApplication.instance()
+        if app is None:
+            return
+        apply_appearance(app, self.api.settings)
+        self._a3_clear_fixed_dock_title_styles()
+        css = stylesheet_for(self.api.settings)
+        self.setStyleSheet(css)
+        for window in list(self._a12_result_windows):
+            if window is not None:
+                window.setStyleSheet(css)
+                window.update()
+        for window in (self._detached_log_window, self._detached_run_window):
+            if window is not None:
+                window.setStyleSheet(css)
+                window.update()
+        self.update()
+
     def _open_setup(self):
         """Edit the global DWM setup, without importing any Tk GUI layer."""
         if self._worker is not None or self.api.running:
             QMessageBox.information(self, "Setup", "Avslutt kjøringen før du endrer Setup.")
             return
-        from gui_qt.setup_v0110_a2 import DwmSetupDialog
+        from gui_qt.setup_v0110_a3 import DwmSetupDialog
         dialog = DwmSetupDialog(self.api, self)
+        self._a3_place_dialog(dialog, 'setup')
+        QTimer.singleShot(0, lambda: self._a3_place_dialog(dialog, 'setup'))
         if dialog.exec() == QDialog.DialogCode.Accepted:
+            self._a3_apply_display_preferences()
             self._append_log("Setup lagret. CLI-avhengigheter kontrolleres på nytt før neste kjøring.")
             self._refresh(force=True)
 
@@ -2656,7 +2668,7 @@ class DwmMainWindow(QMainWindow):
             return
         self._a8_refresh_job_log(force=True)
         viewer = DetachedJobLogWindow()  # no QMainWindow parent/owner
-        viewer.setStyleSheet(STYLE)
+        viewer.setStyleSheet(self.styleSheet() if hasattr(self, "styleSheet") else STYLE)
         viewer.redockRequested.connect(self._a9_redock_job_log)
         viewer.runSelected.connect(self._a9_detached_run_selected)
         viewer.refreshRequested.connect(lambda: self._a8_refresh_job_log(force=True))
@@ -2870,7 +2882,7 @@ class DwmMainWindow(QMainWindow):
             self._a9_redock_run()
             return
         viewer = DetachedRunWindow()  # independent Qt.Window, not Qt.Tool
-        viewer.setStyleSheet(STYLE)
+        viewer.setStyleSheet(self.styleSheet() if hasattr(self, "styleSheet") else STYLE)
         viewer.redockRequested.connect(self._a9_redock_run)
         if hasattr(viewer, "historyLogRequested"):
             viewer.historyLogRequested.connect(self._a11_open_history_log)
@@ -3600,7 +3612,7 @@ class DwmMainWindow(QMainWindow):
         )
         if depot:
             dialog.show_depot_review()
-        dialog.setStyleSheet(STYLE)
+        dialog.setStyleSheet(stylesheet_for(self.api.settings))
         dialog.setFont(self.font())
         dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
         self._a12_result_windows.append(dialog)
@@ -3611,6 +3623,7 @@ class DwmMainWindow(QMainWindow):
             )
         )
         dialog.show()
+        self._a3_place_dialog(dialog, 'results')
 
     def _a12_open_selected_report(self, _checked=False):
         if not self.api.workspace().jobs:
@@ -3621,8 +3634,10 @@ class DwmMainWindow(QMainWindow):
             return
         from .report_selected_v018_a12 import SelectedReportDialog
         dialog = SelectedReportDialog(self.api, active_job_id=self._active_id, parent=self)
-        dialog.setStyleSheet(STYLE)
+        dialog.setStyleSheet(stylesheet_for(self.api.settings))
         dialog.setFont(self.font())
+        self._a3_place_dialog(dialog, 'report')
+        QTimer.singleShot(0, lambda: self._a3_place_dialog(dialog, 'report'))
         dialog.exec()
 
     def _open_latest_depot_report(self):

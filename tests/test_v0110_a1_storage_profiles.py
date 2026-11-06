@@ -150,7 +150,13 @@ class A1StorageProfileTests(unittest.TestCase):
         self.assertIn('suggest_known_source_work(source, profile_id=profile_id)', main)
         self.assertIn('propose_profile_work_location(', main)
         self.assertIn("self._complexity == 'Standard' and not planned_work", main)
-        self.assertIn('from gui_qt.setup_v0110_a2 import DwmSetupDialog', main)
+        # Setup has a new wrapper in each release; keep the a1 contract
+        # focused on using the current profile-aware Setup, not one filename.
+        self.assertTrue(
+            any(f"from gui_qt.setup_v0110_{step} import DwmSetupDialog" in main
+                for step in ("a2", "a3")),
+            "DWM must open the profile-aware Setup dialog",
+        )
         self.assertIn('storage_layout_profile', gui)
         self.assertIn("'storage_layout_profile' not in changes", api)
         self.assertIn('saved = save_config(updated)', api)

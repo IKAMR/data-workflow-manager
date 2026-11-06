@@ -12,12 +12,14 @@ def main() -> int:
         return 2
     from gui_qt.main_window import DwmMainWindow
     from app.workbench_api_v0110_a1 import DwmWorkbenchAPI
+    from gui_qt.appearance_v0110_a3 import apply_appearance
 
     application = QApplication(sys.argv)
     application.setOrganizationName('IKAMR')
     application.setApplicationName('Data Workflow Manager')
-    application.setStyle('Fusion')
-    window = DwmMainWindow(DwmWorkbenchAPI())
+    api = DwmWorkbenchAPI()
+    apply_appearance(application, api.settings)
+    window = DwmMainWindow(api)
     window.show()
     if len(sys.argv) > 1:
         try:
