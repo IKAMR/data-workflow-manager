@@ -353,7 +353,15 @@ class PortableStorageTests(unittest.TestCase):
         ast.parse(gui)
         self.assertIn('"Omkoble lagringsrot for flere jobber…"', source)
         self.assertIn('StorageRootsDialog', source)
-        self.assertIn('app.workbench_api_v019_a4', launcher)
+        # The Qt entrypoint may use a later subclass. It must still inherit
+        # the v0.1.9-a4 portability facade rather than bypassing it.
+        import re
+        from importlib import import_module
+        from app.workbench_api_v019_a4 import DwmWorkbenchAPI as A4WorkbenchAPI
+        match = re.search(r'from (app\.workbench_api_v\d+_a\d+) import DwmWorkbenchAPI', launcher)
+        self.assertIsNotNone(match, launcher)
+        api_type = import_module(match.group(1)).DwmWorkbenchAPI
+        self.assertTrue(issubclass(api_type, A4WorkbenchAPI))
         self.assertIn('preview_storage_root_rebase', gui)
         self.assertIn('rebase_storage_root', gui)
         self.assertNotIn('customtkinter', gui)

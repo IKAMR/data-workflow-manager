@@ -3,14 +3,34 @@
   "profiles": [
     {
       "id": "none",
-      "label": "Ingen automatisk utfylling",
-      "description": "Oppdag Source extraction, men fyll ikke andre mapper automatisk.",
-      "match": {}
+      "label": "Ingen automatisk utfylling (avansert)",
+      "description": "Behold eldre manuelle mappevalg uten automatiske forslag.",
+      "match": {},
+      "example_tree": "Alle Source-, Work- og AIP-stier velges manuelt."
+    },
+    {
+      "id": "standard_enkel",
+      "label": "Standard – enkel mappestruktur",
+      "description": "En enkel pakke med separate source, work og aip. Standard for nye oppsett.",
+      "match": {
+        "extraction_relative_prefix": [
+          "source"
+        ]
+      },
+      "roles": {
+        "source_root": "{package_root}/source",
+        "source_extraction": "{extraction_root}",
+        "work_root": "{package_root}",
+        "work_operations": "{package_root}/work",
+        "archive_root": "{package_root}/aip"
+      },
+      "example_tree": "<pakke>/\n├── source/                        [Source – leses]\n├── work/                          [Work]\n│   └── dwm/                       [DWM-data]\n└── aip/                           [AIP-mål, ved behov]",
+      "best_for": "Nye brukere og depoter som ønsker få mappenivåer og et eget Work-område."
     },
     {
       "id": "ikamr_standard",
-      "label": "IKAMR standard",
-      "description": "AIC/jobbroten inneholder content, repository_operations og aip.",
+      "label": "Pakkeorientert – felles pakkerot",
+      "description": "Felles pakkerot med content, repository_operations og aip. Eldre teknisk profil-ID beholdes for kompatibilitet.",
       "match": {
         "extraction_relative_prefix": [
           "content",
@@ -25,7 +45,28 @@
         "work_content": "{package_root}/content",
         "work_operations": "{package_root}/repository_operations",
         "archive_root": "{package_root}/aip"
-      }
+      },
+      "example_tree": "<pakke>/\n├── content/\n│   └── sip/content/               [Source-uttrekk]\n├── repository_operations/         [Work]\n│   └── dwm/                       [DWM-data]\n└── aip/                           [AIP-mål, ved behov]",
+      "best_for": "Depoter som organiserer uttrekk, arbeidsområde og AIP under én felles pakkerot."
+    },
+    {
+      "id": "arkivskaper_hierarkisk",
+      "label": "Arkivskaperorientert – hierarkisk struktur",
+      "description": "Illustrasjon med arkivskaper/system/avlevering. Ikke en godkjent institusjonsspesifikk standard.",
+      "match": {
+        "extraction_relative_prefix": [
+          "avlevering"
+        ]
+      },
+      "roles": {
+        "source_root": "{package_root}/avlevering",
+        "source_extraction": "{extraction_root}",
+        "work_root": "{package_root}",
+        "work_operations": "{package_root}/arbeidsområder",
+        "archive_root": "{package_root}/arkivpakker"
+      },
+      "example_tree": "<depot>/<arkivskaper>/<system>/\n├── avlevering/                    [Source]\n├── arbeidsområder/                [Work]\n│   └── dwm/                       [DWM-data]\n└── arkivpakker/                   [AIP-mål, ved behov]",
+      "best_for": "Depoter som grupperer etter arkivskaper, system og avlevering."
     }
   ]
 }

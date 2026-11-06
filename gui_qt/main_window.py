@@ -25,12 +25,19 @@ from PySide6.QtWidgets import (
 )
 
 from app.application_api import DwmApiError
-from app.workbench_api_v019_a3 import DwmWorkbenchAPI
+from app.workbench_api_v0110_a1 import DwmWorkbenchAPI
 from app.workbench_api_v018_a3 import STORAGE_FIELDS
 from app.workbench_recent_v018_a4 import recent_joblists, remember_joblist
 from app.job_preflight_v018_a6 import (
     check_extraction_folder, propose_work_location,
 )
+from app.storage_profiles_v0110_a1 import (
+    DEFAULT_STORAGE_PROFILE, propose_profile_work_location,
+    propose_work_with_suffix, suggest_known_source_work,
+    storage_profile_choices,
+)
+from app.storage_profiles_v0110_a2 import resolve_storage_profile
+
 from version import APP_NAME, VERSION
 from app.result_navigation_v018_a8 import latest_depot_report
 from app.run_progress_v018_a8 import saved_progress
@@ -1551,9 +1558,20 @@ class DwmMainWindow(QMainWindow):
         for editor in (source, work):
             # Full path remains accessible if it exceeds the current screen.
             editor.textChanged.connect(editor.setToolTip)
+        # Keep the new-job dialog testable with a minimal API double. The
+        # production API exposes .settings, while older headless clients only
+        # expose create_job; both should retain the same dialog layout.
+        from app.storage_profiles_v0110_a1 import (
+            storage_profile_choices as available_storage_profiles,
+        )
+        from app.storage_profiles_v0110_a2 import resolve_storage_profile as pick_profile
+        api_settings = getattr(self.api, 'settings', None) or {}
+        profile_id = pick_profile(api_settings)
+        descriptions = {p.profile_id: p.label for p in available_storage_profiles(include_legacy=True)}
         form.addRow("Jobbnavn (valgfritt)", name)
         self._path_form_row(form, "Source – uttrekk", source)
         self._path_form_row(form, "Work – operations", work)
+        form.addRow('Lagringsprofil:', _muted(descriptions.get(profile_id, profile_id) + ' (fra Setup)'))
         form.addRow(_muted("Ingen mapper opprettes når du lagrer. DWM vil spørre om klargjøring før kjøring."))
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(dialog.accept)
@@ -1565,72 +1583,182 @@ class DwmMainWindow(QMainWindow):
             QMessageBox.warning(self, "Mangler Source", "Velg et Noark 5-uttrekk.")
             return
         try:
+            planned_work = work.text().strip() or None
+            extra_roles = {}
+            if self._complexity == 'Standard' and not planned_work:
+                if profile_id not in descriptions:
+                    raise DwmApiError('Ukjent lagringsprofil. Velg en profil i Setup.')
+                # Standard mode uses the selected profile; Avansert keeps the
+                # explicit role editor and may intentionally create a draft.
+                proposed = suggest_known_source_work(source.text().strip(), profile_id=profile_id)
+                proposed_ops = proposed.get('work_operations')
+                proposed_root = proposed.get('work_root')
+                if proposed_ops and proposed_root:
+                    choice = QMessageBox.question(
+                        self, 'Foreslått Work etter lagringsprofil',
+                        'Profil: ' + descriptions[profile_id] + '\n\n'
+                        + 'Source:\n' + source.text().strip() + '\n\n'
+                        + 'Work - operations:\n' + str(proposed_ops) + '\n\n'
+                        + 'Bruke den foreslåtte Work-plasseringen? '
+                        'Ingen mapper opprettes nå.',
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                        QMessageBox.StandardButton.No,
+                    )
+                    if choice != QMessageBox.StandardButton.Yes:
+                        return
+                    planned_work = str(proposed_ops)
+                    extra_roles['work_root'] = str(proposed_root)
+                    if proposed.get('source_root'):
+                        extra_roles['source_root'] = str(proposed['source_root'])
+                else:
+                    chosen = QFileDialog.getExistingDirectory(
+                        self, 'Velg en Work-hovedmappe (eksisterende mappe)',
+                        str(self.config.value('qt/last_work_dir', '') or ''),
+                    )
+                    if not chosen:
+                        return
+                    if profile_id in ('ikamr_standard', 'none'):
+                        candidate = propose_work_location(
+                            chosen,
+                            app_subfolder=str(self.api.settings.get('app_work_subfolder', 'dwm') or ''),
+                        )
+                    else:
+                        candidate = propose_profile_work_location(
+                            chosen, profile_id=profile_id,
+                            app_subfolder=str(self.api.settings.get('app_work_subfolder', 'dwm') or ''),
+                        )
+                    choice = QMessageBox.question(
+                        self, 'Kontroller Work-plassering',
+                        'Work - hovedmappe:\n' + str(candidate.work_root)
+                        + '\n\nWork - operations:\n' + str(candidate.work_operations)
+                        + '\n\nIngen mapper opprettes nå. Bruke plasseringen?',
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                        QMessageBox.StandardButton.No,
+                    )
+                    if choice != QMessageBox.StandardButton.Yes:
+                        return
+                    planned_work = str(candidate.work_operations)
+                    extra_roles['work_root'] = str(candidate.work_root)
+                    self.config.setValue('qt/last_work_dir', chosen)
             view = self.api.create_job(
                 source_extraction=source.text().strip(),
-                work_operations=work.text().strip() or None,
+                work_operations=planned_work,
                 name=name.text().strip(),
             )
             self._active_id = view.job_id
+            if extra_roles:
+                self.api.update_storage(view.job_id, extra_roles)
         except Exception as exc:
             self._error(exc)
             return
         self._refresh(force=True)
 
     def _new_job_easy(self):
-        """Two choices for beginners: real extraction and existing Work location.
+        """Select extraction; suggest safe Work from a recognized storage profile.
 
-        DWM proposes repository_operations / dwm / job nesting. Nothing is
-        created until the separate preflight confirmation is accepted.
+        Unknown layouts require an explicit Work selection. Only the operator
+        may approve folder creation during the separate preflight step.
         """
         if self._worker is not None:
             return
+        profile_id = resolve_storage_profile(self.api.settings)
+        descriptions = {p.profile_id: p.label for p in storage_profile_choices(include_legacy=True)}
+        if profile_id not in descriptions:
+            QMessageBox.warning(self, 'Ukjent lagringsprofil',
+                                'Velg en gyldig lagringsprofil i Setup før du oppretter jobben.')
+            return
         source = QFileDialog.getExistingDirectory(
-            self, "1/2 – Velg Noark 5-uttrekksmappe (arkivstruktur.xml)",
-            str(self.config.value("qt/last_new_source_dir", "") or ""),
+            self, '1/2 - Velg Noark 5-uttrekksmappe (arkivstruktur.xml)',
+            str(self.config.value('qt/last_new_source_dir', '') or ''),
         )
         if not source:
             return
-        source_issues = check_extraction_folder(source, profile_id="noark5")
+        source_issues = check_extraction_folder(source, profile_id='noark5')
         if source_issues:
             QMessageBox.warning(
-                self, "Feil uttrekksmappe",
-                "\n\n".join(issue.message for issue in source_issues)
-                + "\n\nVelg mappen med selve Noark 5-uttrekket. Ingen jobb er opprettet.",
+                self, 'Feil uttrekksmappe',
+                '\n\n'.join(issue.message for issue in source_issues)
+                + '\n\nVelg mappen med selve Noark 5-uttrekket. Ingen jobb er opprettet.',
             )
             return
-        self.config.setValue("qt/last_new_source_dir", source)
-        work_root = QFileDialog.getExistingDirectory(
-            self, "2/2 – Velg hvor DWM skal lagre arbeidsfiler (eksisterende hovedmappe)",
-            str(self.config.value("qt/last_work_dir", "") or ""),
-        )
-        if not work_root:
-            return
-        self.config.setValue("qt/last_work_dir", work_root)
-        try:
-            proposal = propose_work_location(
-                work_root, app_subfolder=str(self.api.settings.get("app_work_subfolder", "dwm") or ""),
+        self.config.setValue('qt/last_new_source_dir', source)
+        proposed_roles = suggest_known_source_work(source, profile_id=profile_id)
+        work_root = proposed_roles.get('work_root')
+        operations = proposed_roles.get('work_operations')
+        source_root = proposed_roles.get('source_root')
+        use_proposal = False
+        if work_root and operations:
+            # Suggestions are read-only, and the operator can always choose
+            # another disk rather than accepting a common package root.
+            confirm = QMessageBox(self)
+            confirm.setWindowTitle('Ny jobb - forslag fra lagringsprofil')
+            confirm.setIcon(QMessageBox.Icon.Question)
+            confirm.setText('DWM gjenkjente mappestrukturen og foreslår Work:')
+            confirm.setInformativeText(
+                'Profil: ' + descriptions[profile_id] + '\n\n'
+                + 'Source - uttrekk:\n' + source + '\n\n'
+                + 'Work - hovedmappe:\n' + str(work_root) + '\n\n'
+                + 'Work - operations:\n' + str(operations) + '\n\n'
+                + 'AIP opprettes ikke. Ingen eksisterende data endres.'
             )
-        except ValueError as exc:
-            QMessageBox.warning(self, "Ugyldig Work-valg", str(exc))
-            return
-        planned_base = proposal.work_operations
-        answer = QMessageBox.question(
-            self, "Ny jobb – kontroller plasseringene",
-            f"Source – uttrekk:\n{source}\n\n"
-            f"Valgt Work-mappe:\n{work_root}\n\n"
-            f"Work – hovedmappe:\n{proposal.work_root}\n\n"
-            f"DWM vil foreslå Work – operations:\n{planned_base}\n\n"
-            "DWM flytter eller kopierer aldri uttrekket. Opprett jobb med disse "
-            "forslagene? Du får godkjenne de nøyaktige nye mappene i neste steg.",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No,
-        )
-        if answer != QMessageBox.StandardButton.Yes:
-            return
+            accept = confirm.addButton('Bruk forslaget', QMessageBox.ButtonRole.AcceptRole)
+            choose = confirm.addButton('Velg annen Work-mappe', QMessageBox.ButtonRole.ActionRole)
+            cancel = confirm.addButton('Avbryt', QMessageBox.ButtonRole.RejectRole)
+            confirm.setDefaultButton(cancel)
+            confirm.exec()
+            if confirm.clickedButton() is accept:
+                use_proposal = True
+            elif confirm.clickedButton() is not choose:
+                return
+
+        if not use_proposal:
+            selected = QFileDialog.getExistingDirectory(
+                self, '2/2 - Velg hvor DWM skal lagre Work (eksisterende hovedmappe)',
+                str(self.config.value('qt/last_work_dir', '') or ''),
+            )
+            if not selected:
+                return
+            self.config.setValue('qt/last_work_dir', selected)
+            try:
+                if profile_id in ('ikamr_standard', 'none'):
+                    proposal = propose_work_location(
+                        selected,
+                        app_subfolder=str(self.api.settings.get('app_work_subfolder', 'dwm') or ''),
+                    )
+                else:
+                    proposal = propose_profile_work_location(
+                        selected, profile_id=profile_id,
+                        app_subfolder=str(self.api.settings.get('app_work_subfolder', 'dwm') or ''),
+                    )
+            except ValueError as exc:
+                QMessageBox.warning(self, 'Ugyldig Work-valg', str(exc))
+                return
+            work_root, operations = proposal.work_root, proposal.work_operations
+            source_root = None  # Do not guess package roots on unrecognized sources.
+            answer = QMessageBox.question(
+                self, 'Ny jobb - kontroller plasseringene',
+                'Profil: ' + descriptions[profile_id] + '\n\n'
+                + 'Source - uttrekk:\n' + source + '\n\n'
+                + 'Valgt Work-mappe:\n' + selected + '\n\n'
+                + 'Work - hovedmappe:\n' + str(work_root) + '\n\n'
+                + 'Work - operations:\n' + str(operations) + '\n\n'
+                + 'DWM vil ikke kopiere eller flytte uttrekket. '
+                'Nye mapper må godkjennes separat ved klargjøring. Opprette jobb?',
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                return
         try:
-            view = self.api.create_job(source_extraction=source, name=Path(source).name)
+            from app.storage_layouts import suggested_job_name
+            proposed_name = (suggested_job_name(Path(source), layout_id=profile_id)
+                             if use_proposal else Path(source).name)
+            view = self.api.create_job(source_extraction=source, name=proposed_name)
             self._active_id = view.job_id
-            self.api.update_storage(view.job_id, {"work_root": str(proposal.work_root)})
+            changes = {'work_root': str(work_root), 'work_operations': str(operations)}
+            if source_root is not None:
+                changes['source_root'] = str(source_root)
+            self.api.update_storage(view.job_id, changes)
         except Exception as exc:
             self._error(exc)
             return
@@ -1638,7 +1766,7 @@ class DwmMainWindow(QMainWindow):
         if self._review_preflight((view.job_id,)) is not None:
             self._refresh(force=True)
         else:
-            self._append_log(f"{view.job_id}: Klargjøring utsatt. Ingen Work-mapper ble opprettet.")
+            self._append_log(f'{view.job_id}: Klargjøring utsatt. Ingen Work-mapper ble opprettet.')
 
     def _path_form_row(self, form, title, editor: QLineEdit, *, file=False):
         row = QWidget()
@@ -1828,7 +1956,7 @@ class DwmMainWindow(QMainWindow):
             "source_extraction": "Source – uttrekk",
             "work_root": "Work – hovedmappe",
             "work_content": "Work – content",
-            "work_operations": "Work – repository_operations",
+            "work_operations": "Work – operations",
             "archive_root": "AIP / arkiv",
         }
         editors: dict[str, QLineEdit] = {}
@@ -2144,7 +2272,7 @@ class DwmMainWindow(QMainWindow):
         if self._worker is not None or self.api.running:
             QMessageBox.information(self, "Setup", "Avslutt kjøringen før du endrer Setup.")
             return
-        from gui_qt.setup_v018_a7 import DwmSetupDialog
+        from gui_qt.setup_v0110_a2 import DwmSetupDialog
         dialog = DwmSetupDialog(self.api, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             self._append_log("Setup lagret. CLI-avhengigheter kontrolleres på nytt før neste kjøring.")
@@ -2189,10 +2317,34 @@ class DwmMainWindow(QMainWindow):
             starting = selected
             self.config.setValue("qt/last_work_dir", selected)
             try:
-                proposal = propose_work_location(
-                    selected,
-                    app_subfolder=str(self.api.settings.get("app_work_subfolder", "dwm") or ""),
-                )
+                app_subfolder = str(self.api.settings.get('app_work_subfolder', 'dwm') or '')
+                old_operations = previous.get('work_operations') or ''
+                old_root = previous.get('work_root') or ''
+                old_suffix = ()
+                if old_operations:
+                    if old_root:
+                        try:
+                            old_suffix = Path(old_operations).relative_to(Path(old_root)).parts
+                        except ValueError:
+                            pass
+                    if not old_suffix:
+                        old_suffix = (Path(old_operations).name,)
+                if old_suffix:
+                    # Existing jobs keep their original Work-level names even
+                    # when the global profile changes. A4 handles physical moves.
+                    proposal = propose_work_with_suffix(
+                        selected, old_suffix, app_subfolder=app_subfolder,
+                    )
+                elif resolve_storage_profile(self.api.settings) in ('ikamr_standard', 'none'):
+                    proposal = propose_work_location(
+                        selected, app_subfolder=app_subfolder,
+                    )
+                else:
+                    proposal = propose_profile_work_location(
+                        selected,
+                        profile_id=resolve_storage_profile(self.api.settings),
+                        app_subfolder=app_subfolder,
+                    )
             except ValueError as exc:
                 QMessageBox.warning(self, "Ugyldig Work-valg", str(exc))
                 continue

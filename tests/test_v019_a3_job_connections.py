@@ -312,7 +312,7 @@ class A3WiringTests(unittest.TestCase):
         ast.parse(main)
         # a3 commands remain available through later facade subclasses.
         # Do not freeze the Qt entrypoint to one historical alpha version.
-        self.assertRegex(qt, r"from app\.workbench_api_v019_a\d+ import DwmWorkbenchAPI")
+        self.assertRegex(qt, r"from app\.workbench_api_v\d+_a\d+ import DwmWorkbenchAPI")
         a3_api = (ROOT / "app" / "workbench_api_v019_a3.py").read_text(encoding="utf-8")
         self.assertIn("class DwmWorkbenchAPI", a3_api)
         for marker in (
