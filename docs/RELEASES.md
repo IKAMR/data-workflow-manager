@@ -9,6 +9,20 @@ Versjonene v0.1.0–v0.1.3 ble utgitt under navnet **Noark 5 Workflow Manager**.
 Nyeste ferdige versjon står øverst. Alpha-trinn dokumenteres ikke som egne
 permanente releaseversjoner.
 
+## v0.1.9
+
+Sporbar kildeevidens, faglig depotvurdering og portabel lagring for selvstendige Work-jobber.
+
+Hovedendringer:
+
+- Utvidede Resultatvisninger i PySide6 med Kildeoversikt og Arkade-dekning: bevarte DWM-, Arkade 5- og KDRS Query-kilder vises separat med identitet og kildegrunnlag. KDRS Query får filtrering for Standard/U1/U2, og kildeoversikt kan eksporteres som CSV, HTML og JSON. Eksisterende rapport- og årsfordelingsvisninger videreføres.
+- Ny Depotvurdering per uttrekk og per arkivdel (original system-ID), med teknisk status, periodegrunnlag og faglig beslutning som separate felt. Manuelle beslutninger krever begrunnelse og brukeridentitet, har historikk og er bundet til rapportens SHA-256. En fullført arbeidsflyt betyr ikke faglig godkjenning.
+- Forbedret jobbliste med status for tilgjengelig/frakoblet Work, identitetskontroll, gjenoppretting fra Work og eksplisitt omkobling av flyttet Work eller Source. Varig jobb-UUID og historikk beholdes.
+- Portabel lagringsmodell med kontrollert rotomkobling for flere jobber, for eksempel fra G:\ til H:\, med relativ delsti per lagringsrolle. Source, Work og AIP kan fortsatt ligge under forskjellige røtter. Work lagrer et eget `storage-roots.json` med rotmapping, jobbreferanse og relative delstier.
+- Forhåndskontroll, identitetskontroll av Work og eksplisitt brukerbekreftelse før omkobling. Ingen arkivfiler kopieres, flyttes eller analyseres på nytt. Eksisterende `.n5jobs`-filer og det opprinnelige CustomTkinter-GUI-et videreføres.
+
+Avgrensninger: Historiske absolutte stier i gamle rapporter og logger omskrives ikke. `storage-roots.json` er et tillegg til de autoritative `job.json`, `job-state.json` og `job-events.jsonl`; eksisterende runtime bruker fortsatt oppdaterte absolutte stier. En omkobling over flere jobber er ikke én atomisk transaksjon. SIARD-analyser, tverrjobbanalyse og parallelle workers inngår ikke i denne releasen.
+
 ## v0.1.8
 
 Nytt fleksibelt brukergrensesnitt og selvstendige jobber i Work.
