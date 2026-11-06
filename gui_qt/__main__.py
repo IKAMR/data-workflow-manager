@@ -11,7 +11,7 @@ def main() -> int:
         print('PySide6 mangler. Kjør: py -m pip install -r requirements-gui.txt', file=sys.stderr)
         return 2
     from gui_qt.main_window import DwmMainWindow
-    from app.workbench_api_v019_a3 import DwmWorkbenchAPI
+    from app.workbench_api_v019_a4 import DwmWorkbenchAPI
 
     application = QApplication(sys.argv)
     application.setOrganizationName('IKAMR')

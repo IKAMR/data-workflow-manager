@@ -310,7 +310,11 @@ class A3WiringTests(unittest.TestCase):
         main = (ROOT / "gui_qt" / "main_window.py").read_text(encoding="utf-8")
         ast.parse(qt)
         ast.parse(main)
-        self.assertIn("from app.workbench_api_v019_a3 import DwmWorkbenchAPI", qt)
+        # a3 commands remain available through later facade subclasses.
+        # Do not freeze the Qt entrypoint to one historical alpha version.
+        self.assertRegex(qt, r"from app\.workbench_api_v019_a\d+ import DwmWorkbenchAPI")
+        a3_api = (ROOT / "app" / "workbench_api_v019_a3.py").read_text(encoding="utf-8")
+        self.assertIn("class DwmWorkbenchAPI", a3_api)
         for marker in (
             "job_location_health()", "preview_work_reconnection", "reconnect_work(",
             "preview_source_reconnection", "reconnect_source(",

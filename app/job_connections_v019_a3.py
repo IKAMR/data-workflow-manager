@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -162,13 +163,34 @@ def inspect_job_locations(api) -> tuple[JobLocationHealth, ...]:
     return tuple(results)
 
 
+def _canonical_work_path(value: Path) -> Path | None:
+    """Expand Windows 8.3 aliases in existing ancestors of an offline path."""
+    if os.name != "nt":
+        return None
+    try:
+        return Path(value).resolve(strict=False)
+    except (OSError, ValueError, RuntimeError):
+        return None
+
+
 def _suffix_after_base(old_root: Path, base: Path | None) -> Path | None:
     if base is None:
         return None
     try:
         return old_root.relative_to(Path(base))
     except (ValueError, OSError):
-        return None
+        # An a3 reconnect stores a canonical Work reference; the saved role
+        # can still use a Windows short-name ancestor. When the old directory
+        # has been moved, resolve only ancestors that are still available.
+        # Never guess a changed Work hierarchy or use prefix string matching.
+        canonical_old = _canonical_work_path(old_root)
+        canonical_base = _canonical_work_path(Path(base))
+        if canonical_old is None or canonical_base is None:
+            return None
+        try:
+            return canonical_old.relative_to(canonical_base)
+        except ValueError:
+            return None
 
 
 def _base_from_suffix(new_root: Path, suffix: Path) -> Path:

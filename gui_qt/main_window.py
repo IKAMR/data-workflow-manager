@@ -670,6 +670,11 @@ class DwmMainWindow(QMainWindow):
         a3_menu.addAction(self.check_locations_action)
         a3_menu.addAction(self.relink_work_action)
         a3_menu.addAction(self.relink_source_action)
+        self.rebase_roots_action = self._action(
+            "Omkoble lagringsrot for flere jobber…", self._a4_rebase_storage_roots,
+        )
+        a3_menu.addSeparator()
+        a3_menu.addAction(self.rebase_roots_action)
         self.rename_job_action = self._action("Endre navn på jobb…", self._rename_job)
         self.remove_job_action = self._action("Fjern jobb fra listen…", self._remove_job)
         file_menu.addAction(self.rename_job_action)
@@ -1264,6 +1269,31 @@ class DwmMainWindow(QMainWindow):
             "Lagre jobblisten for å oppdatere indeksreferansen.",
         )
 
+    # ---------- a4: root-relative remapping with operator approval ----------
+    def _a4_rebase_storage_roots(self):
+        if self._worker is not None or self.api.running:
+            QMessageBox.warning(self, "Lagringsrot", "Avslutt kjøringen før omkobling.")
+            return
+        if not self.api.workspace().jobs:
+            QMessageBox.information(self, "Lagringsrot", "Åpne en jobbliste først.")
+            return
+        from .storage_roots_v019_a4 import StorageRootsDialog
+        dialog = StorageRootsDialog(self.api, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self._render_key = None
+            self._a3_probe_key = None
+            self._refresh(force=True)
+            self._append_log(
+                "Omkoblet lagringsrot for jobber: " + ", ".join(dialog.applied_jobs)
+            )
+            QMessageBox.information(
+                self, "Lagringsrot omkoblet",
+                f"{len(dialog.applied_jobs)} jobb(er) er oppdatert. "
+                "Lagre jobblisten for å bevare Work-referansene. "
+                "Kontroller alle lagringsroller og gjennomfør preflight "
+                "før neste kjøring. Ingen uttrekks- eller AIP-filer er flyttet.",
+            )
+
     # ---------- a3: explicit, identity-safe reconnection; no scanning of Source ----------
     def _a3_check_locations(self):
         self._a3_probe_key = None
@@ -1279,6 +1309,8 @@ class DwmMainWindow(QMainWindow):
         menu.addSeparator()
         menu.addAction(self.relink_work_action)
         menu.addAction(self.relink_source_action)
+        menu.addSeparator()
+        menu.addAction(self.rebase_roots_action)
         menu.exec(self.job_links_button.mapToGlobal(self.job_links_button.rect().bottomLeft()))
 
     def _a3_reconnect_work(self):
@@ -1662,6 +1694,7 @@ class DwmMainWindow(QMainWindow):
         menu.addAction(self.check_locations_action)
         menu.addAction(self.relink_work_action)
         menu.addAction(self.relink_source_action)
+        menu.addAction(self.rebase_roots_action)
         menu.addSeparator()
         menu.addAction("Endre navn…", self._rename_job)
         menu.addSeparator()
@@ -2424,7 +2457,8 @@ class DwmMainWindow(QMainWindow):
                        self.ready_action, self.continue_action, self.preflight_action,
                        self.setup_action, self.recover_work_job_action,
                        self.migrate_work_job_action, self.check_locations_action,
-                       self.relink_work_action, self.relink_source_action):
+                       self.relink_work_action, self.relink_source_action,
+                       self.rebase_roots_action):
             action.setEnabled(not running)
         self.stop_action.setEnabled(running)
         self.overview_run.setEnabled(not running)
