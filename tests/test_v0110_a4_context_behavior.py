@@ -1,4 +1,4 @@
-"""Headless verification of actual tab-to-button visibility logic from Qt class."""
+"""Headless regression of the Qt context toolbar and read-only format overlay."""
 from __future__ import annotations
 
 import ast
@@ -77,18 +77,19 @@ class ContextToolbarA4Tests(unittest.TestCase):
                 self.assertEqual(obj._a4_action_buttons['Åpne kildefil'].title, 'Åpne kildefil')
 
 
-if __name__ == '__main__':
-    unittest.main()
-
 class PronomOverlayHeadlessTests(unittest.TestCase):
     def test_overlay_uses_original_data_without_modifying_evidence(self):
-        from app.format_policy_v0110_a4 import load_format_policy, FORMAT_PROFILE_DIR
+        from app.format_policy_v0110_a4 import load_format_policy, FORMAT_PROFILE_DIR, evaluate_puid
+        from app.format_context_v0110_a5 import read_pronom_import_context
         source = ast.parse(SOURCE.read_text(encoding='utf-8'))
-        cls = next(n for n in source.body if isinstance(n, ast.ClassDef) and n.name == 'ResultCenterWindow')
-        method = next(n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name == '_a4_assess_pronom')
-        from app.format_policy_v0110_a4 import evaluate_puid
+        cls = next(n for n in source.body if isinstance(n, ast.ClassDef)
+                   and n.name == 'ResultCenterWindow')
+        method = next(n for n in cls.body if isinstance(n, ast.FunctionDef)
+                      and n.name == '_a4_assess_pronom')
         ns = {'evaluate_puid': evaluate_puid,
-              '_ORIGINAL_DETAIL_ROLE': 83, '_FORMAT_STATUS_ROLE': 84, 'DETAIL_ROLE': 32}
+              'read_pronom_import_context': read_pronom_import_context,
+              '_ORIGINAL_DETAIL_ROLE': 83, '_FORMAT_STATUS_ROLE': 84,
+              'DETAIL_ROLE': 32, 'PATH_ROLE': 33}
         exec(compile(ast.fix_missing_locations(ast.Module(body=[method], type_ignores=[])),
                      str(SOURCE), 'exec'), ns)
         class Item:
@@ -121,8 +122,14 @@ class PronomOverlayHeadlessTests(unittest.TestCase):
         self.assertIn('regelprofil',a.roles[32]['formatvurdering'])
         self.assertEqual(original,{'import_id': 'immutable-import', 'source_row': {'PUID': 'fmt/101'}})
         self.assertEqual(a.text(5),'historical-RAF')
+        self.assertEqual(a.roles[32]['historisk_arkade_raf']['klassifisering'], 'historical-RAF')
+        self.assertIn('Importert', a.tooltips[5])
         w._a4_format_policy=None
         w._a4_assess_pronom()
         self.assertEqual(a.text(6),'Ikke vurdert')
         self.assertEqual(a.roles[32]['source_row'],original['source_row'])
         self.assertEqual(a.roles[83],original)
+
+
+if __name__ == '__main__':
+    unittest.main()

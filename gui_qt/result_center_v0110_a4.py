@@ -1,7 +1,8 @@
-"""v0.1.10-a4: source-neutral PRONOM format assessment and contextual actions.
+"""v0.1.10-a4/a5: read-only PRONOM comparisons and contextual actions.
 
-No changes are made to normalized Arkade/Siegfried evidence, Noark5 source,
-Work documents, AIP or historical reports. Only an explicit CSV export writes.
+The raw Arkade/RAF observation and the selected institutional PUID policy are
+independent. a5 adds unmistakable source/date presentation and dated export.
+No original evidence, source files, reports, or AIP content are modified.
 """
 from __future__ import annotations
 
@@ -9,17 +10,24 @@ from pathlib import Path
 
 from PySide6.QtCore import QSettings, Qt
 from PySide6.QtWidgets import (
-    QComboBox, QFileDialog, QHBoxLayout, QLabel, QLineEdit,
+    QComboBox, QFileDialog, QHBoxLayout, QHeaderView, QLabel, QLineEdit,
     QMessageBox, QPushButton, QSizePolicy,
 )
 
 from app.format_policy_v0110_a4 import (
     FORMAT_PROFILE_DIR, STATUS_ACCEPTED, STATUS_CLARIFY,
     STATUS_UNIDENTIFIED, STATUS_NOT_ASSESSED, STATUS_LABELS,
-    discover_format_policies, evaluate_puid, export_format_assessments_csv,
+    discover_format_policies, evaluate_puid,
     load_format_policy, summarize_format_assessments,
 )
-from .result_center_v018_a13 import DETAIL_ROLE
+from app.format_context_v0110_a5 import (
+    comparison_labels, export_comparison_csv, read_pronom_import_context,
+)
+from app.result_display_v0110_a5 import (
+    arkade_tests_from_depot, load_technical_test_names, technical_test_name,
+)
+from .result_detail_view_v0110_a5 import ResultDetailModesMixin
+from .result_center_v018_a13 import DETAIL_ROLE, PATH_ROLE
 from .result_center_v019_a1 import ResultCenterWindow as _PreviousResultCenter
 
 _ORIGINAL_DETAIL_ROLE = Qt.ItemDataRole.UserRole + 51
@@ -42,25 +50,54 @@ _CONTEXT_ACTIONS = {
 _COMMON_ACTIONS = ('Oppdater visning', 'Åpne Work-mappe')
 
 
-class ResultCenterWindow(_PreviousResultCenter):
-    """Apply a selectable, dated institutional policy over untouched PUID evidence."""
+class ResultCenterWindow(ResultDetailModesMixin, _PreviousResultCenter):
+    """Compare PUIDs against a selected dated policy without rewriting evidence."""
 
     def __init__(self, *args, **kwargs):
         self._a4_ready = False
         self._a4_settings = QSettings('IKAMR', 'DWM-Qt')
         self._a4_format_rows = []
         self._a4_format_policy = None
+        self._a5_missing_policy_warning = ''
         super().__init__(*args, **kwargs)
+        self._a53_install_details()
         self._a4_make_policy_controls()
         self._a4_make_context_actions()
+        self._a5_make_discovery_link()
         self._a4_ready = True
         self._a4_select_initial_policy()
         self._a4_apply_context_actions()
+        self._a53_enrich_result_tables()
+        self._a56_configure_columns()
         self._a4_assess_pronom()
+        self._a5_select_first_result()
+        self._a53_schedule_splitter()
+
+    def _a5_make_discovery_link(self):
+        """Make the comparison easy to find even when the PRONOM tab is off-screen."""
+        overview = self._pages['Oversikt']
+        header = QHBoxLayout()
+        hint = QLabel('Filformater: historisk Arkade/RAF og valgt regelprofil vises separat i PRONOM.')
+        hint.setWordWrap(True)
+        header.addWidget(hint, 1)
+        button = QPushButton('Vis filformatvurderinger (PRONOM)')
+        button.setToolTip('Åpne oversikt over kildeklassifisering og datert regelprofil.')
+        button.clicked.connect(lambda: self.tabs.setCurrentWidget(self._pages['PRONOM']))
+        header.addWidget(button)
+        overview.layout().insertLayout(0, header)
+        index = self.tabs.indexOf(self._pages['PRONOM'])
+        if index >= 0:
+            self.tabs.setTabToolTip(index, 'Arkade 5 / RAF-220301 mot valgt, datert formatregelprofil')
 
     def _a4_make_policy_controls(self):
         page = self._pages['PRONOM']
         layout = page.layout()
+        intro = QLabel('TO UAVHENGIGE VURDERINGER   A: Arkade 5 / RAF-220301 (historisk)    '
+                       'B: PUID mot valgt regelprofil (nå)')
+        intro.setWordWrap(True)
+        intro.setStyleSheet('font-weight: 600;')
+        layout.insertWidget(0, intro)
+
         first = QHBoxLayout()
         first.addWidget(QLabel('Formatregler:'))
         self.format_policy_combo = QComboBox()
@@ -77,7 +114,7 @@ class ResultCenterWindow(_PreviousResultCenter):
         browse.setToolTip('Velg et lokalt, versjonert regelsett; filen må være JSON i DWM-format.')
         browse.clicked.connect(self._a4_browse_policy)
         first.addWidget(browse)
-        layout.insertLayout(0, first)
+        layout.insertLayout(1, first)
 
         controls = QHBoxLayout()
         controls.addWidget(QLabel('Vurdering:'))
@@ -91,29 +128,45 @@ class ResultCenterWindow(_PreviousResultCenter):
         self.format_search.setPlaceholderText('Uttrekk, PUID, filtype, versjon eller vurdering')
         controls.addWidget(self.format_search, 1)
         export = QPushButton('Eksporter vurdering til CSV…')
-        export.setToolTip('Eksporter vist formatstatistikk med profilens kilde og SHA-256.')
+        export.setToolTip('Eksporter viste formatgrupper med begge kilder, import-/kopidato og SHA-256.')
         export.clicked.connect(self._a4_export_pronom)
         controls.addWidget(export)
-        layout.insertLayout(1, controls)
+        layout.insertLayout(2, controls)
 
         self.format_summary = QLabel()
         self.format_summary.setWordWrap(True)
-        layout.insertWidget(2, self.format_summary)
+        layout.insertWidget(3, self.format_summary)
+
+        self.format_arkade_source = QLabel()
+        self.format_arkade_source.setWordWrap(True)
+        layout.insertWidget(4, self.format_arkade_source)
+        provenance_row = QHBoxLayout()
+        self.format_profile_source = QLabel()
+        self.format_profile_source.setWordWrap(True)
+        provenance_row.addWidget(self.format_profile_source, 1)
+        more = QPushButton('Kilder og datoer…')
+        more.setToolTip('Vis både historisk importproveniens og valgt formatprofils kildedata.')
+        more.clicked.connect(self._a5_show_sources)
+        provenance_row.addWidget(more)
+        layout.insertLayout(5, provenance_row)
+
         self.format_note = QLabel(
             'Til avklaring betyr ikke at filen må konverteres. '
             'Formatvurderingen er uavhengig av Arkades historiske RAF-klassifisering '
             'og erstatter ikke godkjenning eller avtale om avlevering.'
         )
         self.format_note.setWordWrap(True)
-        layout.insertWidget(3, self.format_note)
+        layout.insertWidget(6, self.format_note)
         self.format_policy_combo.currentIndexChanged.connect(self._a4_change_policy)
         self.format_status_combo.currentIndexChanged.connect(self._a4_filter_pronom)
         self.format_search.textChanged.connect(self._a4_filter_pronom)
         table = self._trees['PRONOM']
         table.setHeaderLabels((
             'Uttrekk', 'Format-ID / PUID', 'Filtype', 'Versjon',
-            'Antall', 'RAF (Arkade)', 'Formatvurdering',
+            'Antall', 'Arkade RAF-220301 (historisk)', 'Valgt regelprofil (uavhengig)',
         ))
+        table.headerItem().setToolTip(5, 'Beholdt historisk klassifisering fra Arkade 5; endres ikke ved profilbytte.')
+        table.headerItem().setToolTip(6, 'Ny sammenligning av PUID mot valgt datert profil; ingen depotgodkjenning.')
 
     def _a4_select_initial_policy(self):
         saved = str(self._a4_settings.value('qt/format_policy_path', '__default__') or '')
@@ -130,9 +183,9 @@ class ResultCenterWindow(_PreviousResultCenter):
                 index = self.format_policy_combo.count() - 1
             except (OSError, ValueError):
                 # Do not silently replace a missing user-selected profile.
-                self.format_summary.setText(
-                    'Valgt formatprofil kunne ikke leses: ' + saved
-                    + '. Ingen nye godkjenningsvurderinger blir foretatt.'
+                self._a5_missing_policy_warning = (
+                    'Tidligere valgt profil mangler eller er ugyldig: ' + saved
+                    + '. Den er ikke erstattet automatisk.'
                 )
                 index = 0
         self.format_policy_combo.blockSignals(True)
@@ -168,6 +221,7 @@ class ResultCenterWindow(_PreviousResultCenter):
                 # Never leave prior acceptance labels visible for a corrupt or
                 # replaced profile. Revert to explicit no-assessment status.
                 self._a4_format_policy = None
+                self._a5_missing_policy_warning = 'Valgt profil kunne ikke leses. Ingen vurdering foretas.'
                 self.format_policy_combo.blockSignals(True)
                 self.format_policy_combo.setCurrentIndex(0)
                 self.format_policy_combo.blockSignals(False)
@@ -179,17 +233,15 @@ class ResultCenterWindow(_PreviousResultCenter):
                 return
         else:
             self._a4_format_policy = None
+        if persist or path:
+            self._a5_missing_policy_warning = ''
         if persist:
             self._a4_settings.setValue('qt/format_policy_path', path)
         if self._a4_ready:
             self._a4_assess_pronom()
 
     def _a4_make_context_actions(self):
-        """Rehome the existing global footer buttons into common/context toolbars.
-
-        The a19 result center inherited two rows of seven global buttons from
-        a13. This adapts their visibility without duplicating or rewiring them.
-        """
+        """Rehome existing global footer buttons into common/context toolbars."""
         outer = self.layout()
         expected = set(_COMMON_ACTIONS)
         for titles in _CONTEXT_ACTIONS.values():
@@ -226,7 +278,7 @@ class ResultCenterWindow(_PreviousResultCenter):
                 button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
                 common.addWidget(button)
         common.addStretch(1)
-        outer.insertLayout(2, common)  # Shared actions just above the tab content.
+        outer.insertLayout(2, common)
 
         context = QHBoxLayout()
         context.setSpacing(6)
@@ -239,8 +291,35 @@ class ResultCenterWindow(_PreviousResultCenter):
                 button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
                 context.addWidget(button)
         context.addStretch(1)
-        outer.addLayout(context)  # Only actions of the active tab are shown.
+        outer.addLayout(context)
         self.tabs.currentChanged.connect(self._a4_apply_context_actions)
+        self.tabs.currentChanged.connect(self._a5_select_first_result)
+
+    def _a5_select_first_result(self, _index=None):
+        """Show the first actual row on first visit; preserve a user's own selection.
+
+        Result tabs without a table (annual data/depot review) are unaffected.
+        Hidden/placeholder rows are never treated as selected evidence.
+        """
+        tab = self.tabs.tabText(self.tabs.currentIndex())
+        table = self._trees.get(tab)
+        if table is None:
+            return
+        current = table.currentItem()
+        if (current is not None and not current.isHidden()
+                and not current.text(0).startswith(('Ingen lagret evidens',
+                                                    'Ingen tilgjengelig Work'))):
+            return
+        for index in range(table.topLevelItemCount()):
+            row = table.topLevelItem(index)
+            if row.isHidden() or row.text(0).startswith(('Ingen lagret evidens',
+                                                         'Ingen tilgjengelig Work')):
+                continue
+            table.setCurrentItem(row)
+            self._show_detail(tab)
+            return
+        # No real row: do not show stale details from an earlier selection.
+        self._details[tab].clear()
 
     def _a4_apply_context_actions(self, _index=None):
         active = self.tabs.tabText(self.tabs.currentIndex())
@@ -253,12 +332,107 @@ class ResultCenterWindow(_PreviousResultCenter):
     def refresh(self):
         super().refresh()
         if getattr(self, '_a4_ready', False):
+            self._a53_enrich_result_tables()
+            self._a56_configure_columns()
             self._a4_assess_pronom()
+            self._a5_select_first_result()
+            self._a53_schedule_splitter()
+
+    def _a56_configure_columns(self):
+        """Make test titles readable without hiding IDs, source or status.
+
+        Columns remain interactively resizable. In the new side-by-side tabs
+        repeated extraction labels are shortened visually, never in the data.
+        """
+        widths = {
+            'Tekniske kontroller': {0: 200, 1: 82, 2: 390, 3: 115, 4: 88, 5: 105, 6: 95},
+            'Arkade 5': {0: 165, 1: 65, 2: 335, 3: 74, 4: 68, 5: 170},
+            'PRONOM': {0: 148, 1: 104, 2: 207, 3: 76, 4: 74, 5: 115, 6: 175},
+            'Periodevurdering': {0: 148, 1: 185, 2: 103, 3: 126, 4: 116, 5: 118},
+        }
+        for tab, columns in widths.items():
+            tree = self._trees.get(tab)
+            if tree is None:
+                continue
+            # The inherited first column uses ResizeToContents: without
+            # switching to Interactive it ignores our narrower side-panel
+            # width and consumes most of the available horizontal space.
+            tree.header().setSectionResizeMode(0, QHeaderView.ResizeMode.Interactive)
+            for index, size in columns.items():
+                if index < tree.columnCount():
+                    tree.setColumnWidth(index, size)
+            # Full values stay accessible when a narrow panel elides the text.
+            for i in range(tree.topLevelItemCount()):
+                row = tree.topLevelItem(i)
+                for index in ((0, 2) if tab != 'Periodevurdering' else (0, 1)):
+                    if index < tree.columnCount():
+                        row.setToolTip(index, row.text(index))
+
+    def _a53_enrich_result_tables(self):
+        """Presentation-only names and saved Arkade tests when raw JSON is too big.
+
+        This never promotes an external test to a DWM master control, and
+        never treats import presence alone as proof that a test executed.
+        """
+        table = self._trees['Tekniske kontroller']
+        table.setHeaderLabels((
+            'Uttrekk', 'Test-ID', 'Testnavn', 'Noark-punkt',
+            'Status', 'Kontroller', 'Avvik',
+        ))
+        names = load_technical_test_names()
+        for index in range(table.topLevelItemCount()):
+            item = table.topLevelItem(index)
+            if item.text(0).startswith('Ingen lagret evidens'):
+                continue
+            # The base refresh has just created six-column rows.
+            original = [item.text(col) for col in range(6)]
+            details = item.data(0, DETAIL_ROLE)
+            name = technical_test_name(details, original[1], names=names)
+            for col, value in enumerate((original[0], original[1], name, *original[2:])):
+                item.setText(col, value)
+            item.setToolTip(2, 'Testnavn fra DWM sin Noark 5-katalog.' if name in names.values()
+                            else 'Testnavn er ikke dokumentert i gjeldende katalog.')
+            if isinstance(details, dict):
+                derived = dict(details)
+                derived['testnavn_fra_testkatalog'] = name
+                item.setData(0, DETAIL_ROLE, derived)
+
+        arkade_table = self._trees['Arkade 5']
+        real = any(not arkade_table.topLevelItem(i).text(0).startswith('Ingen lagret evidens')
+                   for i in range(arkade_table.topLevelItemCount()))
+        if real:
+            return
+        # Some full normalized Arkade reports exceed the bounded JSON viewer;
+        # saved depot report coverage already has independently sourced test rows.
+        recovered = arkade_tests_from_depot(self._snapshots)
+        if not recovered:
+            registered = sum(
+                len((((shot.depot or {}).get('external_validation') or {}).get('arkade5') or {}).get('imports') or [])
+                for shot in self._snapshots
+            )
+            if registered:
+                arkade_table.clear()
+                self._row('Arkade 5', (
+                    f'Ingen lagret evidens for Arkade-tester ({registered} import(er) registrert)',
+                    '', '', 'Ukjent', '', ''), details={
+                        'opplysning': 'Importregistrering er ikke bevis for at en bestemt test er utført.',
+                        'importer': registered,
+                        'handling': 'Kontroller lagret Arkade-normalisering og depotrapport.',
+                    })
+            return
+        arkade_table.clear()
+        self._details['Arkade 5'].clear()
+        for record in recovered:
+            self._row('Arkade 5', (
+                record['job'].name, record['test_id'], record['title'],
+                record['status'], record['errors'], record['import_id'],
+            ), details=record['details'], file=record['file'])
 
     def _a4_assess_pronom(self):
         table = self._trees['PRONOM']
         policy = self._a4_format_policy
         self._a4_format_rows = []
+        import_cache = {}
         for i in range(table.topLevelItemCount()):
             item = table.topLevelItem(i)
             if item.text(0).startswith('Ingen lagret evidens'):
@@ -274,6 +448,12 @@ class ResultCenterWindow(_PreviousResultCenter):
             item.setToolTip(6, decision.explanation)
             item.setData(0, _FORMAT_STATUS_ROLE, decision.status)
             base = dict(original) if isinstance(original, dict) else {'observation': original}
+            import_id = str(base.get('import_id') or '')
+            path = str(item.data(0, PATH_ROLE) or '')
+            cache_key = (path, import_id)
+            if cache_key not in import_cache:
+                import_cache[cache_key] = read_pronom_import_context(path, import_id)
+            source = import_cache[cache_key]
             base['formatvurdering'] = {
                 'puid': decision.puid,
                 'status': decision.status,
@@ -284,7 +464,19 @@ class ResultCenterWindow(_PreviousResultCenter):
                 'regelprofil': policy.provenance() if policy else None,
                 'merking': 'Kun avledet visning – original PRONOM/Arkade-evidens er uendret',
             }
+            base['historisk_arkade_raf'] = {
+                'klassifisering': item.text(5),
+                'kilde': 'Arkade 5 / Siegfried – RAF-220301',
+                'import_id': import_id,
+                'importert_at': source['imported_at'] or 'Ikke oppgitt',
+                'pronom_kildefil': source['original_csv'] or 'Ikke oppgitt',
+                'pronom_kilde_sha256': source['original_csv_sha256'] or 'Ikke oppgitt',
+                'testdato': 'Ikke dokumentert i PRONOM-statistikkens importmetadata',
+            }
             item.setData(0, DETAIL_ROLE, base)
+            item.setToolTip(5, f"Historisk Arkade RAF: {item.text(5)}\n"
+                           f"Import: {import_id or 'Ukjent'}\n"
+                           f"Importert: {source['imported_at'] or 'Ikke oppgitt'} (ikke testdato)")
             self._a4_format_rows.append((item, {
                 'job': item.text(0),
                 'format_id': item.text(1),
@@ -292,7 +484,10 @@ class ResultCenterWindow(_PreviousResultCenter):
                 'version': item.text(3),
                 'count': item.text(4),
                 'raf': item.text(5),
-                'evidence_source': str(base.get('import_id', '')),
+                'evidence_source': import_id,
+                'imported_at': source['imported_at'],
+                'original_csv': source['original_csv'],
+                'original_csv_sha256': source['original_csv_sha256'],
             }))
         self._a4_filter_pronom()
         if table.currentItem() is not None:
@@ -305,6 +500,7 @@ class ResultCenterWindow(_PreviousResultCenter):
         needle = self.format_search.text().strip().casefold()
         visible = 0
         counts = []
+        dates = []
         for item, row in self._a4_format_rows:
             item_status = item.data(0, _FORMAT_STATUS_ROLE)
             matches = (not status or status == item_status) and (
@@ -312,8 +508,10 @@ class ResultCenterWindow(_PreviousResultCenter):
                                   for col in range(item.columnCount()))
             )
             item.setHidden(not matches)
-            visible += bool(matches)
-            counts.append({'format_id': row['format_id'], 'count': row['count']})
+            if matches:
+                visible += 1
+                counts.append({'format_id': row['format_id'], 'count': row['count']})
+                dates.append(row['imported_at'])
         table = self._trees['PRONOM']
         for index in range(table.topLevelItemCount()):
             item = table.topLevelItem(index)
@@ -325,15 +523,46 @@ class ResultCenterWindow(_PreviousResultCenter):
         review = statuses[STATUS_CLARIFY]['files']
         unknown = statuses[STATUS_UNIDENTIFIED]['files']
         unevaluated = statuses[STATUS_NOT_ASSESSED]['files']
-        profile = (f'{self._a4_format_policy.label} | SHA-256: '
-                   f'{self._a4_format_policy.sha256[:12]}…'
-                   if self._a4_format_policy is not None else 'Ingen formatregelprofil')
         self.format_summary.setText(
-            f'{visible} av {len(self._a4_format_rows)} formatgrupper. '
+            f'Viser {visible} av {len(self._a4_format_rows)} formatgrupper (tall nedenfor gjelder viste rader). '
             f'Akseptert: {accepted} filer | Til avklaring: {review} '
-            f'| Ikke identifisert: {unknown} | Ikke vurdert: {unevaluated}. '
-            f'Regelprofil: {profile}. '
-            'Vurderingene bygger på nåværende valgte liste, ikke på Arkades RAF-resultat.'
+            f'| Ikke identifisert: {unknown} | Ikke vurdert: {unevaluated}.'
+        )
+        arkade, selected = comparison_labels(self._a4_format_policy, dates)
+        self.format_arkade_source.setText(arkade)
+        if self._a5_missing_policy_warning:
+            selected += '  |  ' + self._a5_missing_policy_warning
+        self.format_profile_source.setText(selected)
+
+    def _a5_show_sources(self):
+        policy = self._a4_format_policy
+        table = self._trees['PRONOM']
+        item = table.currentItem()
+        record = item.data(0, DETAIL_ROLE) if item is not None else None
+        source = record.get('historisk_arkade_raf', {}) if isinstance(record, dict) else {}
+        if source:
+            arkade_info = (
+                f"Arkade import-ID: {source.get('import_id') or 'Ikke oppgitt'}\n"
+                f"Importert: {source.get('importert_at') or 'Ikke oppgitt'} (ikke testdato)\n"
+                f"PRONOM CSV: {source.get('pronom_kildefil') or 'Ikke oppgitt'}\n"
+                f"CSV SHA-256: {source.get('pronom_kilde_sha256') or 'Ikke oppgitt'}"
+            )
+        else:
+            arkade_info = 'Velg en PRONOM-rad for import-ID, importdato og kildefil.'
+        if policy is None:
+            rule_info = 'Ingen profil valgt. Ingen selvstendig formatvurdering utføres.'
+        else:
+            rule_info = (
+                f'Tittel: {policy.title}\nUtgave: {policy.edition}\n'
+                f'Datert kopi: {policy.captured_at} (ikke ikrafttredelsesdato)\n'
+                f'Myndighet / kilde: {policy.authority}\n'
+                f'Kilde-URL: {policy.source_url}\nProfil SHA-256: {policy.sha256}'
+            )
+        QMessageBox.information(
+            self, 'PRONOM – to uavhengige kilder',
+            'A · Arkade 5 / RAF-220301 (historisk kildevurdering)\n'
+            + arkade_info + '\n\nB · Valgt regelprofil (ny PUID-sammenligning)\n'
+            + rule_info + '\n\nIngen av disse vurderingene godkjenner hele uttrekket.'
         )
 
     def _a4_export_pronom(self):
@@ -364,8 +593,7 @@ class ResultCenterWindow(_PreviousResultCenter):
             overwrite = True
         rows = [row for item, row in self._a4_format_rows if not item.isHidden()]
         try:
-            export_format_assessments_csv(target, rows, self._a4_format_policy,
-                                          overwrite=overwrite)
+            export_comparison_csv(target, rows, self._a4_format_policy, overwrite=overwrite)
         except (OSError, ValueError) as exc:
             QMessageBox.warning(self, 'Kan ikke eksportere formatvurdering', str(exc))
             return
