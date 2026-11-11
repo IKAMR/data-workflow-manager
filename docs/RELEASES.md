@@ -9,6 +9,24 @@ Versjonene v0.1.0–v0.1.3 ble utgitt under navnet **Noark 5 Workflow Manager**.
 Nyeste ferdige versjon står øverst. Alpha-trinn dokumenteres ikke som egne
 permanente releaseversjoner.
 
+## v0.1.10
+
+Forbedrede Resultatvisninger, sporbar filformatvurdering og mer tilgjengelig brukergrensesnitt.
+
+Hovedendringer:
+
+- Resultatvisninger i PySide6 har fått bedre oversikt over Arkivdeler, Tekniske kontroller, Arkade 5, PRONOM og Periodevurdering. Første relevante resultatrad velges automatisk, og tabeller har lesbare testnavn og tilpassede kolonnebredder.
+- Valg mellom **Lesbar visning** og **Råtekst / JSON** for detaljer og evidens. Utvalgte faner har sidepanel i full høyde, mens andre har tilpasset panelhøyde. Delingslinjer kan justeres manuelt og tilbakestilles med **Auto størrelse**. Eksisterende lagret evidens beholdes.
+- Arkade 5 Noark 5-tester kan vises fra lagret depotrapports dokumenterte testdekning når direkte normalisert kildelesing ikke gir resultat. Arkades teststatus, feilantall, kilde, import og proveniens holdes separat fra DWM-kontrollene; ingen tester eller resultater konstrueres ved manglende dokumentasjon.
+- PRONOM viser **Arkades historiske RAF-220301-klassifisering** og en uavhengig PUID-vurdering mot en eksplisitt valgt, datert formatregelprofil. Valgt profil, utgave, kilde og SHA-256 synliggjøres og kan følge CSV-eksport. Datert Nasjonalarkivet-kopi fra 10. november 2026 inngår som et referansegrunnlag som ikke oppdateres automatisk.
+- Setup har tydeligere lagringsprofiler og mappevalg, trygg standardprofil for nye oppsett og bedre skille mellom Source, Work og AIP. Lagrede, eksplisitte profilvalg og eksisterende jobber beholdes.
+- Utvidede fargetemaer og helhetlige paletter, inklusive egne farger, samt mer fleksibel plassering av dialoger og popup-vinduer.
+- Kontekstbaserte handlingsknapper og bedre navigasjon mellom resultatfanene, uten at tidligere rapport- og vurderingsfunksjoner erstattes.
+
+Denne versjonen er ment for videre **praktisk brukertesting**. Teknisk fullføring, formatlistetreff eller Arkade-status betyr ikke automatisk at et arkivuttrekk eller en AIP er depotfaglig godkjent. Historisk evidens, selvstendig formatvurdering og faglige beslutninger holdes adskilt.
+
+Kjent forbedringsbehov: Ytterligere dynamisk utnyttelse av vindusstørrelser og finjustering av noen Resultatvisninger, særlig PRONOM og enkelte detaljer, videreutvikles etter denne releasen. Ut over Windows-desktop er kjøremiljøer ikke praktisk verifisert.
+
 ## v0.1.9
 
 Sporbar kildeevidens, faglig depotvurdering og portabel lagring for selvstendige Work-jobber.

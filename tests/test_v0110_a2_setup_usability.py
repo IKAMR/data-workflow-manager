@@ -165,8 +165,13 @@ class SetupGuiContractTests(unittest.TestCase):
         self.assertIn('suggest_known_source_work(source, profile_id=profile_id)', self.main)
 
     def test_version_matches_distribution_and_has_a2(self):
-        self.assertTrue(VERSION.startswith('0.1.10-a'))
-        self.assertGreaterEqual(int(VERSION.rsplit('a', 1)[1]), 2)
+        # Release 0.1.10 remains newer than its a2 milestone.
+        match = re.fullmatch(r'(\d+)\.(\d+)\.(\d+)(?:-a(\d+)(?:\.(\d+))*)?', VERSION)
+        self.assertIsNotNone(match, VERSION)
+        release = tuple(int(match.group(i)) for i in (1, 2, 3))
+        self.assertGreaterEqual(release, (0, 1, 10))
+        if release == (0, 1, 10) and match.group(4) is not None:
+            self.assertGreaterEqual(int(match.group(4)), 2)
         with (ROOT / 'pyproject.toml').open('rb') as f:
             self.assertEqual(tomllib.load(f)['project']['version'], VERSION.replace('-', ''))
 

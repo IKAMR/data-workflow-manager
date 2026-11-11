@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import ast
+import re
 from pathlib import Path
 import unittest
 import tomllib
@@ -147,9 +148,13 @@ class GeometryTests(unittest.TestCase):
 
 class WiringContractTests(unittest.TestCase):
     def test_complete_version(self):
-        # a3 remains a required regression, but later alphas are valid.
-        self.assertRegex(VERSION, r'^0\.1\.10-a[0-9]+$')
-        self.assertGreaterEqual(int(VERSION.rsplit('-a', 1)[1]), 3)
+        # a3 remains a required regression after the completed v0.1.10 release.
+        match = re.fullmatch(r'(\d+)\.(\d+)\.(\d+)(?:-a(\d+)(?:\.(\d+))*)?', VERSION)
+        self.assertIsNotNone(match, VERSION)
+        release = tuple(int(match.group(i)) for i in (1, 2, 3))
+        self.assertGreaterEqual(release, (0, 1, 10))
+        if release == (0, 1, 10) and match.group(4) is not None:
+            self.assertGreaterEqual(int(match.group(4)), 3)
         with (ROOT/'pyproject.toml').open('rb') as f:
             self.assertEqual(tomllib.load(f)['project']['version'], VERSION.replace('-a', 'a'))
 

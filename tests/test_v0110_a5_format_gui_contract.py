@@ -3,7 +3,10 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
+import re
 import unittest
+
+from version import VERSION
 
 from app.format_context_v0110_a5 import comparison_labels
 from app.format_policy_v0110_a4 import (
@@ -85,10 +88,17 @@ class ResultCenterA5Contract(unittest.TestCase):
         self.assertNotIn('manuell_konvertering', code)
 
     def test_versions_are_synced(self):
+        # The completed 0.1.10 release is newer than the a5 milestone.
+        match = re.fullmatch(r'(\d+)\.(\d+)\.(\d+)(?:-a(\d+)(?:\.(\d+))*)?', VERSION)
+        self.assertIsNotNone(match, VERSION)
+        release = tuple(int(match.group(i)) for i in (1, 2, 3))
+        self.assertGreaterEqual(release, (0, 1, 10))
+        if release == (0, 1, 10) and match.group(4) is not None:
+            self.assertGreaterEqual(int(match.group(4)), 5)
         module = (ROOT / 'version.py').read_text(encoding='utf-8')
-        self.assertIn('VERSION = "0.1.10-a5"', module)
+        self.assertIn(f'VERSION = "{VERSION}"', module)
         project = (ROOT / 'pyproject.toml').read_text(encoding='utf-8')
-        self.assertIn('version = "0.1.10a5"', project)
+        self.assertIn(f'version = "{VERSION.replace("-a", "a")}"', project)
 
     def test_filter_summary_only_counts_visible_observations(self):
         method = load_filter_method()

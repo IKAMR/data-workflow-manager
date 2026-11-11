@@ -34,7 +34,13 @@ selve Noark 5-kjernen.
 
 Programmet har blant annet:
 
-- CustomTkinter-basert desktop-GUI
+- PySide6-basert desktop-GUI med arbeidsflater, Resultatvisninger, Setup og
+  depotvurdering; det eldre CustomTkinter-baserte GUI-et er fortsatt tilgjengelig
+- Resultatvisninger med tekniske Noark 5-kontroller, Arkade 5-testresultater,
+  PRONOM/filformatvurdering, periodevurdering og lesbar eller rå evidensvisning
+- kildebelagt, versjonert filformatvurdering som holdes adskilt fra Arkades
+  historiske klassifisering og fra depotets faglige godkjenning
+- justerbare visningspaneler, temapaletter og konfigurerbare mappeprofiler
 - lokal CLI (`n5wf`) for kontroll, status og kjøring av eksisterende jobblister
 - Job/Batch-modell med flere isolerte jobber
 - vedvarende `.n5jobs`-jobblister
@@ -49,6 +55,10 @@ Programmet har blant annet:
 - DIAS SIP/AIC-pakking og import av eksisterende METS/`info.xml`
 - sentral workflow-logging og PREMIS-proveniens
 - lokal CLI og arkitekturgrense for senere server/API/worker-kjøring
+
+v0.1.10 er ment for videre praktisk brukertesting av de forbedrede
+Resultatvisningene. For endringer og kjente begrensninger, se
+[docs/RELEASES.md](docs/RELEASES.md).
 
 ## Kompatibilitet etter navneendringen
 
