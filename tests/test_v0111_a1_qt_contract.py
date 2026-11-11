@@ -21,7 +21,7 @@ class BasicWiringTests(unittest.TestCase):
         self.assertIn('window = DwmMainWindow(api)', entry)
         self.assertIn('class DwmMainWindow(_AdvancedMainWindow):', basic)
         self.assertIn('from .main_window import DOCK_NAMES, DwmMainWindow as _AdvancedMainWindow', basic)
-        self.assertIn('from app.workbench_api_v0111_a1 import DwmWorkbenchAPI', entry)
+        self.assertIn('from app.workbench_api_v0111_a2 import DwmWorkbenchAPI', entry)
 
     def test_simple_front_end_has_only_source_work_start_and_result_actions(self):
         source = QT.read_text('utf-8')

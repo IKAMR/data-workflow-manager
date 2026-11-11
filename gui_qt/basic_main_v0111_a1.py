@@ -11,17 +11,19 @@ from pathlib import Path
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QAction, QFont
 from PySide6.QtWidgets import (
-    QFileDialog, QFrame, QGroupBox, QHBoxLayout, QLabel, QLineEdit,
+    QComboBox, QDialog, QFileDialog, QFrame, QGroupBox, QHBoxLayout, QLabel, QLineEdit,
     QMessageBox, QProgressBar, QPushButton, QScrollArea, QVBoxLayout, QWidget,
 )
 
 from app.basic_start_v0111_a1 import (
-    existing_basic_job, prepare_basic_plan, select_or_create_basic_job,
+    BASIC_WORKFLOW_ID, BASIC_ARKADE_WORKFLOW_ID, existing_basic_job,
+    prepare_basic_plan, require_basic_arkade_cli, select_or_create_basic_job,
 )
 from app.job_preflight_v018_a6 import check_extraction_folder
 from app.storage_profiles_v0110_a1 import suggest_known_source_work
 from app.storage_profiles_v0110_a2 import resolve_storage_profile
 from .main_window import DOCK_NAMES, DwmMainWindow as _AdvancedMainWindow
+from .appearance_v0110_a3 import stylesheet_for
 
 
 class DwmMainWindow(_AdvancedMainWindow):
@@ -36,6 +38,7 @@ class DwmMainWindow(_AdvancedMainWindow):
         self._basic_selection_edited = False
         self._basic_legacy_layout = False
         self._basic_starting = False
+        self._setting_basic_workflow = False
         self._build_basic_page()
         self._install_basic_menu_action()
         self._basic_timer = QTimer(self)
@@ -114,10 +117,22 @@ class DwmMainWindow(_AdvancedMainWindow):
         run_group = QGroupBox('3   Start kontroll')
         run_layout = QVBoxLayout(run_group)
         run_layout.setSpacing(9)
-        run_layout.addWidget(self._basic_note(
-            'Standard DWM-kontroll: metadata, XML/XSD, arkivstruktur, Noark 5-tester og rapport. '
-            'Arkade 5-kjøring og AIP-produksjon er ikke inkludert.'
-        ))
+        profile_row = QHBoxLayout()
+        profile_row.addWidget(QLabel('Kontrollprofil:'))
+        self.basic_workflow = QComboBox()
+        self.basic_workflow.addItem('DWM standard', BASIC_WORKFLOW_ID)
+        self.basic_workflow.addItem('DWM + Arkade 5 (Noark 5 og PRONOM)',
+                                    BASIC_ARKADE_WORKFLOW_ID)
+        stored = str(self.config.value('qt/v0111_basic_workflow_id', BASIC_WORKFLOW_ID)
+                     or BASIC_WORKFLOW_ID)
+        initial = self.basic_workflow.findData(stored)
+        self.basic_workflow.setCurrentIndex(max(0, initial))
+        profile_row.addWidget(self.basic_workflow, 1)
+        run_layout.addLayout(profile_row)
+        self.basic_workflow_description = self._basic_note('')
+        run_layout.addWidget(self.basic_workflow_description)
+        self.basic_workflow.currentIndexChanged.connect(self._basic_workflow_changed)
+        self._basic_workflow_changed(initializing=True)
         commands = QHBoxLayout()
         self.basic_run_button = QPushButton('Start kontroll')
         self.basic_run_button.setMinimumHeight(38)
@@ -237,6 +252,25 @@ class DwmMainWindow(_AdvancedMainWindow):
         self.basic_work_hint.setText('Velg en tom Work-mappe. Valgt mappe brukes direkte.')
         self.basic_choose_work.setEnabled(False)
 
+    def _basic_workflow_changed(self, _index=None, *, initializing=False):
+        selected = str(self.basic_workflow.currentData() or BASIC_WORKFLOW_ID)
+        if selected == BASIC_ARKADE_WORKFLOW_ID:
+            self.basic_workflow_description.setText(
+                'DWM-kontroller og Arkade 5 CLI: Noark 5-test og PRONOM/Siegfried. '
+                'Resultater lagres under valgt Work. Arkade 5 CLI må være konfigurert i Setup. '
+                'AIP-produksjon er ikke inkludert.'
+            )
+        else:
+            self.basic_workflow_description.setText(
+                'Metadata, XML/XSD, arkivstruktur, Noark 5-tester og depotrapport. '
+                'Arkade 5 og AIP-produksjon er ikke inkludert.'
+            )
+        if not initializing and not self._setting_basic_workflow:
+            self.config.setValue('qt/v0111_basic_workflow_id', selected)
+            self._basic_selection_edited = True
+            self._basic_job_id = None  # Never display stale progress for a different workflow.
+            self._sync_basic_status()
+
     def _open_path(self, path: str):
         # The base constructor may call this before the Basic panel exists.
         before = self.api.workspace().job_list_path
@@ -285,6 +319,22 @@ class DwmMainWindow(_AdvancedMainWindow):
             else:
                 self._preview_basic_work()
         self.basic_source_hint.setText('Eksisterende jobb: ' + job.name)
+        try:
+            from app.workflow_sequences import workflow_sequence_by_id
+            current_ids = tuple(op.operation_id for op in details.operations)
+            for sequence_id in (BASIC_WORKFLOW_ID, BASIC_ARKADE_WORKFLOW_ID):
+                seq = workflow_sequence_by_id(sequence_id)
+                if seq is not None and current_ids == tuple(seq.operation_ids):
+                    index = self.basic_workflow.findData(sequence_id)
+                    if index >= 0:
+                        self._setting_basic_workflow = True
+                        try:
+                            self.basic_workflow.setCurrentIndex(index)
+                        finally:
+                            self._setting_basic_workflow = False
+                    break
+        except (ValueError, RuntimeError):
+            pass
         self._basic_selection_edited = False
 
     def _choose_basic_source(self):
@@ -378,7 +428,11 @@ class DwmMainWindow(_AdvancedMainWindow):
         try:
             plan = prepare_basic_plan(
                 self.basic_source_path.text(), self.basic_work_path.text(), self.api.settings,
+                workflow_id=str(self.basic_workflow.currentData() or BASIC_WORKFLOW_ID),
             )
+            # Fail before prompting to replace the open job list. The API
+            # caches the CLI probe, and select_or_create checks again for safety.
+            require_basic_arkade_cli(self.api, plan)
             # Basic handles one extraction at a time. Do not silently append
             # a new extraction to an unrelated, previously opened job list.
             match = existing_basic_job(self.api, plan)
@@ -414,6 +468,52 @@ class DwmMainWindow(_AdvancedMainWindow):
         finally:
             self._basic_starting = False
             self._sync_basic_status()
+
+    def _open_setup(self):
+        if self._worker is not None or self.api.running:
+            QMessageBox.information(self, 'Setup', 'Avslutt kjøringen før du endrer Setup.')
+            return
+        from .setup_format_v0111_a2 import DwmSetupDialog
+        dialog = DwmSetupDialog(self.api, self)
+        self._a3_place_dialog(dialog, 'setup')
+        QTimer.singleShot(0, lambda: self._a3_place_dialog(dialog, 'setup'))
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self._a3_apply_display_preferences()
+            self._refresh(force=True)
+
+    def _a12_open_result_center(self, _checked=False, *, depot=False):
+        if not self._active_id:
+            QMessageBox.information(self, 'Resultatvisninger', 'Velg en jobb i jobblisten.')
+            return
+        try:
+            job = self.api.job_details(self._active_id).job
+        except Exception as exc:
+            QMessageBox.warning(self, 'Resultatvisninger', str(exc))
+            return
+        from .result_center_v0111_a2 import ResultCenterWindow
+        from app.format_assessment_v0111_a2 import chosen_format_source
+        dialog = ResultCenterWindow(
+            job.effective_work_operations,
+            display_name=job.job_id + ' - ' + job.name,
+            available_jobs=self.api.report_candidates(),
+            report_api=self.api,
+            on_generate_report=self._a12_open_selected_report,
+            format_assessment_source=chosen_format_source(self.api.settings),
+        )
+        if depot:
+            dialog.show_depot_review()
+        dialog.setStyleSheet(stylesheet_for(self.api.settings))
+        dialog.setFont(self.font())
+        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
+        self._a12_result_windows.append(dialog)
+        dialog.destroyed.connect(
+            lambda _obj=None, win=dialog: (
+                self._a12_result_windows.remove(win)
+                if win in self._a12_result_windows else None
+            )
+        )
+        dialog.show()
+        self._a3_place_dialog(dialog, 'results')
 
     def _open_basic_results(self):
         if not self._basic_job_id:

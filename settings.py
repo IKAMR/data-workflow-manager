@@ -51,6 +51,7 @@ DEFAULT_CONFIG = {
     "storage_layout_profile": "standard_enkel",
     "storage_layout_profile_selected": False,
     "noark5_discovery_workflow": "noark5_standard",
+    "format_assessment_source": "nasjonalarkivet_2026_11_10",
     "custom_workflow_sequences": [],
     "enable_premis_provenance": True,
     "premis_output_dir": "",

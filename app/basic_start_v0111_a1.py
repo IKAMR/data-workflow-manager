@@ -11,8 +11,10 @@ from pathlib import Path
 from typing import Any, Mapping
 
 
-# Explicitly excludes AIP building and optional third-party Arkade CLI.
+# Keep AIP separate; Arkade 5 is opt-in and requires a verified CLI.
 BASIC_WORKFLOW_ID = 'noark5_dwm'
+BASIC_ARKADE_WORKFLOW_ID = 'noark5_standard_arkade'
+BASIC_WORKFLOWS = (BASIC_WORKFLOW_ID, BASIC_ARKADE_WORKFLOW_ID)
 
 
 @dataclass(frozen=True)
@@ -22,6 +24,7 @@ class BasicControlPlan:
     work_operations: Path
     storage_profile_id: str
     operation_ids: tuple[str, ...]
+    workflow_id: str = BASIC_WORKFLOW_ID
 
 
 def _same_path(first: str | Path | None, second: str | Path | None) -> bool:
@@ -48,7 +51,8 @@ def ensure_separate_source_and_work(source: Path, operations: Path) -> None:
 
 
 def prepare_basic_plan(source: str | Path, selected_work: str | Path,
-                       settings: Mapping[str, Any] | None = None) -> BasicControlPlan:
+                       settings: Mapping[str, Any] | None = None, *,
+                       workflow_id: str = BASIC_WORKFLOW_ID) -> BasicControlPlan:
     """Read-only Source/Work check. Never add profile or DWM subfolders."""
     from app.job_preflight_v018_a6 import check_extraction_folder
     from app.storage_profiles_v0110_a2 import resolve_storage_profile
@@ -67,17 +71,26 @@ def prepare_basic_plan(source: str | Path, selected_work: str | Path,
         raise ValueError('Work-mappen finnes ikke eller er utilgjengelig: ' + str(chosen))
     ensure_separate_source_and_work(extraction, chosen)
     profile = resolve_storage_profile(settings)
-    sequence = workflow_sequence_by_id(BASIC_WORKFLOW_ID)
+    if workflow_id not in BASIC_WORKFLOWS:
+        raise ValueError('Ukjent Basic-kontrollprofil. Velg en av de to definerte profilene.')
+    sequence = workflow_sequence_by_id(workflow_id)
     if sequence is None or sequence.profile_id != 'noark5' or not sequence.operation_ids:
-        raise ValueError('Standard Noark 5-kontroll er ikke tilgjengelig. Bruk Avansert modus.')
-    if 'dias_package' in sequence.operation_ids or 'arkade5_noark5_test' in sequence.operation_ids:
-        raise ValueError('Basic-kontrollen må ikke produsere AIP eller kreve Arkade CLI.')
+        raise ValueError('Noark 5-kontrollprofilen er ikke tilgjengelig. Bruk Avansert modus.')
+    if 'dias_package' in sequence.operation_ids:
+        raise ValueError('Basic skal ikke produsere AIP.')
+    arkade_ids = {'arkade5_noark5_test', 'arkade5_pronom_analysis'}
+    selected_ids = set(sequence.operation_ids) & arkade_ids
+    if workflow_id == BASIC_WORKFLOW_ID and selected_ids:
+        raise ValueError('Standard Basic-kontroll skal ikke kreve Arkade 5 CLI.')
+    if workflow_id == BASIC_ARKADE_WORKFLOW_ID and selected_ids != arkade_ids:
+        raise ValueError('Utvidet profil skal inneholde baade Arkade 5 Noark 5 og PRONOM.')
     return BasicControlPlan(
         source_extraction=extraction,
         work_root=chosen,
         work_operations=chosen,
         storage_profile_id=profile,
         operation_ids=tuple(sequence.operation_ids),
+        workflow_id=workflow_id,
     )
 
 
@@ -108,8 +121,32 @@ def existing_basic_job(api, plan: BasicControlPlan) -> str | None:
     return None
 
 
+def require_basic_arkade_cli(api, plan: BasicControlPlan) -> None:
+    """Check the real Arkade5Check contract before changing job-list state.
+
+    DwmWorkbenchAPI.check_arkade5_cli returns Arkade5Check(severity, message,
+    version), NOT Arkade5CliStatus(ok). Only severity='ok' is confirmed ready;
+    warnings and errors must never be mistaken for an executable test result.
+    """
+    if plan.workflow_id != BASIC_ARKADE_WORKFLOW_ID:
+        return
+    checker = getattr(api, 'check_arkade5_cli', None)
+    if not callable(checker):
+        raise ValueError('Arkade 5 CLI kan ikke kontrolleres. Velg DWM standard.')
+    status = checker()
+    if getattr(status, 'severity', None) != 'ok':
+        reason = str(getattr(status, 'message', '') or '').strip()
+        if not reason:
+            reason = 'CLI-kontrollen ble ikke godkjent.'
+        raise ValueError(
+            'Arkade 5 CLI er ikke klar: ' + reason +
+            ' Konfigurer og test CLI i Avansert modus > Setup.'
+        )
+
+
 def select_or_create_basic_job(api, plan: BasicControlPlan) -> tuple[str, bool]:
     """Create one direct-Work job through the API, without touching the disk."""
+    require_basic_arkade_cli(api, plan)
     previous = existing_basic_job(api, plan)
     if previous is not None:
         api.select_job(previous)

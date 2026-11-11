@@ -95,20 +95,37 @@ class _Arkade5WorkflowOperation(BaseOperation):
                 data={"cli_succeeded": True},
             )
 
-        ctx.progress(1.0, f"{self.definition.name} fullført")
         outputs = []
         if run.plan is not None:
             outputs.append(str(run.plan.output_dir))
 
         warnings = [item.message for item in imported.items if item.message]
+        missing_pronom = (
+            self.arkade_operation == ARKADE5_PRONOM
+            and imported.pronom_attached == 0
+        )
+        if missing_pronom:
+            output_location = outputs[0] if outputs else "ukjent output-mappe"
+            detail = (
+                "PRONOM-statistikk ble ikke koblet til Work, selv om Arkade CLI "
+                "returnerte teknisk suksess. Kontroller at resultatmappen "
+                f"{output_location} inneholder en fil med filformatinfo-statistikk*.csv, "
+                "og undersøk loggen fra Arkade 5 PRONOM-analyse."
+            )
+            warnings.append(detail)
+            ctx.log("[Arkade 5/PRONOM] " + detail)
+
+        ctx.progress(1.0, f"{self.definition.name} fullført")
         message = (
             f"Arkade 5 fullført teknisk. Nye rapporter importert: {imported.imported}; "
             f"allerede importert: {imported.already_imported}; "
             f"PRONOM koblet: {imported.pronom_attached}; "
             f"importfeil: {imported.failed + imported.pronom_failed}."
         )
+        if missing_pronom:
+            message += " PRONOM-evidens mangler; se kjørelogg og Arkade-output."
         return OperationResult(
-            ok=(imported.failed + imported.pronom_failed) == 0,
+            ok=(imported.failed + imported.pronom_failed) == 0 and not missing_pronom,
             message=message,
             data={
                 "arkade_operation": self.arkade_operation,
@@ -117,6 +134,7 @@ class _Arkade5WorkflowOperation(BaseOperation):
                 "already_imported": imported.already_imported,
                 "pronom_attached": imported.pronom_attached,
                 "pronom_unattached": imported.pronom_unattached,
+                "pronom_statistics_missing": missing_pronom,
                 "import_failed": imported.failed + imported.pronom_failed,
             },
             warnings=warnings,

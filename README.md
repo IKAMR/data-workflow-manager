@@ -4,7 +4,7 @@ Data Workflow Manager er et generisk arbeidsflytverktøy for analyse, validering
 behandling, dokumentasjon og migrering av strukturerte data og digitale
 arkivuttrekk.
 
-Fra **v0.1.4-a1** er dette hovednavnet på applikasjonen og repositoryet:
+Prosjektets kode og dokumentasjon finnes i GitHub-repositoriet:
 
 `https://github.com/IKAMR/data-workflow-manager`
 
@@ -56,35 +56,24 @@ Programmet har blant annet:
 - sentral workflow-logging og PREMIS-proveniens
 - lokal CLI og arkitekturgrense for senere server/API/worker-kjøring
 
-v0.1.10 er ment for videre praktisk brukertesting av de forbedrede
-Resultatvisningene. For endringer og kjente begrensninger, se
+For funksjonshistorikk og ferdige versjoner, se
 [docs/RELEASES.md](docs/RELEASES.md).
 
-## Enkel start (fra v0.1.11-a1)
+## Brukergrensesnitt
 
-Ved `start.bat` åpner **Enkel start** som standard. Velg først mappen som
-inneholder et Noark 5-uttrekk (Source), deretter en eksisterende arbeidsmappe
-(Work), og trykk **Start kontroll**. **Enkel start bruker den valgte
-Work-mappen direkte**, uten automatisk `work/dwm/jobb`-nivå. Nye Basic-jobber
-krever en tom, dedikert Work-mappe for å unngå å blande jobbdata. DWM
-kontrollerer valg og lagringsstier før jobben opprettes. Eventuelle mapper
-utenfor eksisterende Work må fortsatt godkjennes i forhåndskontrollen, og
-jobblisten lagres før selve kjøringen. Eksisterende jobber med avansert
-mappestruktur endres eller flyttes ikke.
+Programmet tilbyr en enkel arbeidsflate for valg av arkivuttrekk, Work-mappe,
+kontrollprofil og start av kontroll. Et avansert grensesnitt gir tilgang til
+jobblister, arbeidsflyter, deljobber, Setup, analyser og dokumentasjon.
 
-Enkel start bruker den eksisterende DWM-kontrollarbeidsflyten uten automatisk
-Arkade 5-kjøring og uten AIP-produksjon. Etter kontrollen kan Resultatvisninger
-åpnes fra samme side. **Avansert modus** viser det etablerte PySide6-grensesnittet
-med jobblister, deljobber, Setup og øvrige funksjoner; velg **Vis -> Enkel start**
-for å gå tilbake. Valgt modus huskes mellom oppstarter, mens det avanserte
-arbeidsflateoppsettet bevares.
-
-En fullført teknisk kontroll er ikke en faglig godkjenning av uttrekket.
+Source behandles som originalmateriale og endres ikke av ordinære kontroller.
+Arbeidsresultater lagres i valgt Work-område. Resultatvisninger skiller mellom
+tekniske kontroller, eksterne testkilder, filformatvurderinger og faglige
+beslutninger. En fullført teknisk kontroll betyr ikke at uttrekket er godkjent.
 
 ## Kompatibilitet etter navneendringen
 
-v0.1.4-a1 endrer **repository- og applikasjonsidentitet**, men gjør ikke en bred
-intern refaktorering.
+Den tidligere applikasjonen Noark 5 Workflow Manager videreføres i samme
+kodebase. Eksisterende tekniske navn beholdes for kompatibilitet.
 
 Følgende tekniske identifikatorer beholdes foreløpig av
 bakoverkompatibilitetshensyn:
