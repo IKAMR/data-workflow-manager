@@ -34,8 +34,8 @@ selve Noark 5-kjernen.
 
 Programmet har blant annet:
 
-- PySide6-basert desktop-GUI med arbeidsflater, Resultatvisninger, Setup og
-  depotvurdering; det eldre CustomTkinter-baserte GUI-et er fortsatt tilgjengelig
+- PySide6-basert desktop-GUI med Enkel start, avanserte arbeidsflater,
+  Resultatvisninger, Setup og depotvurdering; det eldre CustomTkinter-baserte GUI-et er fortsatt tilgjengelig
 - Resultatvisninger med tekniske Noark 5-kontroller, Arkade 5-testresultater,
   PRONOM/filformatvurdering, periodevurdering og lesbar eller rå evidensvisning
 - kildebelagt, versjonert filformatvurdering som holdes adskilt fra Arkades
@@ -59,6 +59,27 @@ Programmet har blant annet:
 v0.1.10 er ment for videre praktisk brukertesting av de forbedrede
 Resultatvisningene. For endringer og kjente begrensninger, se
 [docs/RELEASES.md](docs/RELEASES.md).
+
+## Enkel start (fra v0.1.11-a1)
+
+Ved `start.bat` åpner **Enkel start** som standard. Velg først mappen som
+inneholder et Noark 5-uttrekk (Source), deretter en eksisterende arbeidsmappe
+(Work), og trykk **Start kontroll**. **Enkel start bruker den valgte
+Work-mappen direkte**, uten automatisk `work/dwm/jobb`-nivå. Nye Basic-jobber
+krever en tom, dedikert Work-mappe for å unngå å blande jobbdata. DWM
+kontrollerer valg og lagringsstier før jobben opprettes. Eventuelle mapper
+utenfor eksisterende Work må fortsatt godkjennes i forhåndskontrollen, og
+jobblisten lagres før selve kjøringen. Eksisterende jobber med avansert
+mappestruktur endres eller flyttes ikke.
+
+Enkel start bruker den eksisterende DWM-kontrollarbeidsflyten uten automatisk
+Arkade 5-kjøring og uten AIP-produksjon. Etter kontrollen kan Resultatvisninger
+åpnes fra samme side. **Avansert modus** viser det etablerte PySide6-grensesnittet
+med jobblister, deljobber, Setup og øvrige funksjoner; velg **Vis -> Enkel start**
+for å gå tilbake. Valgt modus huskes mellom oppstarter, mens det avanserte
+arbeidsflateoppsettet bevares.
+
+En fullført teknisk kontroll er ikke en faglig godkjenning av uttrekket.
 
 ## Kompatibilitet etter navneendringen
 
