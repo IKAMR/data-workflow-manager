@@ -1,0 +1,678 @@
+{
+  "schema_version": 1,
+  "policy_id": "nasjonalarkivet_accepted_2026_11_10",
+  "title": "Nasjonalarkivet – aksepterte filformater",
+  "edition": "2026-11-10 (datert kopi)",
+  "captured_at": "2026-11-10",
+  "source_url": "https://www.nasjonalarkivet.no/offentlig-forvaltning/dokumentasjonsforvaltning/anbefalte-filformater-for-avlevering-til-nasjonalarkivet/",
+  "authority": "Nasjonalarkivet (offentlig liste); datagrunnlag: ODS-kopi levert for DWM",
+  "notes": "Datert sammenligningsprofil, ikke automatisk oppdatert eller en generell lokal depotregel. Formatversjonene er beskrivende; identifisering og oppslag skjer på PUID.",
+  "accepted_puids": [
+    {
+      "puid": "x-fmt/18",
+      "name": "Comma Separated Values",
+      "extensions": "csv",
+      "versions": ""
+    },
+    {
+      "puid": "fmt/817",
+      "name": "JSON Data Interchange Format",
+      "extensions": "json",
+      "versions": ""
+    },
+    {
+      "puid": "fmt/1367",
+      "name": "GeoJSON",
+      "extensions": "geojson, json",
+      "versions": ""
+    },
+    {
+      "puid": "fmt/880",
+      "name": "JSON-LD",
+      "extensions": "jsonld",
+      "versions": ""
+    },
+    {
+      "puid": "fmt/101",
+      "name": "Extensible Markup Language",
+      "extensions": "xml",
+      "versions": "1.0"
+    },
+    {
+      "puid": "fmt/1776",
+      "name": "Extensible Markup Language",
+      "extensions": "xml",
+      "versions": "1.1"
+    },
+    {
+      "puid": "x-fmt/280",
+      "name": "XML Schema Definition",
+      "extensions": "xsd",
+      "versions": ""
+    },
+    {
+      "puid": "x-fmt/195",
+      "name": "Standard Generalized Markup Language",
+      "extensions": "sgm, sgml",
+      "versions": ""
+    },
+    {
+      "puid": "fmt/206",
+      "name": "Structured Query Language Data",
+      "extensions": "sql",
+      "versions": ""
+    },
+    {
+      "puid": "fmt/161",
+      "name": "SIARD (Software-Independent Archiving of Relational Databases)",
+      "extensions": "siard",
+      "versions": "1.0"
+    },
+    {
+      "puid": "fmt/995",
+      "name": "SIARD (Software-Independent Archiving of Relational Databases)",
+      "extensions": "siard",
+      "versions": "2.0"
+    },
+    {
+      "puid": "fmt/1196",
+      "name": "SIARD (Software-Independent Archiving of Relational Databases)",
+      "extensions": "siard",
+      "versions": "2.1"
+    },
+    {
+      "puid": "fmt/1777",
+      "name": "SIARD (Software-Independent Archiving of Relational Databases)",
+      "extensions": "siard",
+      "versions": "2.2"
+    },
+    {
+      "puid": "x-fmt/111",
+      "name": "Plain Text File",
+      "extensions": "txt",
+      "versions": ""
+    },
+    {
+      "puid": "x-fmt/16",
+      "name": "Unicode Text File",
+      "extensions": "txt",
+      "versions": ""
+    },
+    {
+      "puid": "fmt/353",
+      "name": "Tagged Image File Format",
+      "extensions": "tif, tiff",
+      "versions": "6"
+    },
+    {
+      "puid": "fmt/156",
+      "name": "Tagged Image File Format for Internet Fax (TIFF-FX)",
+      "extensions": "tif, tiff",
+      "versions": ""
+    },
+    {
+      "puid": "fmt/155",
+      "name": "Geographic Tagged Image File Format (GeoTIFF)",
+      "extensions": "tif, tiff",
+      "versions": "6"
+    },
+    {
+      "puid": "fmt/153",
+      "name": "Tagged Image File Format for Image Technology (TIFF/IT)",
+      "extensions": "tif, tiff",
+      "versions": ""
+    },
+    {
+      "puid": "fmt/14",
+      "name": "Acrobat PDF – Portable Document Format",
+      "extensions": "pdf",
+      "versions": "1.0"
+    },
+    {
+      "puid": "fmt/15",
+      "name": "Acrobat PDF – Portable Document Format",
+      "extensions": "pdf",
+      "versions": "1.1"
+    },
+    {
+      "puid": "fmt/16",
+      "name": "Acrobat PDF – Portable Document Format",
+      "extensions": "pdf",
+      "versions": "1.2"
+    },
+    {
+      "puid": "fmt/17",
+      "name": "Acrobat PDF – Portable Document Format",
+      "extensions": "pdf",
+      "versions": "1.3"
+    },
+    {
+      "puid": "fmt/18",
+      "name": "Acrobat PDF – Portable Document Format",
+      "extensions": "pdf",
+      "versions": "1.4"
+    },
+    {
+      "puid": "fmt/19",
+      "name": "Acrobat PDF – Portable Document Format",
+      "extensions": "pdf",
+      "versions": "1.5"
+    },
+    {
+      "puid": "fmt/20",
+      "name": "Acrobat PDF – Portable Document Format",
+      "extensions": "pdf",
+      "versions": "1.6"
+    },
+    {
+      "puid": "fmt/276",
+      "name": "Acrobat PDF – Portable Document Format",
+      "extensions": "pdf",
+      "versions": "1.7"
+    },
+    {
+      "puid": "fmt/95",
+      "name": "Acrobat PDF/A – Portable Document Format 1a",
+      "extensions": "pdf",
+      "versions": "1a"
+    },
+    {
+      "puid": "fmt/354",
+      "name": "Acrobat PDF/A – Portable Document Format 1b",
+      "extensions": "pdf",
+      "versions": "1b"
+    },
+    {
+      "puid": "fmt/476",
+      "name": "Acrobat PDF/A – Portable Document Format 2a",
+      "extensions": "pdf",
+      "versions": "2a"
+    },
+    {
+      "puid": "fmt/477",
+      "name": "Acrobat PDF/A – Portable Document Format 2b",
+      "extensions": "pdf",
+      "versions": "2b"
+    },
+    {
+      "puid": "fmt/478",
+      "name": "Acrobat PDF/A – Portable Document Format 2u",
+      "extensions": "pdf",
+      "versions": "2u"
+    },
+    {
+      "puid": "fmt/479",
+      "name": "Acrobat PDF/A – Portable Document Format 3a",
+      "extensions": "pdf",
+      "versions": "3a"
+    },
+    {
+      "puid": "fmt/480",
+      "name": "Acrobat PDF/A – Portable Document Format 3b",
+      "extensions": "pdf",
+      "versions": "3b"
+    },
+    {
+      "puid": "fmt/481",
+      "name": "Acrobat PDF/A – Portable Document Format 3u",
+      "extensions": "pdf",
+      "versions": "3u"
+    },
+    {
+      "puid": "fmt/42",
+      "name": "JPEG File Interchange Format",
+      "extensions": "jpeg, jpe, jpg, jif, jfif, jfi",
+      "versions": "1.00"
+    },
+    {
+      "puid": "fmt/43",
+      "name": "JPEG File Interchange Format",
+      "extensions": "jpeg, jpe, jpg, jif, jfif, jfi",
+      "versions": "1.01"
+    },
+    {
+      "puid": "fmt/44",
+      "name": "JPEG File Interchange Format",
+      "extensions": "jpeg, jpe, jpg, jif, jfif, jfi",
+      "versions": "1.02"
+    },
+    {
+      "puid": "fmt/41",
+      "name": "Raw JPEG Stream",
+      "extensions": "jpeg, jpe, jpg, jif, jfif, jfi",
+      "versions": ""
+    },
+    {
+      "puid": "x-fmt/392",
+      "name": "JP2 (JPEG 2000 part 1)",
+      "extensions": "jp2",
+      "versions": ""
+    },
+    {
+      "puid": "fmt/11",
+      "name": "Portable Network Graphics",
+      "extensions": "png",
+      "versions": "1.0"
+    },
+    {
+      "puid": "fmt/12",
+      "name": "Portable Network Graphics",
+      "extensions": "png",
+      "versions": "1.1"
+    },
+    {
+      "puid": "fmt/13",
+      "name": "Portable Network Graphics",
+      "extensions": "png",
+      "versions": "1.2"
+    },
+    {
+      "puid": "fmt/1246",
+      "name": "SOSI (Systematic Organisation of Spatial Information)",
+      "extensions": "sos, sosi",
+      "versions": "«»"
+    },
+    {
+      "puid": "fmt/1247",
+      "name": "SOSI (Systematic Organisation of Spatial Information)",
+      "extensions": "sos, sosi",
+      "versions": "4.0"
+    },
+    {
+      "puid": "fmt/1248",
+      "name": "SOSI (Systematic Organisation of Spatial Information)",
+      "extensions": "sos, sosi",
+      "versions": "4.1"
+    },
+    {
+      "puid": "fmt/1249",
+      "name": "SOSI (Systematic Organisation of Spatial Information)",
+      "extensions": "sos, sosi",
+      "versions": "4.5"
+    },
+    {
+      "puid": "fmt/1250",
+      "name": "SOSI (Systematic Organisation of Spatial Information)",
+      "extensions": "sos, sosi",
+      "versions": "8.1"
+    },
+    {
+      "puid": "x-fmt/227",
+      "name": "Geography Markup Language",
+      "extensions": "gml",
+      "versions": "«»"
+    },
+    {
+      "puid": "fmt/1047",
+      "name": "Geography Markup Language",
+      "extensions": "gml",
+      "versions": "3.2"
+    },
+    {
+      "puid": "fmt/640",
+      "name": "MPEG-2 Elementary Stream",
+      "extensions": "mpg, mpeg, m2v",
+      "versions": ""
+    },
+    {
+      "puid": "fmt/199",
+      "name": "MPEG-4 Media File",
+      "extensions": "mp4, m4v, m4a, f4v, f4a",
+      "versions": ""
+    },
+    {
+      "puid": "fmt/337",
+      "name": "MJ2 (Motion JPEG 2000)",
+      "extensions": "mj2, mjp2",
+      "versions": ""
+    },
+    {
+      "puid": "fmt/569",
+      "name": "Matroska",
+      "extensions": "mkv, mk3d, mka, mks",
+      "versions": "1, 2, 3, 4"
+    },
+    {
+      "puid": "fmt/134",
+      "name": "MPEG 1/2 Audio Layer 3",
+      "extensions": "mp3",
+      "versions": ""
+    },
+    {
+      "puid": "fmt/6",
+      "name": "Waveform Audio",
+      "extensions": "wav, wave",
+      "versions": ""
+    },
+    {
+      "puid": "fmt/141",
+      "name": "Waveform Audio",
+      "extensions": "wav, wave",
+      "versions": ""
+    },
+    {
+      "puid": "fmt/142",
+      "name": "Waveform Audio",
+      "extensions": "wav, wave",
+      "versions": ""
+    },
+    {
+      "puid": "fmt/1",
+      "name": "Broadcast WAVE",
+      "extensions": "wav",
+      "versions": "0"
+    },
+    {
+      "puid": "fmt/2",
+      "name": "Broadcast WAVE",
+      "extensions": "wav",
+      "versions": "1"
+    },
+    {
+      "puid": "fmt/527",
+      "name": "Broadcast WAVE",
+      "extensions": "wav",
+      "versions": "2"
+    },
+    {
+      "puid": "fmt/703",
+      "name": "Broadcast WAVE",
+      "extensions": "wav",
+      "versions": ""
+    },
+    {
+      "puid": "fmt/704",
+      "name": "Broadcast WAVE",
+      "extensions": "wav",
+      "versions": ""
+    },
+    {
+      "puid": "fmt/705",
+      "name": "Broadcast WAVE",
+      "extensions": "wav",
+      "versions": ""
+    },
+    {
+      "puid": "fmt/279",
+      "name": "FLAC (Free Lossless Audio Codec)",
+      "extensions": "flac",
+      "versions": "1.2.1"
+    },
+    {
+      "puid": "fmt/947",
+      "name": "Ogg FLAC Compressed Multimedia File",
+      "extensions": "ogg",
+      "versions": ""
+    },
+    {
+      "puid": "fmt/412",
+      "name": "Microsoft Word for Windows",
+      "extensions": "docx, wbk",
+      "versions": ""
+    },
+    {
+      "puid": "fmt/523",
+      "name": "Macro enabled Microsoft Word Document OOXML",
+      "extensions": "docm",
+      "versions": ""
+    },
+    {
+      "puid": "fmt/597",
+      "name": "Microsoft Word Template",
+      "extensions": "dotx",
+      "versions": ""
+    },
+    {
+      "puid": "fmt/599",
+      "name": "Microsoft Word Macro-Enabled Document Template",
+      "extensions": "dotm",
+      "versions": ""
+    },
+    {
+      "puid": "fmt/214",
+      "name": "Microsoft Excel for Windows",
+      "extensions": "xlsx",
+      "versions": ""
+    },
+    {
+      "puid": "fmt/445",
+      "name": "Microsoft Excel Macro-Enabled",
+      "extensions": "xlsm",
+      "versions": ""
+    },
+    {
+      "puid": "fmt/598",
+      "name": "Microsoft Excel Template",
+      "extensions": "xltx",
+      "versions": ""
+    },
+    {
+      "puid": "fmt/627",
+      "name": "Microsoft Excel Macro-Enabled Template",
+      "extensions": "xltm",
+      "versions": ""
+    },
+    {
+      "puid": "fmt/628",
+      "name": "Microsoft Excel Macro-Enabled Add-In",
+      "extensions": "xlam",
+      "versions": ""
+    },
+    {
+      "puid": "fmt/215",
+      "name": "Microsoft Powerpoint for Windows",
+      "extensions": "pptx",
+      "versions": ""
+    },
+    {
+      "puid": "fmt/487",
+      "name": "Macro Enabled Microsoft Powerpoint",
+      "extensions": "pptm",
+      "versions": ""
+    },
+    {
+      "puid": "fmt/633",
+      "name": "Microsoft PowerPoint Macro-Enabled Add-In",
+      "extensions": "ppam",
+      "versions": ""
+    },
+    {
+      "puid": "fmt/630",
+      "name": "Microsoft PowerPoint Macro-Enabled Show",
+      "extensions": "ppsm",
+      "versions": ""
+    },
+    {
+      "puid": "fmt/636",
+      "name": "Microsoft PowerPoint Macro-Enabled Slide",
+      "extensions": "sldm",
+      "versions": ""
+    },
+    {
+      "puid": "fmt/632",
+      "name": "Microsoft PowerPoint Macro-Enabled Template",
+      "extensions": "potm",
+      "versions": ""
+    },
+    {
+      "puid": "fmt/629",
+      "name": "Microsoft PowerPoint Show",
+      "extensions": "ppsx",
+      "versions": ""
+    },
+    {
+      "puid": "fmt/631",
+      "name": "Microsoft PowerPoint Template",
+      "extensions": "potx",
+      "versions": ""
+    },
+    {
+      "puid": "fmt/136",
+      "name": "OpenDocument Text",
+      "extensions": "odt, ott",
+      "versions": "1.0"
+    },
+    {
+      "puid": "fmt/290",
+      "name": "OpenDocument Text",
+      "extensions": "odt, ott",
+      "versions": "1.1"
+    },
+    {
+      "puid": "fmt/291",
+      "name": "OpenDocument Text",
+      "extensions": "odt, ott",
+      "versions": "1.2"
+    },
+    {
+      "puid": "fmt/1756",
+      "name": "OpenDocument Text",
+      "extensions": "odt, ott",
+      "versions": "1.3"
+    },
+    {
+      "puid": "fmt/137",
+      "name": "OpenDocument Spreadsheet",
+      "extensions": "ods, ots",
+      "versions": "1.0"
+    },
+    {
+      "puid": "fmt/294",
+      "name": "OpenDocument Spreadsheet",
+      "extensions": "ods, ots",
+      "versions": "1.1"
+    },
+    {
+      "puid": "fmt/295",
+      "name": "OpenDocument Spreadsheet",
+      "extensions": "ods, ots",
+      "versions": "1.2"
+    },
+    {
+      "puid": "fmt/1755",
+      "name": "OpenDocument Spreadsheet",
+      "extensions": "ods, ots",
+      "versions": "1.3"
+    },
+    {
+      "puid": "fmt/138",
+      "name": "OpenDocument Presentation",
+      "extensions": "odp, otp",
+      "versions": "1.0"
+    },
+    {
+      "puid": "fmt/292",
+      "name": "OpenDocument Presentation",
+      "extensions": "odp, otp",
+      "versions": "1.1"
+    },
+    {
+      "puid": "fmt/293",
+      "name": "OpenDocument Presentation",
+      "extensions": "odp, otp",
+      "versions": "1.2"
+    },
+    {
+      "puid": "fmt/1754",
+      "name": "OpenDocument Presentation",
+      "extensions": "odp, otp",
+      "versions": "1.3"
+    },
+    {
+      "puid": "fmt/289",
+      "name": "WARC",
+      "extensions": "warc",
+      "versions": "«»"
+    },
+    {
+      "puid": "fmt/1355",
+      "name": "WARC",
+      "extensions": "warc",
+      "versions": "1.0"
+    },
+    {
+      "puid": "fmt/1281",
+      "name": "WARC",
+      "extensions": "warc",
+      "versions": "1.1"
+    },
+    {
+      "puid": "fmt/96",
+      "name": "Hypertext Markup Language",
+      "extensions": "htm, html",
+      "versions": "«»"
+    },
+    {
+      "puid": "fmt/97",
+      "name": "Hypertext Markup Language",
+      "extensions": "htm, html",
+      "versions": "2.0"
+    },
+    {
+      "puid": "fmt/98",
+      "name": "Hypertext Markup Language",
+      "extensions": "htm, html",
+      "versions": "3.2"
+    },
+    {
+      "puid": "fmt/99",
+      "name": "Hypertext Markup Language",
+      "extensions": "htm, html",
+      "versions": "4.0"
+    },
+    {
+      "puid": "fmt/100",
+      "name": "Hypertext Markup Language",
+      "extensions": "htm, html",
+      "versions": "4.01"
+    },
+    {
+      "puid": "fmt/471",
+      "name": "Hypertext Markup Language",
+      "extensions": "htm, html",
+      "versions": "5"
+    },
+    {
+      "puid": "fmt/102",
+      "name": "Extensible Hypertext Markup Language",
+      "extensions": "htm, html",
+      "versions": "1.0"
+    },
+    {
+      "puid": "fmt/103",
+      "name": "Extensible Hypertext Markup Language",
+      "extensions": "htm, html",
+      "versions": "1.1"
+    },
+    {
+      "puid": "fmt/659",
+      "name": "Industry Foundation Classes",
+      "extensions": "ifc",
+      "versions": "2×2"
+    },
+    {
+      "puid": "fmt/699",
+      "name": "Industry Foundation Classes",
+      "extensions": "ifc",
+      "versions": "2×3"
+    },
+    {
+      "puid": "fmt/700",
+      "name": "Industry Foundation Classes",
+      "extensions": "ifc",
+      "versions": "4"
+    },
+    {
+      "puid": "fmt/663",
+      "name": "Industry Foundation Classes XML",
+      "extensions": "ifcXML",
+      "versions": ""
+    },
+    {
+      "puid": "x-fmt/265",
+      "name": "Tape Archive Format",
+      "extensions": "tar",
+      "versions": ""
+    }
+  ]
+}

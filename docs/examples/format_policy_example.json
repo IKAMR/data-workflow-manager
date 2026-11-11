@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "policy_id": "eksempel_lokal_2026_11",
+  "title": "Eksempel – lokal formatregelprofil (ikke vedtatt)",
+  "edition": "2026-11-eksempel",
+  "captured_at": "2026-11-10",
+  "source_url": "https://www.example.org/arkiv/formatregler",
+  "authority": "Eksempel på et lokalt depot – IKKE en godkjent formatliste",
+  "accepted_puids": [
+    {"puid": "fmt/101", "name": "XML", "extensions": "xml", "versions": "1.0"},
+    {"puid": "fmt/354", "name": "PDF/A-1b", "extensions": "pdf", "versions": "1b"}
+  ]
+}

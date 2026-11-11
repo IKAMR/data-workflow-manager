@@ -147,9 +147,11 @@ class GeometryTests(unittest.TestCase):
 
 class WiringContractTests(unittest.TestCase):
     def test_complete_version(self):
-        self.assertEqual(VERSION, '0.1.10-a3')
+        # a3 remains a required regression, but later alphas are valid.
+        self.assertRegex(VERSION, r'^0\.1\.10-a[0-9]+$')
+        self.assertGreaterEqual(int(VERSION.rsplit('-a', 1)[1]), 3)
         with (ROOT/'pyproject.toml').open('rb') as f:
-            self.assertEqual(tomllib.load(f)['project']['version'],'0.1.10a3')
+            self.assertEqual(tomllib.load(f)['project']['version'], VERSION.replace('-a', 'a'))
 
     def test_setup_persists_all_display_choices_with_save(self):
         s=(ROOT/'gui_qt/setup_v0110_a3.py').read_text('utf-8')
