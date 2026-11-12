@@ -17,7 +17,12 @@ class BasicWiringTests(unittest.TestCase):
         basic = QT.read_text('utf-8')
         ast.parse(entry)
         ast.parse(basic)
-        if 'from gui_qt.basic_main_v0113_a1 import DwmMainWindow' in entry:
+        if 'from gui_qt.basic_main_v0113_a2 import DwmMainWindow' in entry:
+            wrapper = (ROOT / 'gui_qt' / 'basic_main_v0113_a2.py').read_text('utf-8')
+            ast.parse(wrapper)
+            self.assertIn('from .basic_main_v0113_a1 import DwmMainWindow as _StableBasicWindow', wrapper)
+            self.assertIn('class DwmMainWindow(_StableBasicWindow):', wrapper)
+        elif 'from gui_qt.basic_main_v0113_a1 import DwmMainWindow' in entry:
             # The a1 wrapper extends, rather than replaces, the stable Basic UI.
             wrapper = (ROOT / 'gui_qt' / 'basic_main_v0113_a1.py').read_text('utf-8')
             ast.parse(wrapper)

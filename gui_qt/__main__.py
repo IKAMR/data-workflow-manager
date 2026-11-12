@@ -12,7 +12,7 @@ def main() -> int:
         return 2
     from gui_qt.bootstrap_v0113_a1 import install
     install()
-    from gui_qt.basic_main_v0113_a1 import DwmMainWindow
+    from gui_qt.basic_main_v0113_a2 import DwmMainWindow
     from app.workbench_api_v0111_a2 import DwmWorkbenchAPI
     from gui_qt.appearance_v0110_a3 import apply_appearance
 
