@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import ast
+import re
+import tomllib
 from pathlib import Path
 import unittest
 
@@ -27,8 +29,12 @@ class SetupSaveRegressionTests(unittest.TestCase):
 
     def test_release_version_matches_package(self):
         from version import VERSION
-        self.assertEqual(VERSION, '0.1.12')
-        self.assertIn('version = "0.1.12"', (ROOT / 'pyproject.toml').read_text('utf-8'))
+        match = re.fullmatch(r'(\d+)\.(\d+)\.(\d+)(?:-a(\d+)(?:\.(\d+))*)?', VERSION)
+        self.assertIsNotNone(match, VERSION)
+        self.assertGreaterEqual(tuple(map(int, match.group(1, 2, 3))), (0, 1, 12))
+        with (ROOT / 'pyproject.toml').open('rb') as stream:
+            package_version = tomllib.load(stream)['project']['version']
+        self.assertEqual(package_version, VERSION.replace('-a', 'a'))
 
 
 if __name__ == '__main__':

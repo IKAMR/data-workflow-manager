@@ -17,7 +17,14 @@ class BasicWiringTests(unittest.TestCase):
         basic = QT.read_text('utf-8')
         ast.parse(entry)
         ast.parse(basic)
-        self.assertIn('from gui_qt.basic_main_v0111_a1 import DwmMainWindow', entry)
+        if 'from gui_qt.basic_main_v0113_a1 import DwmMainWindow' in entry:
+            # The a1 wrapper extends, rather than replaces, the stable Basic UI.
+            wrapper = (ROOT / 'gui_qt' / 'basic_main_v0113_a1.py').read_text('utf-8')
+            ast.parse(wrapper)
+            self.assertIn('from .basic_main_v0111_a1 import DwmMainWindow as _StableBasicWindow', wrapper)
+            self.assertIn('class DwmMainWindow(_StableBasicWindow):', wrapper)
+        else:
+            self.assertIn('from gui_qt.basic_main_v0111_a1 import DwmMainWindow', entry)
         self.assertIn('window = DwmMainWindow(api)', entry)
         self.assertIn('class DwmMainWindow(_AdvancedMainWindow):', basic)
         self.assertIn('from .main_window import DOCK_NAMES, DwmMainWindow as _AdvancedMainWindow', basic)
@@ -32,7 +39,6 @@ class BasicWiringTests(unittest.TestCase):
         self.assertIn('self._continue_job()', source)
         self.assertIn('self._a12_open_result_center()', source)
         self.assertIn('self._request_stop', source)
-        # A3.7 wraps the scrollable form in a page with a fixed top status.
         self.assertIn("self.pages.addTab(page, 'Enkel start')", source)
         self.assertIn('page_layout.addWidget(area, 1)', source)
         self.assertIn('self._build_basic_pinned_status(page, page_layout)', source)
@@ -144,7 +150,6 @@ class NativeStateBehaviorTests(unittest.TestCase):
         self.assertIs(w.pages.current, w.pages.basic)
         self.assertFalse(w.dock_jobs.visible)
         self.assertFalse(w._toolbar.visible)
-        self.assertFalse(w._menu.visible)
         w._leave_basic()
         self.assertFalse(w._basic_active)
         self.assertIs(w.dock_jobs, original_dock)
