@@ -31,6 +31,7 @@ class DwmWorkbenchAPI(_PreviousWorkbenchAPI):
             'job_list_dir', 'operation_visibility', 'storage_layout_profile',
             'appearance_mode', 'qt_accent_color', 'qt_popup_placement',
             'qt_palette_preset', 'qt_custom_colors',
+            'sf_executable',  # v0.1.12: Siegfried path supplied by shared Setup.
         }
         unknown = set(changes) - allowed
         if unknown:
