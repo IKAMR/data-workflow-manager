@@ -23,6 +23,7 @@
     "validate_xml_schema": {"maturity": "alpha", "short_name": "XML/XSD", "display_category": "Kontroll", "profiles": ["noark5"], "display_order": 1},
     "arkade5_noark5_test": {"maturity": "alpha", "short_name": "Arkade Noark 5", "display_category": "Kontroll", "profiles": ["noark5"], "display_order": 3},
     "arkade5_pronom_analysis": {"maturity": "alpha", "short_name": "Arkade PRONOM", "display_category": "Analyse", "profiles": ["noark5"], "display_order": 3},
+    "siegfried_pronom_identification": {"maturity": "alpha", "short_name": "Siegfried PRONOM", "display_category": "Analyse", "profiles": ["noark5"], "display_order": 4},
     "import_arkade5_reports": {"maturity": "alpha", "short_name": "Arkade-import", "display_category": "Resultat", "profiles": ["noark5"], "display_order": 1},
     "compose_noark5_views": {"maturity": "alpha", "short_name": "Resultatvisninger", "display_category": "Resultat", "profiles": ["noark5"], "display_order": 2},
     "build_noark5_depot_report": {"maturity": "alpha", "short_name": "Depotrapport", "display_category": "Resultat", "profiles": ["noark5"], "display_order": 3},

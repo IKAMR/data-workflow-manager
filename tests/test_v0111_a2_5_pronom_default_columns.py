@@ -6,7 +6,7 @@ The production PySide6 window still needs an actual Windows GUI smoke test.
 from __future__ import annotations
 
 import ast
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from types import SimpleNamespace
 import unittest
 
@@ -80,7 +80,13 @@ class PolicyStartupTests(unittest.TestCase):
 
     def window(self, options=None, selected=0, preferences=None, missing=''):
         settings = Settings(preferences)
-        combo = Combo(options or ['', self.policy_path, self.custom_path], selected)
+        # Use the same native Path normalization as the production combo.
+        # On Windows, str(Path('/app/config/...')) uses backslashes, so a
+        # hardcoded POSIX option would falsely make findData() return -1.
+        choices = options if options is not None else [
+            '', str(Path(self.policy_path)), str(Path(self.custom_path)),
+        ]
+        combo = Combo(choices, selected)
         tree = Tree()
         called = []
         view = SimpleNamespace(
@@ -99,9 +105,22 @@ class PolicyStartupTests(unittest.TestCase):
         view, select, called = self.window()
         select(view)
         self.assertEqual(view.format_policy_combo.currentIndex(), 1)
-        self.assertEqual(view.format_policy_combo.currentData(), self.policy_path)
+        self.assertEqual(view.format_policy_combo.currentData(), str(Path(self.policy_path)))
         self.assertEqual(called, ['filtered'])
         self.assertEqual(view._trees['PRONOM'].heading.labels[6], 'Valgt regelprofil')
+
+    def test_windows_paths_select_builtin_when_combo_uses_windows_strings(self):
+        # Cross-platform regression: emulate Windows even when CI runs on Linux.
+        windows_path = PureWindowsPath(
+            r'C:\app\config\formats\nasjonalarkivet_2026-11-10.json')
+        custom_path = PureWindowsPath(r'C:\settings\custom-list.json')
+        view, select, called = self.window(
+            options=['', str(windows_path), str(custom_path)])
+        view._a4_profiles = [SimpleNamespace(path=windows_path)]
+        select(view)
+        self.assertEqual(view.format_policy_combo.currentIndex(), 1)
+        self.assertEqual(view.format_policy_combo.currentData(), str(windows_path))
+        self.assertEqual(called, ['filtered'])
 
     def test_existing_custom_json_profile_remains_selected(self):
         view, select, _ = self.window(selected=2)

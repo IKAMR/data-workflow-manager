@@ -7,19 +7,28 @@ joblist persistence and worker path. No second execution engine is introduced.
 from __future__ import annotations
 
 from pathlib import Path
+import json
+import time
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QAction, QFont
 from PySide6.QtWidgets import (
-    QComboBox, QDialog, QFileDialog, QFrame, QGroupBox, QHBoxLayout, QLabel, QLineEdit,
+    QCheckBox, QComboBox, QDialog, QFileDialog, QFrame, QGroupBox, QHBoxLayout, QLabel, QLineEdit,
     QMessageBox, QProgressBar, QPushButton, QScrollArea, QVBoxLayout, QWidget,
+    QTreeWidget, QTreeWidgetItem, QHeaderView,
 )
 
 from app.basic_start_v0111_a1 import (
-    BASIC_WORKFLOW_ID, BASIC_ARKADE_WORKFLOW_ID, existing_basic_job,
-    prepare_basic_plan, require_basic_arkade_cli, select_or_create_basic_job,
+    BASIC_WORKFLOW_ID, BASIC_ARKADE_WORKFLOW_ID, BASIC_CONTROLS,
+    basic_options_for_operations, existing_basic_job, normalize_basic_controls,
+    prepare_basic_plan, require_basic_arkade_cli, require_basic_siegfried,
+    select_or_create_basic_job,
 )
 from app.job_preflight_v018_a6 import check_extraction_folder
+from app.basic_run_feedback_v0111_a3 import (
+    operation_caption, latest_signal_text, sanitized_activity_message,
+    elapsed_clock, planned_operation_rows,
+)
 from app.storage_profiles_v0110_a1 import suggest_known_source_work
 from app.storage_profiles_v0110_a2 import resolve_storage_profile
 from .main_window import DOCK_NAMES, DwmMainWindow as _AdvancedMainWindow
@@ -39,6 +48,11 @@ class DwmMainWindow(_AdvancedMainWindow):
         self._basic_legacy_layout = False
         self._basic_starting = False
         self._setting_basic_workflow = False
+        self._basic_last_run_signal = None
+        self._basic_last_run_message = ''
+        self._basic_operation_fraction = None
+        self._basic_operation_index = None
+        self._basic_heartbeat_tick = 0
         self._build_basic_page()
         self._install_basic_menu_action()
         self._basic_timer = QTimer(self)
@@ -50,7 +64,13 @@ class DwmMainWindow(_AdvancedMainWindow):
         self._sync_basic_status()
 
     def _build_basic_page(self):
-        area = QScrollArea(self)
+        # A fixed, compact running-status strip stays above the scrollable form.
+        # It never owns execution state; advanced and Basic use the same API.
+        page = QWidget(self)
+        page_layout = QVBoxLayout(page)
+        page_layout.setContentsMargins(8, 8, 8, 8)
+        page_layout.setSpacing(6)
+        area = QScrollArea(page)
         area.setWidgetResizable(True)
         area.setFrameShape(QFrame.Shape.NoFrame)
         body = QWidget()
@@ -117,21 +137,38 @@ class DwmMainWindow(_AdvancedMainWindow):
         run_group = QGroupBox('3   Start kontroll')
         run_layout = QVBoxLayout(run_group)
         run_layout.setSpacing(9)
-        profile_row = QHBoxLayout()
-        profile_row.addWidget(QLabel('Kontrollprofil:'))
-        self.basic_workflow = QComboBox()
-        self.basic_workflow.addItem('DWM standard', BASIC_WORKFLOW_ID)
-        self.basic_workflow.addItem('DWM + Arkade 5 (Noark 5 og PRONOM)',
-                                    BASIC_ARKADE_WORKFLOW_ID)
-        stored = str(self.config.value('qt/v0111_basic_workflow_id', BASIC_WORKFLOW_ID)
-                     or BASIC_WORKFLOW_ID)
-        initial = self.basic_workflow.findData(stored)
-        self.basic_workflow.setCurrentIndex(max(0, initial))
-        profile_row.addWidget(self.basic_workflow, 1)
-        run_layout.addLayout(profile_row)
+        run_layout.addWidget(QLabel('Velg kontroller:'))
+        self.basic_option_checks = {}
+        labels = (
+            ('dwm', 'DWM – Noark 5-test og depotrapport'),
+            ('siegfried', 'Siegfried – PRONOM filidentifikasjon'),
+            ('arkade_noark5', 'Arkade 5 CLI – Noark 5-test'),
+            ('arkade_pronom', 'Arkade 5 CLI – PRONOM-analyse'),
+        )
+        stored = self.config.value('qt/v0111_basic_options', '')
+        if stored:
+            try:
+                selected = normalize_basic_controls(json.loads(str(stored)))
+            except (ValueError, TypeError):
+                selected = ('dwm',)
+        else:
+            # Preserve the old two-profile preference for existing a2 users.
+            legacy = str(self.config.value('qt/v0111_basic_workflow_id', BASIC_WORKFLOW_ID)
+                         or BASIC_WORKFLOW_ID)
+            selected = (('dwm', 'arkade_noark5', 'arkade_pronom')
+                        if legacy == BASIC_ARKADE_WORKFLOW_ID else ('dwm',))
+        self._setting_basic_workflow = True
+        for key, caption in labels:
+            check = QCheckBox(caption)
+            check.setChecked(key in selected)
+            check.setToolTip('Kun denne kontrollen aktiveres/deaktiveres.')
+            self.basic_option_checks[key] = check
+            run_layout.addWidget(check)
+        self._setting_basic_workflow = False
         self.basic_workflow_description = self._basic_note('')
         run_layout.addWidget(self.basic_workflow_description)
-        self.basic_workflow.currentIndexChanged.connect(self._basic_workflow_changed)
+        for check in self.basic_option_checks.values():
+            check.toggled.connect(self._basic_workflow_changed)
         self._basic_workflow_changed(initializing=True)
         commands = QHBoxLayout()
         self.basic_run_button = QPushButton('Start kontroll')
@@ -145,6 +182,9 @@ class DwmMainWindow(_AdvancedMainWindow):
         self.basic_results_button = QPushButton('Se resultatvisninger…')
         self.basic_results_button.clicked.connect(self._open_basic_results)
         commands.addWidget(self.basic_results_button)
+        self.basic_details_button = QPushButton('Kjøredetaljer…')
+        self.basic_details_button.clicked.connect(self._open_basic_run_details)
+        commands.addWidget(self.basic_details_button)
         run_layout.addLayout(commands)
         self.basic_status = QLabel('Velg uttrekksmappe og Work-mappe for å begynne.')
         self.basic_status.setWordWrap(True)
@@ -154,18 +194,89 @@ class DwmMainWindow(_AdvancedMainWindow):
         self.basic_progress.setRange(0, 100)
         self.basic_progress.setValue(0)
         run_layout.addWidget(self.basic_progress)
+        # The main bar tracks completed steps. This second bar tracks only
+        # genuine progress events inside the active step (or stays busy).
+        self.basic_active_operation = self._basic_note('')
+        run_layout.addWidget(self.basic_active_operation)
+        self.basic_operation_progress = QProgressBar()
+        self.basic_operation_progress.setRange(0, 0)
+        self.basic_operation_progress.setMinimumHeight(17)
+        run_layout.addWidget(self.basic_operation_progress)
+        self.basic_activity = self._basic_note('')
+        run_layout.addWidget(self.basic_activity)
+        for control in (self.basic_active_operation, self.basic_operation_progress,
+                        self.basic_activity):
+            control.hide()
         run_layout.addWidget(self._basic_note(
             'Før første kjøring vil DWM be om godkjenning av eventuelle nye Work-mapper '
             'og lagring av jobblisten. Fullført kontroll betyr ikke faglig godkjent uttrekk.'
         ))
         layout.addWidget(run_group)
         layout.addStretch(1)
-        self.pages.addTab(area, 'Enkel start')
-        self._basic_page = area
+        self._build_basic_pinned_status(page, page_layout)
+        page_layout.addWidget(area, 1)
+        self.pages.addTab(page, 'Enkel start')
+        self._basic_page = page
         self.basic_choose_work.setEnabled(False)
         self.basic_run_button.setEnabled(False)
         self.basic_stop_button.setEnabled(False)
         self.basic_results_button.setEnabled(False)
+        self.basic_details_button.setEnabled(False)
+
+    def _build_basic_pinned_status(self, page, parent_layout):
+        # No status/progress widget is moved between Qt parents. The visible
+        # Basic strip mirrors existing run events; there is one execution engine.
+        panel = QFrame(page)
+        panel.setObjectName('basicPinnedRunStatus')
+        panel.setFrameShape(QFrame.Shape.StyledPanel)
+        content = QVBoxLayout(panel)
+        content.setContentsMargins(12, 8, 12, 8)
+        content.setSpacing(4)
+
+        header = QHBoxLayout()
+        heading = QLabel('Kjørestatus')
+        heading.setFont(QFont('Segoe UI', 11, QFont.Weight.DemiBold))
+        header.addWidget(heading)
+        header.addStretch(1)
+        self.basic_pinned_details_button = QPushButton('Kjøredetaljer…')
+        self.basic_pinned_details_button.clicked.connect(self._open_basic_run_details)
+        header.addWidget(self.basic_pinned_details_button)
+        self.basic_pinned_stop_button = QPushButton('Stopp kjøring')
+        self.basic_pinned_stop_button.clicked.connect(self._request_stop)
+        header.addWidget(self.basic_pinned_stop_button)
+        content.addLayout(header)
+
+        self.basic_pinned_status = self._basic_note('')
+        content.addWidget(self.basic_pinned_status)
+        self.basic_pinned_progress = QProgressBar()
+        self.basic_pinned_progress.setRange(0, 100)
+        content.addWidget(self.basic_pinned_progress)
+        self.basic_pinned_operation = self._basic_note('')
+        content.addWidget(self.basic_pinned_operation)
+        self.basic_pinned_operation_progress = QProgressBar()
+        self.basic_pinned_operation_progress.setRange(0, 0)
+        self.basic_pinned_operation_progress.setMinimumHeight(15)
+        content.addWidget(self.basic_pinned_operation_progress)
+
+        last_row = QHBoxLayout()
+        last_row.addWidget(QLabel('Tid siden faktisk kjøremelding:'))
+        self.basic_pinned_elapsed = QLabel('--:--:--')
+        self.basic_pinned_elapsed.setObjectName('basicLastRealRunSignal')
+        self.basic_pinned_elapsed.setMinimumWidth(86)
+        self.basic_pinned_elapsed.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        self.basic_pinned_elapsed.setFont(QFont('Consolas', 10))
+        last_row.addWidget(self.basic_pinned_elapsed)
+        last_row.addStretch(1)
+        content.addLayout(last_row)
+        self.basic_pinned_message = QLabel('')
+        self.basic_pinned_message.setObjectName('basicLastRunMessage')
+        self.basic_pinned_message.setWordWrap(False)
+        self.basic_pinned_message.setMaximumHeight(26)
+        self.basic_pinned_message.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        content.addWidget(self.basic_pinned_message)
+        parent_layout.addWidget(panel)
+        panel.hide()
+        self.basic_pinned_panel = panel
 
     @staticmethod
     def _basic_note(text: str) -> QLabel:
@@ -202,6 +313,45 @@ class DwmMainWindow(_AdvancedMainWindow):
         if getattr(self, '_basic_active', False):
             return
         return super()._a8_show_job_log()
+
+    def _a8_process_run_event(self, event):
+        # Reuse the existing main-window event handling and run logs.
+        super()._a8_process_run_event(event)
+        if not getattr(self, '_basic_job_id', None):
+            return
+        if str(getattr(event, 'job_id', '') or '') != self._basic_job_id:
+            return
+        kind = str(getattr(event, 'kind', '') or '')
+        if kind not in ('run.started', 'run.progress', 'run.log', 'run.state',
+                        'run.cancel_requested', 'run.finished', 'run.error'):
+            return
+        self._basic_last_run_signal = time.monotonic()
+        if kind == 'run.started':
+            self._basic_operation_fraction = None
+            self._basic_operation_index = None
+            self._basic_last_run_message = 'Kjøringen er startet.'
+        elif kind == 'run.progress':
+            value = getattr(event, 'progress', None)
+            if isinstance(value, (int, float)) and 0 <= value <= 1:
+                self._basic_operation_fraction = float(value)
+            message = sanitized_activity_message(getattr(event, 'message', ''), kind)
+            if message:
+                self._basic_last_run_message = message
+        elif kind == 'run.log':
+            message = sanitized_activity_message(getattr(event, 'message', ''), kind)
+            if message:
+                if message.startswith('START:'):
+                    self._basic_operation_fraction = None
+                self._basic_last_run_message = message
+        elif kind in ('run.finished', 'run.error'):
+            self._basic_operation_fraction = None
+            message = sanitized_activity_message(getattr(event, 'message', ''), kind)
+            if message:
+                self._basic_last_run_message = message
+        elif kind == 'run.cancel_requested':
+            self._basic_last_run_message = (
+                'Stopp er forespurt. Deljobben avsluttes når det er mulig.'
+            )
 
     def _enter_basic(self):
         if self._basic_active:
@@ -252,23 +402,28 @@ class DwmMainWindow(_AdvancedMainWindow):
         self.basic_work_hint.setText('Velg en tom Work-mappe. Valgt mappe brukes direkte.')
         self.basic_choose_work.setEnabled(False)
 
+    def _selected_basic_controls(self):
+        return tuple(key for key in BASIC_CONTROLS
+                     if self.basic_option_checks[key].isChecked())
+
     def _basic_workflow_changed(self, _index=None, *, initializing=False):
-        selected = str(self.basic_workflow.currentData() or BASIC_WORKFLOW_ID)
-        if selected == BASIC_ARKADE_WORKFLOW_ID:
-            self.basic_workflow_description.setText(
-                'DWM-kontroller og Arkade 5 CLI: Noark 5-test og PRONOM/Siegfried. '
-                'Resultater lagres under valgt Work. Arkade 5 CLI må være konfigurert i Setup. '
-                'AIP-produksjon er ikke inkludert.'
-            )
+        selected = self._selected_basic_controls()
+        if not selected:
+            self.basic_workflow_description.setText('Velg minst én kontroll.')
         else:
-            self.basic_workflow_description.setText(
-                'Metadata, XML/XSD, arkivstruktur, Noark 5-tester og depotrapport. '
-                'Arkade 5 og AIP-produksjon er ikke inkludert.'
-            )
+            notes = ['Resultatene lagres under valgt Work.']
+            if 'siegfried' in selected:
+                notes.append('Siegfried bruker installert sf.exe; resultatene blir egen DWM-evidens.')
+            if 'arkade_noark5' in selected or 'arkade_pronom' in selected:
+                notes.append('Arkade 5 CLI må være konfigurert i Setup.')
+            if 'dwm' not in selected:
+                notes.append('Uten DWM-kontrollen produseres ingen DWM-depotrapport.')
+            notes.append('AIP inngår ikke.')
+            self.basic_workflow_description.setText(' '.join(notes))
         if not initializing and not self._setting_basic_workflow:
-            self.config.setValue('qt/v0111_basic_workflow_id', selected)
+            self.config.setValue('qt/v0111_basic_options', json.dumps(selected))
             self._basic_selection_edited = True
-            self._basic_job_id = None  # Never display stale progress for a different workflow.
+            self._basic_job_id = None
             self._sync_basic_status()
 
     def _open_path(self, path: str):
@@ -320,19 +475,16 @@ class DwmMainWindow(_AdvancedMainWindow):
                 self._preview_basic_work()
         self.basic_source_hint.setText('Eksisterende jobb: ' + job.name)
         try:
-            from app.workflow_sequences import workflow_sequence_by_id
             current_ids = tuple(op.operation_id for op in details.operations)
-            for sequence_id in (BASIC_WORKFLOW_ID, BASIC_ARKADE_WORKFLOW_ID):
-                seq = workflow_sequence_by_id(sequence_id)
-                if seq is not None and current_ids == tuple(seq.operation_ids):
-                    index = self.basic_workflow.findData(sequence_id)
-                    if index >= 0:
-                        self._setting_basic_workflow = True
-                        try:
-                            self.basic_workflow.setCurrentIndex(index)
-                        finally:
-                            self._setting_basic_workflow = False
-                    break
+            selected = basic_options_for_operations(current_ids)
+            if selected:
+                self._setting_basic_workflow = True
+                try:
+                    for key, widget in self.basic_option_checks.items():
+                        widget.setChecked(key in selected)
+                    self._basic_workflow_changed(initializing=True)
+                finally:
+                    self._setting_basic_workflow = False
         except (ValueError, RuntimeError):
             pass
         self._basic_selection_edited = False
@@ -428,11 +580,12 @@ class DwmMainWindow(_AdvancedMainWindow):
         try:
             plan = prepare_basic_plan(
                 self.basic_source_path.text(), self.basic_work_path.text(), self.api.settings,
-                workflow_id=str(self.basic_workflow.currentData() or BASIC_WORKFLOW_ID),
+                controls=self._selected_basic_controls(),
             )
             # Fail before prompting to replace the open job list. The API
             # caches the CLI probe, and select_or_create checks again for safety.
             require_basic_arkade_cli(self.api, plan)
+            require_basic_siegfried(self.api, plan)
             # Basic handles one extraction at a time. Do not silently append
             # a new extraction to an unrelated, previously opened job list.
             match = existing_basic_job(self.api, plan)
@@ -453,6 +606,10 @@ class DwmMainWindow(_AdvancedMainWindow):
                 self._active_id = None
             job_id, _created = select_or_create_basic_job(self.api, plan)
             self._basic_job_id = job_id
+            self._basic_last_run_signal = None
+            self._basic_last_run_message = ''
+            self._basic_operation_fraction = None
+            self._basic_operation_index = None
             self._active_id = job_id
             self._basic_selection_edited = False
             self._basic_legacy_layout = False
@@ -490,7 +647,7 @@ class DwmMainWindow(_AdvancedMainWindow):
         except Exception as exc:
             QMessageBox.warning(self, 'Resultatvisninger', str(exc))
             return
-        from .result_center_v0111_a2 import ResultCenterWindow
+        from .result_center_siegfried_v0111_a3 import ResultCenterWindow
         from app.format_assessment_v0111_a2 import chosen_format_source
         dialog = ResultCenterWindow(
             job.effective_work_operations,
@@ -500,6 +657,19 @@ class DwmMainWindow(_AdvancedMainWindow):
             on_generate_report=self._a12_open_selected_report,
             format_assessment_source=chosen_format_source(self.api.settings),
         )
+        # A Basic job with only one external test should open on the relevant
+        # evidence source rather than an empty DWM depot summary.
+        try:
+            ids = {item.operation_id for item in self.api.job_details(self._active_id).operations}
+            if 'run_noark5_xpath_tests_2026' not in ids:
+                if 'siegfried_pronom_identification' in ids:
+                    dialog.tabs.setCurrentWidget(dialog._sf_page)
+                elif 'arkade5_pronom_analysis' in ids:
+                    dialog.tabs.setCurrentWidget(dialog._pages['PRONOM'])
+                elif 'arkade5_noark5_test' in ids:
+                    dialog.tabs.setCurrentWidget(dialog._pages['Arkade 5'])
+        except (RuntimeError, AttributeError, ValueError):
+            pass
         if depot:
             dialog.show_depot_review()
         dialog.setStyleSheet(stylesheet_for(self.api.settings))
@@ -515,6 +685,117 @@ class DwmMainWindow(_AdvancedMainWindow):
         dialog.show()
         self._a3_place_dialog(dialog, 'results')
 
+    def _open_basic_run_details(self):
+        """Open the existing Advanced Kjøreløp view over the SAME API events.
+
+        No second logger, job runner, or copied result files. The standalone
+        viewer already exposes actual run history and the saved log/results.
+        """
+        if not self._basic_job_id:
+            return
+        self._active_id = self._basic_job_id
+        viewer = getattr(self, '_detached_run_window', None)
+        if viewer is None:
+            # Existing Advanced viewer: same history, event log and callbacks.
+            self._a9_float_run()
+            viewer = getattr(self, '_detached_run_window', None)
+            if getattr(self, '_basic_active', False):
+                for name in DOCK_NAMES:
+                    getattr(self, 'dock_' + name).hide()
+        else:
+            viewer.show()
+            viewer.raise_()
+            viewer.activateWindow()
+        if viewer is None:
+            return
+        viewer.setWindowTitle('Kjøredetaljer – ' + self._basic_job_id)
+        self._basic_add_run_plan(viewer)
+        self._basic_sync_run_plan()
+        self._a9_sync_detached_run()
+
+    def _basic_add_run_plan(self, viewer):
+        """Add pending/active operations beside the existing actual-run history."""
+        if getattr(viewer, '_basic_plan_tree', None) is not None:
+            return
+        label = QLabel('Alle deljobber – gjeldende jobbstatus')
+        label.setObjectName('basicPlanCaption')
+        tree = QTreeWidget(viewer)
+        tree.setObjectName('basicRunPlan')
+        tree.setHeaderLabels(['Nr.', 'Deljobb', 'Status'])
+        tree.setRootIsDecorated(False)
+        tree.setAlternatingRowColors(True)
+        tree.setMinimumHeight(120)
+        tree.setMaximumHeight(240)
+        header = tree.header()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        # The window's existing splitter below still shows actual run history
+        # and the run-event log. No ownership changes to those widgets.
+        viewer.layout().insertWidget(2, label)
+        viewer.layout().insertWidget(3, tree)
+        viewer._basic_plan_tree = tree
+        viewer._basic_plan_key = None
+
+    def _basic_sync_run_plan(self):
+        viewer = getattr(self, '_detached_run_window', None)
+        tree = getattr(viewer, '_basic_plan_tree', None) if viewer is not None else None
+        if tree is None or not self._basic_job_id:
+            return
+        try:
+            details = self.api.job_details(self._basic_job_id)
+            rows = planned_operation_rows(details.operations, details.job.status,
+                                          details.job.current_operation)
+        except (AttributeError, KeyError, RuntimeError, ValueError):
+            return
+        # Preserve selection/scroll positions on 500 ms updates. Only rebuild
+        # when the workflow itself changes. Do not blink an entire tree.
+        key = tuple((number, name, op_id) for number, name, _status, op_id in rows)
+        if key != viewer._basic_plan_key:
+            tree.clear()
+            for number, name, status, _op_id in rows:
+                tree.addTopLevelItem(QTreeWidgetItem([str(number), name, status]))
+            viewer._basic_plan_key = key
+        else:
+            for index, (_number, _name, status, _op_id) in enumerate(rows):
+                item = tree.topLevelItem(index)
+                if item is not None and item.text(2) != status:
+                    item.setText(2, status)
+
+    def _a9_redock_run(self):
+        # Closing the existing Kjøreløp window must not reveal an Advanced
+        # dock over the Basic three-step screen. Advanced mode is unchanged.
+        super()._a9_redock_run()
+        if getattr(self, '_basic_active', False):
+            for name in DOCK_NAMES:
+                getattr(self, 'dock_' + name).hide()
+
+    def _a11_open_history_log(self, key: str):
+        # Reuse the SAME Work-backed log selection as Advanced. The default
+        # Basic suppression of auto-opening the log dock must not suppress an
+        # explicit click on "Logg" in the detached Kjøreløp viewer.
+        if not key or '|' not in key:
+            return
+        if getattr(self, '_basic_active', False):
+            # Populate the same run-id choices before Advanced selects the log.
+            self._a8_refresh_job_log(force=True)
+        super()._a11_open_history_log(key)
+        if getattr(self, '_basic_active', False):
+            if self._detached_log_window is None:
+                self._a8_float_job_log()
+            else:
+                self._detached_log_window.show()
+                self._detached_log_window.raise_()
+                self._a8_refresh_job_log(force=True)
+            for name in DOCK_NAMES:
+                getattr(self, 'dock_' + name).hide()
+
+    def _a9_redock_job_log(self):
+        super()._a9_redock_job_log()
+        if getattr(self, '_basic_active', False):
+            for name in DOCK_NAMES:
+                getattr(self, 'dock_' + name).hide()
+
     def _open_basic_results(self):
         if not self._basic_job_id:
             return
@@ -529,10 +810,23 @@ class DwmMainWindow(_AdvancedMainWindow):
         self.basic_choose_source.setEnabled(not busy)
         self.basic_choose_work.setEnabled(not busy and bool(self.basic_source_path.text()))
         self.basic_run_button.setEnabled(
-            not busy and not getattr(self, '_basic_legacy_layout', False)
+            not busy and bool(self._selected_basic_controls())
+            and not getattr(self, '_basic_legacy_layout', False)
             and bool(self.basic_source_path.text()) and bool(self.basic_work_path.text())
         )
         self.basic_stop_button.setEnabled(busy)
+        # The running status is pinned above the scrollable three-step form.
+        # Legacy status controls remain for completed/idle jobs and tests.
+        if hasattr(self, 'basic_pinned_panel'):
+            self.basic_pinned_panel.setVisible(bool(busy and self._basic_active))
+            self.basic_pinned_stop_button.setEnabled(busy)
+            self.basic_status.setVisible(not busy)
+            self.basic_progress.setVisible(not busy)
+            self.basic_stop_button.setVisible(not busy)
+            self.basic_details_button.setVisible(not busy)
+        for control in (self.basic_active_operation, self.basic_operation_progress,
+                        self.basic_activity):
+            control.setVisible(bool(busy and not hasattr(self, 'basic_pinned_panel')))
         job = None
         if self._basic_job_id:
             try:
@@ -541,9 +835,15 @@ class DwmMainWindow(_AdvancedMainWindow):
             except Exception:
                 job = None
         if job is None:
+            if hasattr(self, 'basic_pinned_panel'):
+                self.basic_pinned_panel.hide()
+            if hasattr(self, 'basic_details_button'):
+                self.basic_details_button.setEnabled(False)
             self.basic_results_button.setEnabled(False)
             self.basic_progress.setValue(0)
-            if self.basic_source_path.text() and self.basic_work_path.text():
+            if not self._selected_basic_controls():
+                self.basic_status.setText('Velg minst én kontroll.')
+            elif self.basic_source_path.text() and self.basic_work_path.text():
                 self.basic_status.setText('Klar til kontroll. Trykk Start kontroll.')
             elif self.basic_source_path.text():
                 self.basic_status.setText('Velg Work-mappe for å fortsette.')
@@ -552,6 +852,8 @@ class DwmMainWindow(_AdvancedMainWindow):
             self.basic_run_button.setText('Start kontroll')
             return
         self.basic_progress.setValue(max(0, min(100, round(job.progress * 100))))
+        if hasattr(self, 'basic_details_button'):
+            self.basic_details_button.setEnabled(True)
         self.basic_results_button.setEnabled(job.status in ('Ferdig', 'Feil', 'Hoppet over'))
         if job.status == 'Venter ved kontrollpunkt':
             self.basic_run_button.setText('Fortsett kontroll')
@@ -560,6 +862,34 @@ class DwmMainWindow(_AdvancedMainWindow):
         else:
             self.basic_run_button.setText('Start kontroll')
         text = f'{job.job_id} · {job.status} · {job.progress:.0%} fullført'
+        if busy:
+            try:
+                operations = self.api.job_details(self._basic_job_id).operations
+            except (AttributeError, KeyError, RuntimeError, ValueError):
+                operations = ()
+            completed = max(0, int(getattr(job, 'current_operation', 0) or 0))
+            total = int(getattr(job, 'operation_count', 0) or 0)
+            self.basic_active_operation.setText(
+                operation_caption(operations, completed, total)
+            )
+            # A step's measured progress is distinct from the persisted overall
+            # job.progress. Never increment progress just because time passes.
+            if self._basic_operation_index != completed:
+                self._basic_operation_index = completed
+                self._basic_operation_fraction = None
+            if self._basic_operation_fraction is None:
+                self.basic_operation_progress.setRange(0, 0)
+            else:
+                self.basic_operation_progress.setRange(0, 100)
+                self.basic_operation_progress.setValue(round(100 * self._basic_operation_fraction))
+            # Never change decorative dots to suggest activity. Only a new
+            # runner event resets the actual-signal clock.
+            signal = latest_signal_text(self._basic_last_run_signal, time.monotonic())
+            detail = self._basic_last_run_message or 'Venter på første kjøremelding.'
+            self.basic_activity.setText(
+                f'{signal}\nSiste melding: {detail}'
+            )
+            text += f' ({completed} av {total} deljobber fullført)'
         if getattr(self, '_basic_legacy_layout', False):
             text += ' – Eksisterende Work-struktur: kjør jobben i Avansert modus.'
         if job.status == 'Ferdig':
@@ -567,6 +897,23 @@ class DwmMainWindow(_AdvancedMainWindow):
         elif job.status == 'Feil':
             text += ' – Kontrollene må gjennomgås.'
         self.basic_status.setText(text)
+        if hasattr(self, 'basic_pinned_panel') and busy:
+            self.basic_pinned_status.setText(text)
+            self.basic_pinned_progress.setValue(self.basic_progress.value())
+            self.basic_pinned_operation.setText(self.basic_active_operation.text())
+            if self._basic_operation_fraction is None:
+                self.basic_pinned_operation_progress.setRange(0, 0)
+            else:
+                self.basic_pinned_operation_progress.setRange(0, 100)
+                self.basic_pinned_operation_progress.setValue(
+                    round(100 * self._basic_operation_fraction))
+            self.basic_pinned_elapsed.setText(
+                elapsed_clock(self._basic_last_run_signal, time.monotonic()))
+            self.basic_pinned_message.setText('Siste melding: ' + (
+                self._basic_last_run_message or 'Venter på første kjøremelding.'))
+            self.basic_pinned_message.setToolTip(self._basic_last_run_message or '')
+        if hasattr(self, '_basic_sync_run_plan'):
+            self._basic_sync_run_plan()
 
     def closeEvent(self, event):
         # The old main_window.closeEvent always persists saveState(). In Basic,

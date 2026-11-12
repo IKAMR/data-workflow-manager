@@ -26,13 +26,16 @@ class BasicWiringTests(unittest.TestCase):
     def test_simple_front_end_has_only_source_work_start_and_result_actions(self):
         source = QT.read_text('utf-8')
         for label in ('Finn uttrekk…', 'Velg Work…', 'Start kontroll',
-                      'Se resultatvisninger…', 'Avansert modus'):
+                      'Se resultatvisninger…', 'Kjøredetaljer…', 'Avansert modus'):
             self.assertIn(label, source)
         self.assertIn('self._run_selected()', source)
         self.assertIn('self._continue_job()', source)
         self.assertIn('self._a12_open_result_center()', source)
         self.assertIn('self._request_stop', source)
-        self.assertIn("self.pages.addTab(area, 'Enkel start')", source)
+        # A3.7 wraps the scrollable form in a page with a fixed top status.
+        self.assertIn("self.pages.addTab(page, 'Enkel start')", source)
+        self.assertIn('page_layout.addWidget(area, 1)', source)
+        self.assertIn('self._build_basic_pinned_status(page, page_layout)', source)
         self.assertNotIn("self.pages.insertTab(0, area", source)
         self.assertNotIn('mkdir(', source)
         self.assertNotIn('copytree(', source)

@@ -60,6 +60,7 @@ DEFAULT_CONFIG = {
     "batch_max_workers": 0,
     "last_report_output_dir": "",
     "arkade5_cli_path": "",
+    "sf_executable": "",
     "arkade5_output_subfolder": "arkade5_<ver>",
     "receiving_setup_file": "",
     "last_receiving_root": "",

@@ -53,6 +53,7 @@ class ProfileRegistryA12Tests(unittest.TestCase):
                 "run_noark5_xpath_regression_2026",
                 "arkade5_noark5_test",
                 "arkade5_pronom_analysis",
+                "siegfried_pronom_identification",
                 "import_arkade5_reports",
                 "compose_noark5_views",
                 "build_noark5_depot_report",

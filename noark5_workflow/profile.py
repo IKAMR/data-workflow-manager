@@ -14,6 +14,7 @@ from noark5_workflow.operations import (
     RunNoark5XpathTestsOperation,
     ValidateXmlSchemaOperation,
 )
+from noark5_workflow.operations.run_siegfried_pronom import SiegfriedPronomOperation
 
 
 NOARK5_CATEGORIES = (
@@ -56,6 +57,7 @@ NOARK5_PROFILE = WorkflowProfile(
         RunNoark5XpathRegressionOperation,
         Arkade5Noark5TestOperation,
         Arkade5PronomAnalysisOperation,
+        SiegfriedPronomOperation,
         ImportArkade5ReportsOperation,
         ComposeNoark5ViewsOperation,
         BuildNoark5DepotReportOperation,
