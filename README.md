@@ -40,6 +40,12 @@ Programmet har blant annet:
   PRONOM/filformatvurdering, periodevurdering og lesbar eller rå evidensvisning
 - kildebelagt, versjonert filformatvurdering som holdes adskilt fra Arkades
   historiske klassifisering og fra depotets faglige godkjenning
+- fire uavhengige kontrollvalg i Enkel modus: DWM Noark 5, direkte
+  Siegfried-filidentifikasjon og Arkade 5 CLI for Noark 5 og PRONOM
+- felles gjenkjenning av Siegfried installert av SIARD Workflow Manager;
+  egne DWM-resultater og kildeinformasjon beholdes i valgt Work
+- kjørestatus med aktiv deljobb, fremdrift, kjøredetaljer og tilgang
+  til faktisk lagret kjørelogg
 - justerbare visningspaneler, temapaletter og konfigurerbare mappeprofiler
 - lokal CLI (`n5wf`) for kontroll, status og kjøring av eksisterende jobblister
 - Job/Batch-modell med flere isolerte jobber
@@ -62,7 +68,7 @@ For funksjonshistorikk og ferdige versjoner, se
 ## Brukergrensesnitt
 
 Programmet tilbyr en enkel arbeidsflate for valg av arkivuttrekk, Work-mappe,
-kontrollprofil og start av kontroll. Et avansert grensesnitt gir tilgang til
+valgfrie Noark 5- og filformatkontroller og start av kjøring. Et avansert grensesnitt gir tilgang til
 jobblister, arbeidsflyter, deljobber, Setup, analyser og dokumentasjon.
 
 Source behandles som originalmateriale og endres ikke av ordinære kontroller.

@@ -9,6 +9,24 @@ Versjonene v0.1.0–v0.1.3 ble utgitt under navnet **Noark 5 Workflow Manager**.
 Nyeste ferdige versjon står øverst. Alpha-trinn dokumenteres ikke som egne
 permanente releaseversjoner.
 
+## v0.1.11
+
+Enkel start, valgfrie kontrolloperasjoner og selvstendig Siegfried-filidentifikasjon.
+
+Hovedendringer:
+
+- **Enkel modus** med tre trinn: velg Noark 5-uttrekk (Source), velg Work og start kontroll. Valgt Work brukes direkte uten ekstra skjulte arbeidsmapper. Avansert modus og eksisterende jobblister er fortsatt tilgjengelige.
+- **Fire uavhengige kontrollvalg:** DWM Noark 5-test og depotrapport, Siegfried PRONOM-filidentifikasjon, Arkade 5 CLI Noark 5-test og Arkade 5 CLI PRONOM-analyse. Valgene settes sammen til en arbeidsflyt i samme kjøremotor som Avansert modus.
+- **Selvstendig Siegfried-integrasjon** som kan finne og bruke samme installerte `sf.exe` som SIARD Workflow Manager uten kopiering. Identifikasjoner, formatstatistikk, råresultater og proveniens lagres separat under valgt Work; egne Siegfried-resultater blandes ikke med Arkades resultater.
+- **Arkade 5-integrasjon** med valgfrie CLI-operasjoner, import av lagret Noark 5- og PRONOM-evidens og korrigert bruk av direkte Work-mappe i Enkel modus. Historiske rapporter og vurderinger beholdes som separate evidenskilder.
+- **PRONOM-visning** med separat presentasjon av Arkades historiske RAF-220301-vurdering og DWM-vurdering mot valgt formatregelprofil. Den daterte listen over Nasjonalarkivets aksepterte filformater (10. november 2026) er standard; et annet eksplisitt valg bevares. Tabell, kolonnebredder og detaljpanel er forbedret.
+- **Kjørestatus i Enkel modus** med synlig samlet fremdrift, aktiv deljobb, fremdrift i deljobben og tid siden siste faktiske kjøremelding. Statusfeltet holdes synlig over det rullbare oppsettet. **Kjøredetaljer** gjenbruker Avansert modus sin kjørehistorikk og logger i eget vindu.
+- **Setup for eksterne verktøy** med egne seksjoner for Arkade 5 og Siegfried, automatisk gjenkjenning, manuelt programvalg og versjonskontroll. DWM installerer ikke disse verktøyene fra Setup.
+
+Kompatibilitet: Eksisterende `.n5jobs`-jobblister, avanserte arbeidsflyter, Arkade-importer, Work-resultater og den separate depotfaglige vurderingen videreføres. Ingen originale Source-filer endres ved vanlige kontroller. Fullført teknisk kontroll eller treff i en formatliste innebærer ikke automatisk depotgodkjenning.
+
+Avgrensninger: Versjonen er beregnet for praktisk testing på Windows. Eksterne verktøy krever tilgjengelig lokal installasjon. Direkte Siegfried-kjøring er foreløpig begrenset til 250 000 filer per kjøring; større mengder avvises fremfor å produsere ufullstendig statistikk. Videre forbedring av enkelte dialogstørrelser og fremdriftsinformasjon fra eksterne CLI-prosesser gjenstår.
+
 ## v0.1.10
 
 Forbedrede Resultatvisninger, sporbar filformatvurdering og mer tilgjengelig brukergrensesnitt.
