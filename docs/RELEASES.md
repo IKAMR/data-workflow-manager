@@ -9,6 +9,27 @@ Versjonene v0.1.0–v0.1.3 ble utgitt under navnet **Noark 5 Workflow Manager**.
 Nyeste ferdige versjon står øverst. Alpha-trinn dokumenteres ikke som egne
 permanente releaseversjoner.
 
+## v0.1.13
+
+Enkel modus med DIAS-metadata, sikrere Work-valg og forbedrede resultatvisninger.
+
+- **Enkel modus:** Trinnvis oversikt over Source, Work og kjøring, med synlig aktiv fane, direkte navigasjon, fullstendige stier og dra-og-slipp av uttrekksmapper, `info.xml`, Work-mapper og jobblister. Ny kontroll kan startes uten å slette gamle jobber eller resultater.
+- **DIAS-metadata:** Synlig og redigerbar LABEL og dialogen «Info.xml – Les / endre». Importert original bevares som kildeevidens; gjeldende depotmetadata og arbeidskopi lagres separat under Work. LABEL og DELIVERYSPECIFICATION kobles i denne versjonen.
+- **Work-sikkerhet:** Kontrollerer valgt Work opp mot Source-identitet og tidligere DWM-jobbdata. Ved mulig gjenbruk vises innhold og bekreftelse eller tilbud om å åpne eksisterende jobb. Feil eller ukjent eierskap blokkerer automatisk gjenbruk. Valgt Work brukes direkte uten ekstra `dwm`-nivå i Enkel modus.
+- **Valgfri jobbliste:** Jobbliste kan åpnes eller lagres fra Kjøring. Lagringsdialogen foreslår en passende plassering og filnavn; ved start uten lagret jobbliste kan brukeren velge å lagre, kjøre uten fil eller avbryte. Work-resultater lagres uavhengig av jobblisten.
+- **Kontrollkjøring:** Rekkefølgen legger DWM sine Noark 5-kontroller før Arkade 5 Noark 5, og Siegfried PRONOM før Arkade 5 PRONOM. Kontrollvalg og automatisk åpning av Resultatvisninger, Kjøredetaljer og kjørelogg er separate innstillinger i Enkel modus.
+- **Årsfordeling:** Kjent delsum vises også når enkelte arkivdeler mangler årsverdier, tydelig merket med ufullstendig dekning. Diagram og tabell kan vises sammen eller hver for seg, og panelhøyden kan justeres.
+- **Tekniske kontroller:** Filtrering og sortering er forbedret i Resultatvisninger. Tidligere resultater og eksterne evidenskilder beholdes.
+
+Kompatibilitet: Samme jobbmodell, DIAS-data, arbeidsflytmotor og lagrede resultater brukes i Enkel og Avansert modus. Ingen originalfiler i Source skal endres av vanlig testing. Teknisk fullført kontroll er ikke automatisk faglig depotgodkjenning.
+
+## v0.1.12
+
+Korrigert Setup-lagring for eksterne verktøy.
+
+- Setup kan lagre konfigurasjonen for Arkade 5 CLI og Siegfried samlet, inkludert programstien til eksisterende `sf.exe` installert via SIARD Workflow Manager.
+- Eksisterende arbeidsflyter og Work-resultater påvirkes ikke av rettelsen.
+
 ## v0.1.11
 
 Enkel start, valgfrie kontrolloperasjoner og selvstendig Siegfried-filidentifikasjon.
