@@ -55,8 +55,9 @@ Behov: (1) alle depotrapporter, også bevaring/godkjenning, (2) sammenligning av
 | v0.1.14-a5/fix1 | XSD-versjon, hash, konflikter og vedlikeholdsmerknad | Implementert, Windows-test hos bruker |
 | **v0.1.14-a6** | XSD-feltregler nå → historisk bakover; lokal XSD-evidens i Work; arkitekturplan | Implementeres i dette deltaet |
 | **v0.1.14-a7** | Første lokal M300-erfaringssak, eksplisitte Work-vurderingshendelser, valgfri lokal gjenbruksmerknad | Implementert som avgrenset første steg; bredere regler planlagt |
-| a8 | Kontrollørens vurderingsarbeidsflate, stikkprøver, kobling til XML og dokumenter | Planlagt |
-| a9 | Oversikt, filtrering, sammenslått kontrollnavigasjon, forklaringer og kompakt GUI | Planlagt |
+| **v0.1.14-a8** | XML-evidens med justerbare paneler, sorterbare treff, avgrenset XML-kontekst og strukturtre | Implementert; Windows-GUI-test gjenstår |
+| a9 | Kontrollørens bredere vurderingsarbeidsflate, stikkprøver og kobling til dokumenter | Planlagt |
+| a10 | Oversikt, filtrering, sammenslått kontrollnavigasjon, forklaringer og kompakt GUI | Planlagt |
 | Senere | Kanonisk datasett, rapportadaptere, kryssuttrekksindeks, statistikk, delt erfaringsregister | Planlagt, utvikles trinnvis |
 
 **Praktisk rekkefølge:** Før større endringer i rapporter og statistikk skal vi etablere en versjonert kontrakt for kanoniske observasjoner og kartlegge eksisterende DWM/Arkade/KDRS-felter mot den. Ingen destruktiv migrering av eldre Work-data uten særskilt plan.
@@ -106,3 +107,58 @@ eller å kopiere konkrete arkivuttrekk til GitHub.
 **GUI-regel:** Noark-metadata-ID (f.eks. `M300`) vises som en kort separat
 kolonne i standardverdikontroller. Test-ID (f.eks. `kdrs.c02`) beholdes som
 uavhengig identifikator. Begge er nødvendige for kildesporbarhet.
+
+## XML-evidens og strukturkontekst (v0.1.14-a8)
+
+XML-evidens skal tilby justerbare paneler, sorterbare forekomsttabeller og
+kildekontekst i en lesbar struktur som viser faktisk arkivhierarki. Valgt treff
+skal bindes til sin konkrete XPath, ikke til et tabellradnummer etter sortering.
+Kontekstinnhenting leser original `arkivstruktur.xml` skrivebeskyttet på behov,
+med begrensninger for minnebruk, antall noder og vist XML-tekst. Strukturtreet
+skal bevare kilderekkefølgen. «x av y» kan bare vises når faktisk antall
+søsken er undersøkt; ellers vises ordinal uten påstått total.
+
+Dette er en kildevisning for enkelte treff, **ikke** en erstatning for den
+planlagte kanoniske, samlede resultatmodellen. Kildeidentitet og kontrollørens
+beslutninger skal fortsatt holdes adskilt fra både råresultater og visning.
+For store XML-seksjoner må DWM begrense eller avvise detaljvisning uten å endre
+Source. Videre utvikling skal forbedre kontekstvisning for svært store mapper,
+fullstendig filtrering, frem/tilbake i treffsett og bredere dekning av andre
+Noark 5-testfunn.
+
+
+## Arbeidskopier og XML-utdrag (v0.1.14-a8.1)
+
+**Lagringskontrakt:** DWM-styrt materiale opprettes i den eksplisitt godkjente
+jobbens Work, for eksempel `repository_operations/dwm2/a03/custom_work/`,
+ikke i en egen `Work/content` og aldri automatisk i originaluttrekkets `content/`.
+Depotets rotoppsett (`content` og `repository_operations`) er en **lokal
+konvensjon**, ikke en påkrevd DWM-profil eller et krav til andre depot.
+
+- `custom_work/xml_extracts/XML-<uuid>/extract.xml` inneholder en **arbeidskopi**
+  av et fullstendig, identifisert XML-element eller en full kontekstseksjon.
+  `manifest.json` dokumenterer originalkilde, XPath, linje, kontroll-ID,
+  eksportidentitet, UTC-tid og SHA-256 for **eksportfilen**. Det siste må ikke
+  omtales som kontrollsum for hele original-XML-filen.
+- `custom_work/document_samples/`, `custom_work/format_investigations/` og
+  `custom_work/conversions/` er **reserverte framtidige kategorier**, ikke
+  mapper som a8.1 oppretter eller funksjoner som allerede finnes.
+- Eksport er eksplisitt brukerinitiert. Avkortet XML-kontekst kan ikke utgis
+  som komplett XML-seksjon. Lesbar XML er normalisert for presentasjon;
+  serialiserte fragmenter er ikke nødvendigvis byteidentiske med originalen.
+- Ordinær DWM-behandling produserer **tilleggsdata og arbeidskopier**. Endring
+  eller ny pakking av mottatt TAR, utpakket TAR eller DIAS-pakke er et
+  unntak som krever separat, eksplisitt godkjent arbeidsflyt og ny proveniens.
+- Ingen eksport sendes til felles erfaringsregister eller GitHub automatisk.
+
+**Visningsregler:** Trefflisten sorteres ved kolonneklikk: stigende → synkende →
+original kildeorden. Knappen «Nullstill sortering» gir samme kildeorden.
+XML-konteksten kan byttes mellom lesbar XML med to mellomrom per nivå og
+serialisert kildeelement (ikke garantert originalens byteformat).
+
+## Presentasjon av XML-evidens (a8.2)
+
+- «Autojuster visning» tilpasser XML-evidensvinduets tilgjengelige skjermflate, vertikal og horisontal panelskillelinje, samt kolonnebredder i trefflisten og strukturtreet. Handlingen kan kjøres manuelt, og brukes også automatisk etter «Finn forekomster».
+- «Bryt tekst» er aktivert som standard og lagres som felles bruker-/klientinnstilling via Qt `QSettings` (`IKAMR/DataWorkflowManager`, nøkkel `result_views/word_wrap`). Den gjelder XML-tekst, XML-trefflisten og strukturtreet samt tilsvarende Noark-tabeller som har koblet seg til den felles innstillingen.
+- Nye Qt-resultatvisninger skal bruke `gui_qt/view_display_preferences.py` fremfor separate, inkompatible tekstbrytingsinnstillinger. **Setup-kontroll og full dekning av alle eksisterende visninger gjenstår**; det skal ikke hevdes at de er implementert før dette er gjort.
+- Autojustering og tekstbryting er kun presentasjon: de endrer ikke Source, lagret evidens, XML-eksport eller faglig vurdering. Brukerstyrt manuell panelstørrelse beholdes frem til neste eksplisitte autojustering eller søk.

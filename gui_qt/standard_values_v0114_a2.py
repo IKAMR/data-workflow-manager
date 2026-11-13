@@ -1,18 +1,19 @@
 """Standard-value drilldown from Resultatvisninger / Oversikt.
 
-Only saved depot-report evidence is displayed. Source XML is never opened or
-modified, and no XPath/system ID is invented when the report lacks it.
+Saved depot-report findings are the entrypoint. User-requested XML evidence
+is read-only; explicitly exported fragments go only to the approved job Work.
+No XPath/system ID is invented when the report lacks it.
 """
 from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QUrl
+from PySide6.QtCore import Qt, QUrl, QTimer
 from PySide6.QtGui import QDesktopServices, QGuiApplication
 from PySide6.QtWidgets import (
     QAbstractItemView, QDialog, QHBoxLayout, QLabel, QMessageBox,
     QPushButton, QSplitter, QTableWidget, QTableWidgetItem, QFileDialog, QComboBox, QPlainTextEdit,
-    QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget,
+    QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget, QHeaderView, QCheckBox,
 )
 
 from app.xml_value_evidence_v0114_a3 import (
@@ -28,6 +29,8 @@ from app.noark_xsd_version_v0114_a5 import (
     inspect_report_version, inspect_source_version, comparison_label,
 )
 from app.noark_extract_display_v0114_a7 import extract_display_name
+from app.xml_context_v0114_a8 import inspect_xml_context, readable_xml, save_xml_extract
+from gui_qt.view_display_preferences import word_wrap_enabled, save_word_wrap_enabled, apply_word_wrap
 from app.standard_value_findings_v0114_a2 import (
     findings_from_snapshots, source_location_present,
 )
@@ -70,6 +73,7 @@ class StandardValuesDialog(QDialog):
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.setAlternatingRowColors(True)
+        self.table.setWordWrap(word_wrap_enabled())
         self.table.horizontalHeader().setStretchLastSection(True)
         self.table.setColumnWidth(0, 130)
         self.table.setColumnWidth(1, 65)
@@ -85,6 +89,7 @@ class StandardValuesDialog(QDialog):
         self.detail.setHeaderLabels(('Opplysning', 'Lagret verdi'))
         self.detail.setRootIsDecorated(True)
         self.detail.setAlternatingRowColors(True)
+        self.detail.setWordWrap(word_wrap_enabled())
         self.detail.setColumnWidth(0, 230)
         detail_layout.addWidget(self.detail)
         # Give the findings enough height for all eight rows while preserving
@@ -120,6 +125,7 @@ class StandardValuesDialog(QDialog):
         close.clicked.connect(self.close)
         bottom.addWidget(close)
         layout.addLayout(bottom)
+        self.table.setSortingEnabled(False)
         for row, finding in enumerate(self._findings):
             reference = reference_for_finding(finding.test_id, finding.field, finding.version)
             metadata_id = reference['metadata_id'] if reference else '–'
@@ -129,8 +135,12 @@ class StandardValuesDialog(QDialog):
             for col, cell in enumerate(cells):
                 cell_item = QTableWidgetItem(cell)
                 if col == 0:
+                    cell_item.setData(Qt.ItemDataRole.UserRole, row)
                     cell_item.setToolTip(f'Jobbnavn: {finding.job_name}\nRapport: {finding.report_path or "Ikke oppgitt"}')
+                if col == 5:
+                    cell_item.setData(Qt.ItemDataRole.DisplayRole, int(finding.extra_total))
                 self.table.setItem(row, col, cell_item)
+        self.table.setSortingEnabled(True)
         self.table.itemSelectionChanged.connect(self._show_selected)
         if findings:
             self.table.selectRow(0)
@@ -150,8 +160,10 @@ class StandardValuesDialog(QDialog):
         dialog.exec()
 
     def _current(self):
-        index = self.table.currentRow()
-        return self._findings[index] if 0 <= index < len(self._findings) else None
+        # Sorting reorders Qt table rows but never the saved findings.
+        cell = self.table.item(self.table.currentRow(), 0)
+        index = cell.data(Qt.ItemDataRole.UserRole) if cell is not None else None
+        return self._findings[index] if isinstance(index, int) and 0 <= index < len(self._findings) else None
 
     def _show_selected(self):
         item = self._current()
@@ -293,6 +305,7 @@ class NoarkVersionEvidenceDialog(QDialog):
         self.heading.setWordWrap(True)
         body.addWidget(self.heading)
         self.details = QTreeWidget(self)
+        self.details.setWordWrap(word_wrap_enabled())
         self.details.setHeaderLabels(('Kilde / egenskap', 'Verdi'))
         self.details.setColumnWidth(0, 285)
         self.details.setAlternatingRowColors(True)
@@ -394,6 +407,7 @@ class NoarkMetadataReferenceDialog(QDialog):
         ver_row.addStretch(1)
         outer.addLayout(ver_row)
         self.info = QTreeWidget(self)
+        self.info.setWordWrap(word_wrap_enabled())
         self.info.setHeaderLabels(('Opplysning', 'Verdi'))
         self.info.setColumnWidth(0, 235)
         self.info.setAlternatingRowColors(True)
@@ -457,16 +471,28 @@ class NoarkMetadataReferenceDialog(QDialog):
 
 
 class XmlOccurrencesDialog(QDialog):
-    """Bounded, read-only XML search for one observed value."""
+    """Source evidence with sort, adjustable panels and on-demand XML context."""
 
     def __init__(self, parent, xml_path, finding):
         super().__init__(parent)
         self.setWindowTitle('XML-evidens – ' + finding.test_id)
-        self.resize(1020, 650)
+        parent_center = parent.mapToGlobal(parent.rect().center()) if parent is not None else None
+        screen = QGuiApplication.screenAt(parent_center) if parent_center is not None else self.screen()
+        area = screen.availableGeometry() if screen else None
+        self.resize(min(1500, max(850, int(area.width() * .76))) if area else 1300,
+                    min(980, max(620, int(area.height() * .90))) if area else 850)
         self.xml_path = Path(xml_path)
         self.finding = finding
         self.rows = ()
         self._pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix='dwm-xml-source')
+        self._pending = None
+        self._context_pending = None
+        self._context_pending_xpath = None
+        self._timer = None
+        self._context_timer = None
+        self._selected_xpath = None
+        self._selected_context = None
+        self._readable_mode = True
         outer = QVBoxLayout(self)
         info = QLabel('Kilde: ' + str(self.xml_path) + '\n'
                       'Noark-versjoner 3.1 / 4.0 / 5.0 er regelsett-sammenligninger, '
@@ -483,43 +509,91 @@ class XmlOccurrencesDialog(QDialog):
         self.search_button.clicked.connect(self._search)
         row.addWidget(self.search_button)
         outer.addLayout(row)
-        self.message = QLabel('Velg Finn forekomster for å undersøke original XML. Maks 25 treff.')
+        self.message = QLabel('Velg Finn forekomster. Maks 25 konkrete treff; kildedata endres ikke.')
         self.message.setWordWrap(True)
         outer.addWidget(self.message)
-        self.results = QTableWidget(0, 4, self)
+
+        # Both separators are movable. The lower horizontal split provides
+        # simultaneous structural context and the actual surrounding source XML.
+        self.vertical_splitter = QSplitter(Qt.Orientation.Vertical, self)
+        self.vertical_splitter.setChildrenCollapsible(False)
+        self.results = QTableWidget(0, 4, self.vertical_splitter)
         self.results.setHorizontalHeaderLabels(('Linje', 'XML-sti (XPath)', 'System-ID', 'Verdi'))
         self.results.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.results.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.results.setColumnWidth(0, 75)
-        self.results.setColumnWidth(1, 540)
-        self.results.setColumnWidth(2, 170)
-        outer.addWidget(self.results, 3)
-        self.xml_text = QPlainTextEdit(self)
+        self.results.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.results.setSortingEnabled(False)
+        self.results.setAlternatingRowColors(True)
+        self.results.setWordWrap(word_wrap_enabled())
+        self.results.horizontalHeader().setSortIndicatorShown(False)
+        self._sort_column = None
+        self._sort_direction = None
+        self.results.horizontalHeader().sectionClicked.connect(self._click_sort)
+        self.results.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
+        self.results.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        self.results.setColumnWidth(0, 80)
+        self.results.setColumnWidth(1, 650)
+        self.results.setColumnWidth(2, 335)
+        self.results.setColumnWidth(3, 270)
+        self.results.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.lower_splitter = QSplitter(Qt.Orientation.Horizontal, self.vertical_splitter)
+        self.lower_splitter.setChildrenCollapsible(False)
+        self.structure = QTreeWidget(self.lower_splitter)
+        self.structure.setHeaderLabels(('Arkivstruktur / forekomst', 'System-ID / tittel'))
+        self.structure.setColumnWidth(0, 285)
+        self.structure.setAlternatingRowColors(True)
+        self.structure.setWordWrap(word_wrap_enabled())
+        self.structure.setSortingEnabled(False)  # Preserve the source hierarchy.
+        self.xml_text = QPlainTextEdit(self.lower_splitter)
         self.xml_text.setReadOnly(True)
-        self.xml_text.setPlaceholderText('Velg en forekomst for å se et faktisk XML-utdrag.')
-        outer.addWidget(self.xml_text, 2)
+        apply_word_wrap(word_wrap_enabled(), self.xml_text)
+        self.xml_text.setPlaceholderText('Velg et treff for å undersøke XML-seksjonen i kontekst.')
+        self.lower_splitter.setSizes([460, 750])
+        self.vertical_splitter.setSizes([360, 440])
+        outer.addWidget(self.vertical_splitter, 1)
         self.results.itemSelectionChanged.connect(self._selection_changed)
         bottom = QHBoxLayout()
-        bottom.addStretch(1)
+        self.context_status = QLabel('Kontekst vises ved valg av treff; antall søsken beregnes der det kan dokumenteres.')
+        self.context_status.setWordWrap(True)
+        bottom.addWidget(self.context_status, 1)
+        self.auto_layout_button = QPushButton('Autojuster visning')
+        self.auto_layout_button.setToolTip('Tilpass vindu, panelskille og kolonnebredder til tilgjengelig skjermplass')
+        self.auto_layout_button.clicked.connect(self._auto_layout)
+        bottom.addWidget(self.auto_layout_button)
+        self.wrap_text = QCheckBox('Bryt tekst')
+        self.wrap_text.setToolTip('Felles innstilling for tekstbryting i resultatvisninger. Gjelder også nye vinduer.')
+        self.wrap_text.setChecked(word_wrap_enabled())
+        self.wrap_text.toggled.connect(self._set_wrap_text)
+        bottom.addWidget(self.wrap_text)
+        self.sort_reset = QPushButton('Nullstill sortering')
+        self.sort_reset.clicked.connect(self._reset_sorting)
+        bottom.addWidget(self.sort_reset)
+        self.mode = QComboBox(self)
+        self.mode.addItem('Lesbar XML', True)
+        self.mode.addItem('Serialisert XML', False)
+        self.mode.setToolTip('Serialisert XML er ikke byteidentisk med originalfilen.')
+        self.mode.currentIndexChanged.connect(self._switch_xml_mode)
+        bottom.addWidget(self.mode)
+        self.export_button = QPushButton('Eksporter XML…')
+        self.export_button.setEnabled(False)
+        self.export_button.clicked.connect(self._export_xml)
+        bottom.addWidget(self.export_button)
         close = QPushButton('Lukk')
         close.clicked.connect(self.close)
         bottom.addWidget(close)
         outer.addLayout(bottom)
-        self._pending = None
-        self._timer = None
 
     def _search(self):
         from PySide6.QtCore import QTimer
-        if self._pending is not None:
+        if self._pending is not None or self._context_pending is not None:
             return
-        field = self.finding.field
-        expected_xpath = source_xpath_for_finding(self.finding.test_id, field)
+        expected_xpath = source_xpath_for_finding(self.finding.test_id, self.finding.field)
         if not expected_xpath:
-            self.message.setText('Ingen kildefelt-mapping dokumentert for denne kontrollen.')
+            self.message.setText('Ingen dokumentert kildefelt-mapping for denne kontrollen.')
             return
         value = str(self.values.currentData())
         self.search_button.setEnabled(False)
-        self.message.setText('Leser XML skrivebeskyttet – første 25 treff ...')
+        self.message.setText('Leser XML skrivebeskyttet – inntil 25 treff ...')
         self._pending = self._pool.submit(find_xml_values, self.xml_path, expected_xpath, value)
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._poll)
@@ -536,28 +610,249 @@ class XmlOccurrencesDialog(QDialog):
         except (OSError, ValueError, RuntimeError) as exc:
             self.message.setText('Kunne ikke lese XML: ' + str(exc))
             return
+        self.results.setSortingEnabled(False)
+        self._selected_xpath = None
+        self._selected_context = None
+        self.export_button.setEnabled(False)
         self.results.setRowCount(len(self.rows))
-        for index, row in enumerate(self.rows):
-            for col, value in enumerate((row.line, row.xpath, row.system_id or 'Ikke dokumentert', row.value)):
-                self.results.setItem(index, col, QTableWidgetItem(str(value)))
-        self.message.setText(
-            f'{len(self.rows)} konkrete treff funnet. ' +
-            ('Visningen er begrenset til de første 25; dette er ikke en ny totalopptelling.'
-             if len(self.rows) == 25 else 'Ingen andre treff i den undersøkte XML-filen.'))
+        for index, result in enumerate(self.rows):
+            # Qt.UserRole preserves source identity when the table is sorted.
+            for col, value in enumerate((result.line, result.xpath, result.system_id or '', result.value)):
+                item = QTableWidgetItem()
+                item.setData(Qt.ItemDataRole.DisplayRole, int(value) if col == 0 else str(value))
+                item.setData(Qt.ItemDataRole.UserRole, index)
+                self.results.setItem(index, col, item)
+        self.results.setSortingEnabled(False)
+        self._sort_column = None
+        self._sort_direction = None
+        self.results.horizontalHeader().setSortIndicatorShown(False)
+        self.results.resizeColumnsToContents()
+        self.results.setColumnWidth(1, max(self.results.columnWidth(1), 650))
+        self.results.setColumnWidth(2, min(max(self.results.columnWidth(2), 320), 440))
+        self.message.setText(f'{len(self.rows)} konkrete treff funnet. '
+                             + ('Visningen er begrenset til de første 25; dette er ikke en ny totalopptelling.'
+                                if len(self.rows) == 25 else 'Ingen andre treff i undersøkt kildefil.'))
         if self.rows:
             self.results.selectRow(0)
+        QTimer.singleShot(0, self._auto_layout)
+
+    def _set_wrap_text(self, enabled):
+        save_word_wrap_enabled(enabled)
+        apply_word_wrap(enabled, self.results, self.structure, self.xml_text)
+        # XML is rewrapped by Qt in its viewport; the underlying source is unchanged.
+        self.results.viewport().update()
+        self.structure.viewport().update()
+
+    def _auto_layout(self):
+        """Fit a readable, restrained window; never maximize to a widescreen."""
+        screen = QGuiApplication.screenAt(self.frameGeometry().center()) or self.screen()
+        if screen is not None:
+            area = screen.availableGeometry()
+            target_width = min(area.width(), 1500, max(850, int(area.width() * .76)))
+            target_height = min(area.height(), 980, max(620, int(area.height() * .90)))
+            self.resize(target_width, target_height)
+            # Clamp the *whole window*, not merely its center, to this monitor.
+            frame = self.frameGeometry()
+            self.move(max(area.left(), min(frame.left(), area.right() - frame.width() + 1)),
+                      max(area.top(), min(frame.top(), area.bottom() - frame.height() + 1)))
+        # Let Qt finish resize/layout before computing actual viewport widths.
+        QTimer.singleShot(0, self._fit_panes)
+
+    def _fit_panes(self):
+        """Apply once on request/search; later manual splitter choices are retained."""
+        available_height = max(1, self.vertical_splitter.height())
+        self.vertical_splitter.setSizes([int(available_height * .36),
+                                         int(available_height * .64)])
+        available_width = max(1, self.lower_splitter.width())
+        self.lower_splitter.setSizes([int(available_width * .49),
+                                      int(available_width * .51)])
+        QTimer.singleShot(0, self._fit_columns)
+
+    def _fit_columns(self):
+        # Use actual viewport width to avoid hiding the right-hand tree column.
+        table_width = max(1, self.results.viewport().width() - 8)
+        self.results.setColumnWidth(0, 56)
+        remaining = max(240, table_width - 56)
+        self.results.setColumnWidth(1, int(remaining * .56))
+        self.results.setColumnWidth(2, int(remaining * .27))
+        self.results.setColumnWidth(3, max(80, remaining - int(remaining * .56) - int(remaining * .27)))
+        tree_width = max(1, self.structure.viewport().width() - 8)
+        tree_first = max(130, int(tree_width * .40))
+        tree_first = min(tree_first, max(80, tree_width - 120))
+        self.structure.setColumnWidth(0, tree_first)
+        self.structure.setColumnWidth(1, max(80, tree_width - tree_first))
 
     def _selection_changed(self):
-        index = self.results.currentRow()
-        if 0 <= index < len(self.rows):
-            row = self.rows[index]
-            self.xml_text.setPlainText('Fil: ' + str(self.xml_path) + '\n'
-                                       'Linje: ' + str(row.line) + '\nXPath: ' + row.xpath + '\n\n'
-                                       + row.xml)
+        from PySide6.QtCore import QTimer
+        cell = self.results.item(self.results.currentRow(), 0)
+        index = cell.data(Qt.ItemDataRole.UserRole) if cell is not None else None
+        if not isinstance(index, int) or not 0 <= index < len(self.rows):
+            return
+        occurrence = self.rows[index]
+        if self._selected_xpath == occurrence.xpath:
+            return
+        self._selected_xpath = occurrence.xpath
+        self._selected_context = None
+        self.export_button.setEnabled(False)
+        self.structure.clear()
+        self.xml_text.setPlainText('Valgt XML-felt (kildeutdrag):\n' + occurrence.xml
+                                   + '\n\nLeser omkringliggende XML-seksjon ...')
+        self.context_status.setText('Undersøker kontekst for linje ' + str(occurrence.line))
+        # Context requests are serial to avoid concurrent full-file scans.
+        # If a previous request is running, queue the latest selection.
+        if self._context_pending is None:
+            self._launch_context(occurrence.xpath)
+
+    def _launch_context(self, xpath):
+        from PySide6.QtCore import QTimer
+        self._context_pending_xpath = xpath
+        self._context_pending = self._pool.submit(inspect_xml_context, self.xml_path, xpath)
+        self._context_timer = QTimer(self)
+        self._context_timer.timeout.connect(self._poll_context)
+        self._context_timer.start(100)
+
+    def _poll_context(self):
+        if self._context_pending is None or not self._context_pending.done():
+            return
+        self._context_timer.stop()
+        completed = self._context_pending
+        requested_xpath = self._context_pending_xpath
+        self._context_pending = None
+        self._context_pending_xpath = None
+        try:
+            context = completed.result()
+        except (OSError, ValueError, RuntimeError) as exc:
+            context = None
+            message = str(exc)
+        # Selection may have moved while the worker was running.
+        if context is None:
+            if self._selected_xpath and self._selected_xpath != requested_xpath:
+                self._launch_context(self._selected_xpath)
+            else:
+                self.context_status.setText('Kontekst ikke tilgjengelig: ' + message)
+            return  # Do not retry the same failed source read forever.
+        if context.xpath == self._selected_xpath:
+            self._display_context(context)
+        elif self._selected_xpath:
+            self._launch_context(self._selected_xpath)
+
+    def _display_context(self, context):
+        self.structure.clear()
+        parent = None
+        for level in context.levels:
+            ordinal = (f'{level.position} av {level.total}' if level.total is not None
+                       else f'nr. {level.position} (totalt antall ikke undersøkt)')
+            label = f'{level.element} – {ordinal}'
+            info = ' · '.join(v for v in (level.system_id, level.title) if v)
+            node = QTreeWidgetItem([label, info]) if parent is None else QTreeWidgetItem(parent, [label, info])
+            if parent is None:
+                self.structure.addTopLevelItem(node)
+            if level.selected:
+                node.setSelected(True)
+            node.setExpanded(True)
+            parent = node
+        self._selected_context = context
+        self.export_button.setEnabled(True)
+        self._render_xml()
+        self.context_status.setText('Kontekst: ' + context.scope
+                                    + (' – utdrag avkortet, original uendret' if context.truncated else ' – full valgt seksjon'))
+
+    def _render_xml(self):
+        context = self._selected_context
+        if context is None:
+            return
+        xml = context.xml
+        if self._readable_mode and not context.truncated:
+            try:
+                xml = readable_xml(xml)
+            except ValueError:
+                pass
+        self.xml_text.setPlainText(
+            f'Kilde: {context.source}\nLinje: {context.line}\nXPath: {context.xpath}\n'
+            f'XML-seksjon: {context.scope}\n\n' + xml)
+
+    def _switch_xml_mode(self, _index):
+        self._readable_mode = bool(self.mode.currentData())
+        self._render_xml()
+
+    def _click_sort(self, column):
+        if self._sort_column != column:
+            self._sort_column = column
+            self._sort_direction = Qt.SortOrder.AscendingOrder
+        elif self._sort_direction == Qt.SortOrder.AscendingOrder:
+            self._sort_direction = Qt.SortOrder.DescendingOrder
+        else:
+            self._reset_sorting()
+            return
+        self.results.sortItems(column, self._sort_direction)
+        self.results.horizontalHeader().setSortIndicator(column, self._sort_direction)
+        self.results.horizontalHeader().setSortIndicatorShown(True)
+
+    def _reset_sorting(self):
+        if not self.rows:
+            return
+        cell = self.results.item(self.results.currentRow(), 0)
+        selected_index = cell.data(Qt.ItemDataRole.UserRole) if cell else None
+        self.results.setSortingEnabled(False)
+        self.results.blockSignals(True)
+        for row in range(len(self.rows)):
+            current = next((r for r in range(row, len(self.rows))
+                            if self.results.item(r, 0) is not None
+                            and self.results.item(r, 0).data(Qt.ItemDataRole.UserRole) == row), None)
+            if current is not None and current != row:
+                # QTableWidget has no moveRow; reassign all items across rows.
+                first = [self.results.takeItem(row, c) for c in range(4)]
+                second = [self.results.takeItem(current, c) for c in range(4)]
+                for c in range(4):
+                    self.results.setItem(row, c, second[c])
+                    self.results.setItem(current, c, first[c])
+        self.results.blockSignals(False)
+        self.results.horizontalHeader().setSortIndicatorShown(False)
+        self._sort_column = None
+        self._sort_direction = None
+        if isinstance(selected_index, int):
+            self.results.selectRow(selected_index)
+        self.results.setSortingEnabled(False)
+
+    def _export_xml(self):
+        context = self._selected_context
+        if context is None or context.xpath != self._selected_xpath:
+            QMessageBox.warning(self, 'XML-eksport', 'Velg en ferdig undersøkt forekomst først.')
+            return
+        work = work_from_report(self.finding.report_path)
+        if work is None:
+            QMessageBox.warning(self, 'XML-eksport', 'Fant ikke jobbens Work. Eksport er ikke utført.')
+            return
+        selected = next((r for r in self.rows if r.xpath == self._selected_xpath), None)
+        choices = ('Hele kontekstseksjonen', 'Valgt metadatafelt')
+        from PySide6.QtWidgets import QInputDialog
+        option, ok = QInputDialog.getItem(self, 'Eksporter XML', 'Velg XML-utdrag:', choices, 0, False)
+        if not ok:
+            return
+        whole = option == choices[0]
+        if whole and context.truncated:
+            QMessageBox.warning(self, 'XML-eksport', 'Konteksten er avkortet; velg et mindre utdrag.')
+            return
+        if not whole and selected is None:
+            return
+        try:
+            folder = save_xml_extract(
+                work, source=self.xml_path, xpath=context.xpath,
+                xml_text=context.xml if whole else selected.xml,
+                scope=context.scope if whole else 'metadatafelt',
+                line=context.line if whole else selected.line,
+                test_id=self.finding.test_id, full_section=whole)
+        except (OSError, ValueError) as exc:
+            QMessageBox.warning(self, 'XML-eksport', str(exc))
+            return
+        QMessageBox.information(self, 'XML-eksport',
+                                f'XML-utdrag og manifest lagret i jobbens Work:\n{folder}')
 
     def closeEvent(self, event):
-        # Worker may still be reading when user closes. It owns only a read-only
-        # file descriptor and never touches Qt widgets.
+        if self._timer is not None:
+            self._timer.stop()
+        if self._context_timer is not None:
+            self._context_timer.stop()
         self._pool.shutdown(wait=False, cancel_futures=True)
         super().closeEvent(event)
 
