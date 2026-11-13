@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 # Technical distribution identity is intentionally retained for compatibility.
 # Distribution and application versions represent the same release.
 name = "noark5-workflow-manager"
-version = "0.1.14a8"
+version = "0.1.14"
 description = "Data Workflow Manager"
 requires-python = ">=3.10"
 

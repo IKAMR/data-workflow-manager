@@ -9,6 +9,23 @@ Versjonene v0.1.0–v0.1.3 ble utgitt under navnet **Noark 5 Workflow Manager**.
 Nyeste ferdige versjon står øverst. Alpha-trinn dokumenteres ikke som egne
 permanente releaseversjoner.
 
+## v0.1.14
+
+Standardverdikontroller med sporbar XML- og XSD-evidens, lokal erfaringsbase, forbedret XML-kontekst og sikrere oppstart med frakoblede disker.
+
+- **Standardverdier og XML-evidens:** Egne kontroller og treffvisninger for utvalgte Noark 5-metadatafelt, blant annet M300 (`dokumentmedium`), M082 (`journalposttype`), M500 og M502. Treff kan spores til kildefil, XPath, linje og nærmeste system-ID uten at originalfilene endres.
+- **Versjonsbestemt XSD-tolkning:** Identifikasjon av Noark 5-versjon fra XSD-deklarasjon, med SHA-256 som støtte for konkret skjemavariant. Regelvisning kan sammenligne historiske Noark 5.0-, 4.0- og 3.1-definisjoner. ADDML-opplysninger behandles som separat evidens og overstyrer ikke dokumentert XSD-innhold.
+- **Lokal XSD-evidens og erfaringer:** Kildereferanser, kjente lokale avvik, manuelle faglige vurderinger og gjenbrukbar lokal praksis holdes adskilt fra teknisk teststatus. Eksempelvis kan `Elektroniskarkiv` vurderes mot `Elektronisk arkiv` uten at en historisk regel feilaktig presenteres som et brudd på Noark 5.0-XSD.
+- **Forbedret XML-kontekst:** Navigerbart strukturtre for arkivhierarkiet, mer lesbar XML med korrekt innrykk, kildekontekst, fulle XPath- og system-ID-verdier, sorterbare treff, tekstbryting, justerbare paneler og kontrollert autojustering.
+- **Eksport av XML-utdrag:** Valgte XML-elementer eller hele avgrensede strukturer kan eksporteres som egne arbeidskopier med manifest under `custom_work/xml_extracts` i valgt Work. Originalt Noark 5-uttrekk forblir uendret. Avkortet forhåndsvisning skal ikke eksporteres som et fullstendig element.
+- **Vinduer og flerskjerm:** Bedre lagring og gjenoppretting av vindusstørrelse og plassering, samt mer hensiktsmessige layoutjusteringer i evidensvisningene.
+- **Frakoblede disker og jobblister:** DWM beholder referansen til sist brukte `.n5jobs` selv om en kryptert disk er låst eller frakoblet. Programmet åpner ikke en eldre jobbliste fra en annen disk som automatisk erstatning. Meldingen tilbyr «Prøv igjen» etter tilkobling eller «Fortsett uten jobb», uten at sist brukte referanse glemmes.
+- **Dokumentasjon og tester:** Dokumentert kildebibliotek for Noark, lokal XSD-variant og vurderingsevidens, Windows-stisammenligning og plan for senere felles, versjonerte resultatdata på tvers av kontrollkilder.
+
+Kompatibilitet: Eksisterende jobblister, Source, Work, tidligere kontrollresultater og DIAS `info.xml` videreføres. Vanlig kontroll og XML-eksport skal ikke endre originale arkivuttrekk. DWM, Arkade 5, Siegfried og manuelle depotvurderinger er fortsatt egne evidenslag. Fullført teknisk kontroll innebærer ikke automatisk faglig godkjenning.
+
+Kjent avgrensning: Felles kanonisk resultatmodell og sammenlignende statistikk på tvers av uttrekk er planlagt for videre utvikling og er ikke del av v0.1.14. Praktisk validering er utført på Windows; støtte for andre kjøremiljøer er ikke verifisert tilsvarende.
+
 ## v0.1.13
 
 Enkel modus med DIAS-metadata, sikrere Work-valg og forbedrede resultatvisninger.
