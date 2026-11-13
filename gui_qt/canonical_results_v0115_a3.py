@@ -11,7 +11,7 @@ from PySide6.QtCore import Qt, QObject, QThread, Signal
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QTreeWidget, QTreeWidgetItem,
-    QHeaderView, QPushButton, QMessageBox, QPlainTextEdit,
+    QHeaderView, QPushButton, QMessageBox, QPlainTextEdit, QFileDialog,
 )
 
 from noark5_workflow.analysis.canonical_work_adapter import (
@@ -20,6 +20,7 @@ from noark5_workflow.analysis.canonical_work_adapter import (
 from noark5_workflow.analysis.canonical_results import build_canonical_results
 
 from app.canonical_selection_v0115_a3 import ALLOWED, selected_sources
+from noark5_workflow.analysis.canonical_context_v0115_a4 import build_context
 
 
 class _Task(QObject):
@@ -34,6 +35,9 @@ class _Task(QObject):
         try:
             if self.selection is None:
                 result = discover_work_sources(self.work)
+            elif '__a4_context' in self.selection:
+                context = build_context(self.work, **self.selection['__a4_context'])
+                result = {'a4_context': context['summary']}
             else:
                 document = build_canonical_results(self.work, **self.selection,
                                                    write=True)
@@ -80,10 +84,13 @@ class CanonicalResultsDialog(QDialog):
         self.refresh_button.clicked.connect(self.refresh)
         self.build_button = QPushButton('Opprett resultatindeks...')
         self.build_button.clicked.connect(self.create_snapshot)
+        self.context_button = QPushButton('Koble vurderinger / ekstern evidens...')
+        self.context_button.clicked.connect(self.create_context)
         self.close_button = QPushButton('Lukk')
         self.close_button.clicked.connect(self.reject)
         buttons.addWidget(self.refresh_button)
         buttons.addWidget(self.build_button)
+        buttons.addWidget(self.context_button)
         buttons.addStretch(1)
         buttons.addWidget(self.close_button)
         layout.addLayout(buttons)
@@ -94,6 +101,7 @@ class CanonicalResultsDialog(QDialog):
         self._busy = busy
         self.refresh_button.setEnabled(not busy)
         self.build_button.setEnabled(not busy)
+        self.context_button.setEnabled(not busy)
         self.close_button.setEnabled(not busy)
         self.tree.setEnabled(not busy)
 
@@ -125,7 +133,15 @@ class CanonicalResultsDialog(QDialog):
             self.report.setPlainText('FEIL: ' + error)
             QMessageBox.warning(self, 'Kanoniske resultatdata', error)
             return
-        if 'candidates' in result:
+        if 'a4_context' in result:
+            totals = result['a4_context']
+            self.report.setPlainText(
+                'Kanonisk kontekstindeks lagret: noark5_evidence/canonical-context.json\n'
+                f"Faglige vurderinger: {totals['human_assessments']}\n"
+                f"Eksterne evidensfiler (ikke tolket): {totals['external_unparsed_files']}\n"
+                f"Vurderinger uten test-ID-kobling: {totals['unlinked_assessments']}\n"
+                'Dette er dokumentasjon, ikke automatisk godkjenning.')
+        elif 'candidates' in result:
             self.tree.clear()
             for category, candidates in result['candidates'].items():
                 for candidate in candidates:
@@ -178,6 +194,35 @@ class CanonicalResultsDialog(QDialog):
                 QMessageBox.StandardButton.No) != QMessageBox.StandardButton.Yes:
             return
         self._start(selection)
+
+    def create_context(self):
+        """Require explicit operator selection; no implicit ingestion of source XML."""
+        canonical = self.work / 'noark5_evidence' / 'canonical-results.json'
+        if not canonical.is_file():
+            QMessageBox.information(self, 'Kanonisk resultatindeks',
+                                    'Opprett resultatindeksen foerst.')
+            return
+        selected, _ = QFileDialog.getOpenFileName(
+            self, 'Velg faglige vurderinger (valgfritt)',
+            str(self.work / 'noark5_evidence'), 'JSON (*.json);;Alle filer (*)',
+            options=QFileDialog.Option.DontUseNativeDialog)
+        external, _ = QFileDialog.getOpenFileNames(
+            self, 'Velg eksterne evidensfiler i Work (valgfritt)',
+            str(self.work), 'Alle filer (*)',
+            options=QFileDialog.Option.DontUseNativeDialog)
+        if not selected and not external:
+            return
+        if QMessageBox.question(
+                self, 'Koble evidens til kanonisk indeks',
+                'Opprett/erstatt en separat kontekstindeks for de valgte filene?\n'
+                'Kildene blir ikke endret. Eksterne filer blir foreloepig bare referert, ikke analysert.',
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No) != QMessageBox.StandardButton.Yes:
+            return
+        self._start({'__a4_context': {
+            'assessments_path': selected or None,
+            'external_paths': tuple(external),
+        }})
 
     def reject(self):
         if not self._busy:
