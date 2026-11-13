@@ -103,10 +103,11 @@ class BasicStepTests(unittest.TestCase):
         self.assertTrue(w._a2_overview_start.enabled)
 
     def test_saved_window_geometry_is_respected(self):
-        # Native Qt geometry is saved by the inherited Advanced close handler.
+        # Saved Qt geometry is handled by the inherited window and the a14
+        # controller. Basic mode must not resize or recenter it at launch.
         code = GUI.read_text(encoding='utf-8')
         self.assertIn("self.config.value('qt/window_geometry')", code)
-        self.assertIn('if fits:\n                return', code)
+        self.assertIn('if self.config.value(\'qt/window_geometry\'):\n            # The Qt restore path', code)
         self.assertIn('QTimer.singleShot(0, self._a2_fit_initial_window)', code)
         self.assertNotIn('def closeEvent(', code)
         self.assertNotIn('def resizeEvent(', code)

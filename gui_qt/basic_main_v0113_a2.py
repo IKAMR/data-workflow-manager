@@ -24,6 +24,9 @@ from app.basic_drop_v0113_a3 import classify_basic_drop
 from app.basic_work_guard_v0113_a3 import inspect_work, nearby_job_lists, _same, work_contains_only_joblists
 from app.basic_joblist_suggestion_v0113_a3 import suggest_joblist_path
 from .basic_main_v0113_a1 import DwmMainWindow as _StableBasicWindow
+from .window_positions_v0114_a1 import install_window_positions
+from .console_alert_v0114_a1 import install_console_alert
+from .result_label_width_v0114_a1 import constrain_detail_label_width
 
 
 _FIELD_TITLES = {
@@ -123,7 +126,8 @@ class InfoXmlEditor(QDialog):
     def _choose_original(self):
         initial = str(self.original.parent if self.original else Path.home())
         path, _ = QFileDialog.getOpenFileName(
-            self, 'Velg original info.xml (DIAS/METS)', initial, 'XML-filer (*.xml);;Alle filer (*)')
+            self, 'Velg original info.xml (DIAS/METS)', initial, 'XML-filer (*.xml);;Alle filer (*)',
+            options=QFileDialog.Option.DontUseNativeDialog)
         if not path:
             return
         try:
@@ -164,12 +168,78 @@ class DwmMainWindow(_StableBasicWindow):
         self._a2_install_metadata_ui()
         self._a2_load_existing_metadata()
         self._a2_install_steps()
+        self._a14_console_alert = install_console_alert(self, self._a2_navigation)
         self._a3_install_new_control()
         self._a3_install_auto_views()
         self._a3_install_run_joblist()
         self._a3_simplify_run_text()
         self._a3_enable_drops()
         QTimer.singleShot(0, self._a2_fit_initial_window)
+        # Version-independent QSettings geometry and popup positions follow
+        # the main window even with a laptop + ultrawide monitor setup.
+        self._a14_window_positions = install_window_positions(self)
+        QTimer.singleShot(0, self._a14_open_completed_job_in_run)
+
+    def _a14_open_completed_job_in_run(self):
+        """A saved, completed job should open on its results/run step."""
+        if not getattr(self, '_basic_active', False) or not getattr(self, '_active_id', None):
+            return
+        try:
+            status = str(self.api.job_details(self._active_id).job.status).strip().casefold()
+        except (AttributeError, KeyError, ValueError, RuntimeError):
+            return
+        if status in {'ferdig', 'fullført', 'fullfort', 'completed'}:
+            self._a2_set_step('run')
+
+    def _a12_open_result_center(self, *args, **kwargs):
+        """Retain result-window size, position and maximized state across restarts."""
+        before = tuple(getattr(self, '_a12_result_windows', ()))
+        result = super()._a12_open_result_center(*args, **kwargs)
+        controller = getattr(self, '_a14_window_positions', None)
+        if controller is not None:
+            for viewer in getattr(self, '_a12_result_windows', ()):
+                if viewer not in before:
+                    controller.register_result_window(viewer)
+                    self._a14_limit_result_label_columns(viewer)
+        return result
+
+    def _a14_limit_result_label_columns(self, viewer):
+        """Keep evidence labels bounded, even when Resultatvisninger is maximized.
+
+        The established viewer still controls content and evidence selection;
+        this only adjusts its presentation after each selection change.
+        """
+        from types import MethodType
+        original = viewer._show_detail
+
+        def constrain_current():
+            for browser in getattr(viewer, '_a53_browsers', {}).values():
+                # Only the active detail tab is updated by the viewer. Rewriting
+                # an unchanged HTML document would disturb scroll position.
+                html = browser.toHtml()
+                adjusted = constrain_detail_label_width(html)
+                if adjusted != html:
+                    browser.setHtml(adjusted)
+
+        def show_detail(instance, tab):
+            result = original(tab)
+            browser = getattr(instance, '_a53_browsers', {}).get(tab)
+            if browser is not None:
+                html = browser.toHtml()
+                adjusted = constrain_detail_label_width(html)
+                if adjusted != html:
+                    browser.setHtml(adjusted)
+            return result
+
+        viewer._show_detail = MethodType(show_detail, viewer)
+        constrain_current()
+
+    def _a3_place_dialog(self, dialog, kind: str) -> None:
+        """v0.1.14-a1: stay on the screen containing this DWM window."""
+        controller = getattr(self, '_a14_window_positions', None)
+        if controller is None:
+            return super()._a3_place_dialog(dialog, kind)
+        controller._place(dialog)
 
     def _a2_install_metadata_ui(self):
         group = next((g for g in self._basic_page.findChildren(QGroupBox)
@@ -239,6 +309,7 @@ class DwmMainWindow(_StableBasicWindow):
         self._a3_next_button.clicked.connect(lambda: self._a3_move_step(1))
         navigation.addWidget(self._a3_next_button)
         layout.insertLayout(1, navigation)
+        self._a2_navigation = navigation
 
         # Four short, read-only cards. Values are the actual paths, not
         # truncated folder tails; QLabel supports text selection and wrapping.
@@ -436,7 +507,8 @@ class DwmMainWindow(_StableBasicWindow):
                       self._a2_original.parent if self._a2_original else Path.home())
         selected, _ = QFileDialog.getOpenFileName(
             self, 'Les original info.xml', initial,
-            'XML-filer (*.xml);;Alle filer (*)')
+            'XML-filer (*.xml);;Alle filer (*)',
+            options=QFileDialog.Option.DontUseNativeDialog)
         if selected:
             self._a3_import_info_path(selected)
 
@@ -577,7 +649,9 @@ class DwmMainWindow(_StableBasicWindow):
         source = Path(self.basic_source_path.text())
         current = self.basic_work_path.text().strip()
         initial = current or str(source.parent)
-        folder = QFileDialog.getExistingDirectory(self, 'Velg Work-mappe', initial)
+        folder = QFileDialog.getExistingDirectory(
+            self, 'Velg Work-mappe', initial,
+            QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontUseNativeDialog)
         if folder:
             self._a3_accept_work(Path(folder))
 
@@ -672,7 +746,8 @@ class DwmMainWindow(_StableBasicWindow):
         start_dir = str(candidates[0].parent) if candidates else str(plan.work_operations)
         filename, _ = QFileDialog.getOpenFileName(
             self, 'Åpne eksisterende DWM-jobbliste', start_dir,
-            'DWM-jobblister (*.n5jobs)')
+            'DWM-jobblister (*.n5jobs)',
+            options=QFileDialog.Option.DontUseNativeDialog)
         if not filename:
             return
         # The regular open path validates the file and handles all shared state.
@@ -890,23 +965,16 @@ class DwmMainWindow(_StableBasicWindow):
         self._a2_set_step('run')
 
     def _a2_fit_initial_window(self):
-        # Advanced already persists geometry in qt/window_geometry. Never
-        # override a user's saved window dimensions, even in Basic mode.
+        # Restore the last user-selected screen and position across versions.
+        # Never center/resize on launch when a usable geometry is already saved.
         screen = self.screen() or QApplication.primaryScreen()
         if screen is None:
             return
+        if self.config.value('qt/window_geometry'):
+            # The Qt restore path in main_window.py owns saved geometry.
+            # Disconnected screens are corrected by the a14 position controller.
+            return
         area = screen.availableGeometry()
-        saved = self.config.value('qt/window_geometry')
-        if saved:
-            # Keep manually chosen geometry unless it no longer fits on any
-            # connected monitor (e.g. when moving from desktop to laptop).
-            frame = self.frameGeometry()
-            fits = any(frame.intersects(s.availableGeometry())
-                       and frame.width() <= s.availableGeometry().width()
-                       and frame.height() <= s.availableGeometry().height()
-                       for s in QApplication.screens())
-            if fits:
-                return
         width = min(1450, max(760, area.width() - 70))
         height = min(930, max(540, area.height() - 70))
         width = min(width, area.width())
@@ -923,7 +991,8 @@ class DwmMainWindow(_StableBasicWindow):
         initial = current or str(Path(self.basic_source_path.text()).parent
                                  if self.basic_source_path.text() else Path.home())
         path, _filter = QFileDialog.getOpenFileName(
-            self, 'Åpne jobbliste', initial, 'DWM-jobblister (*.n5jobs);;Alle filer (*)')
+            self, 'Åpne jobbliste', initial, 'DWM-jobblister (*.n5jobs);;Alle filer (*)',
+            options=QFileDialog.Option.DontUseNativeDialog)
         if path:
             self._open_path(path)
             self._a2_refresh_overview()
@@ -961,7 +1030,8 @@ class DwmMainWindow(_StableBasicWindow):
                 pass  # A platform-specific dialog can still be used manually.
         try:
             filename, _ = QFileDialog.getSaveFileName(
-                self, 'Lagre jobbliste som', initial, 'DWM-jobbliste (*.n5jobs)')
+                self, 'Lagre jobbliste som', initial, 'DWM-jobbliste (*.n5jobs)',
+                options=QFileDialog.Option.DontUseNativeDialog)
         except BaseException:
             if temporary_suggestion_dir:
                 try:

@@ -6,7 +6,6 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import Mock
 
 from app.basic_joblist_suggestion_v0113_a3 import suggest_joblist_path
 
@@ -32,13 +31,18 @@ class FakeBase:
 
 
 class FakeDialog:
+    class Option:
+        DontUseNativeDialog = 1
+
     next_choice = None
     last_initial = None
+    last_options = None
     assert_dir_exists = False
 
     @classmethod
-    def getSaveFileName(cls, _self, _title, initial, _filter):
+    def getSaveFileName(cls, _self, _title, initial, _filter, *, options=None):
         cls.last_initial = Path(initial)
+        cls.last_options = options
         if cls.assert_dir_exists:
             assert cls.last_initial.parent.is_dir(), cls.last_initial.parent
         return (cls.next_choice, None)
@@ -89,6 +93,7 @@ class Fix17Tests(unittest.TestCase):
         self.w._refresh = lambda **kwargs: None
         FakeDialog.next_choice = ''
         FakeDialog.assert_dir_exists = False
+        FakeDialog.last_options = None
 
     def test_no_runs_unsaved_without_calling_save(self):
         FakeMessage.choice = FakeMessage.StandardButton.No
@@ -122,6 +127,7 @@ class Fix17Tests(unittest.TestCase):
             FakeDialog.next_choice = ''
             self.assertFalse(self.w._save_as())
             self.assertEqual(FakeDialog.last_initial.parent, work / 'jobblister')
+            self.assertEqual(FakeDialog.last_options, FakeDialog.Option.DontUseNativeDialog)
             self.assertFalse((work / 'jobblister').exists())
 
     def test_save_persists_proposed_work_folder_and_filename(self):
