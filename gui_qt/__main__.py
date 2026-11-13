@@ -13,6 +13,7 @@ def main() -> int:
     from gui_qt.bootstrap_v0113_a1 import install
     install()
     from gui_qt.basic_main_v0113_a2 import DwmMainWindow
+    from gui_qt.canonical_results_v0115_a3 import install_canonical_results_menu
     from app.workbench_api_v0111_a2 import DwmWorkbenchAPI
     from gui_qt.appearance_v0110_a3 import apply_appearance
 
@@ -22,6 +23,7 @@ def main() -> int:
     api = DwmWorkbenchAPI()
     apply_appearance(application, api.settings)
     window = DwmMainWindow(api)
+    install_canonical_results_menu(window)
     window.show()
     if len(sys.argv) > 1:
         try:
