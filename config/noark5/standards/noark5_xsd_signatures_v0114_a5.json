@@ -1,0 +1,129 @@
+{
+  "format_version": 1,
+  "source_repository": "https://github.com/IKAMR/digital-archive-workflow",
+  "source_manifest": "docs/kilder/noark/SOURCE-MANIFEST.json",
+  "source_status": "repo_manifest_digest_not_locally_verified_against_original_files",
+  "signatures": [
+    {
+      "version": "3.0",
+      "filename": "arkivstruktur.xsd",
+      "sha256": "77fc4851c7f9f7627e2c23218a4e88e677304334e65320f228ac08b24bbe603b",
+      "repository_path": "docs/kilder/noark/noark5/v3.0/schemas/arkivstruktur.xsd"
+    },
+    {
+      "version": "3.0",
+      "filename": "endringslogg.xsd",
+      "sha256": "f89630b3914158fb5d3adc3a12296efc1fca3d1f63043f7387d2c9e8551732f9",
+      "repository_path": "docs/kilder/noark/noark5/v3.0/schemas/endringslogg.xsd"
+    },
+    {
+      "version": "3.0",
+      "filename": "loependeJournal.xsd",
+      "sha256": "43867e816190548da17cbfa51b76f0ff60c7ebd85bc81ae81657ecac5768cd2b",
+      "repository_path": "docs/kilder/noark/noark5/v3.0/schemas/loependeJournal.xsd"
+    },
+    {
+      "version": "3.0",
+      "filename": "metadatakatalog.xsd",
+      "sha256": "89e5053aa1028ae09340d1fb4303e573346fd70bce68459e4b1d28320c5a96d5",
+      "repository_path": "docs/kilder/noark/noark5/v3.0/schemas/metadatakatalog.xsd"
+    },
+    {
+      "version": "3.0",
+      "filename": "offentligJournal.xsd",
+      "sha256": "74533f2e7ab2eaf7b74999e87526b9a6f991997f97ea44c67bc55d45df0dd12a",
+      "repository_path": "docs/kilder/noark/noark5/v3.0/schemas/offentligJournal.xsd"
+    },
+    {
+      "version": "3.1",
+      "filename": "arkivstruktur.xsd",
+      "sha256": "b89da6c744a8559a2311cef78c966b4be9497ecb62c08fc7e9d3b9ae1569e3ce",
+      "repository_path": "docs/kilder/noark/noark5/v3.1/schemas/arkivstruktur.xsd"
+    },
+    {
+      "version": "3.1",
+      "filename": "endringslogg.xsd",
+      "sha256": "454efcb3e48b7d8dc7b0bfc1123775dbcb895bfb03bc34eb3f14e88fa7dbba44",
+      "repository_path": "docs/kilder/noark/noark5/v3.1/schemas/endringslogg.xsd"
+    },
+    {
+      "version": "3.1",
+      "filename": "loependeJournal.xsd",
+      "sha256": "feef5b789397b0ffacd3d70244a7817b4f6ada4bcc2ed5009f0a1801be0a2c30",
+      "repository_path": "docs/kilder/noark/noark5/v3.1/schemas/loependeJournal.xsd"
+    },
+    {
+      "version": "3.1",
+      "filename": "metadatakatalog.xsd",
+      "sha256": "b6e63b9e655fda6e7af84264b6185c89b5025afaa158dd0355530707dc00614f",
+      "repository_path": "docs/kilder/noark/noark5/v3.1/schemas/metadatakatalog.xsd"
+    },
+    {
+      "version": "3.1",
+      "filename": "offentligJournal.xsd",
+      "sha256": "a3eec68f2d5471eae518008eb374766ebc598f521e29c522d3d7fb9606e9c0a5",
+      "repository_path": "docs/kilder/noark/noark5/v3.1/schemas/offentligJournal.xsd"
+    },
+    {
+      "version": "4.0",
+      "filename": "arkivstruktur.xsd",
+      "sha256": "36ca149431d93242f266cd106590afb92ea1114bc06210bba538a8794aaa31c5",
+      "repository_path": "docs/kilder/noark/noark5/v4.0/schemas/arkivstruktur.xsd"
+    },
+    {
+      "version": "4.0",
+      "filename": "endringslogg.xsd",
+      "sha256": "4918364053f084413ad9482045fcfa513a9642e8a06b914d0dcfa503c47a5abd",
+      "repository_path": "docs/kilder/noark/noark5/v4.0/schemas/endringslogg.xsd"
+    },
+    {
+      "version": "4.0",
+      "filename": "loependeJournal.xsd",
+      "sha256": "adba0a6a4046d5979e95ecc30c52b3b20c6098578e9d418e2f0cf7318255fc7f",
+      "repository_path": "docs/kilder/noark/noark5/v4.0/schemas/loependeJournal.xsd"
+    },
+    {
+      "version": "4.0",
+      "filename": "metadatakatalog.xsd",
+      "sha256": "e4964a10297be2f22a079534207fbc399a00d9c208708f0f7cf002838b49c2c0",
+      "repository_path": "docs/kilder/noark/noark5/v4.0/schemas/metadatakatalog.xsd"
+    },
+    {
+      "version": "4.0",
+      "filename": "offentligJournal.xsd",
+      "sha256": "8b8fc69e1412364f86902b623753ac19fbed16d07845daf8cd97e426a6e3f987",
+      "repository_path": "docs/kilder/noark/noark5/v4.0/schemas/offentligJournal.xsd"
+    },
+    {
+      "version": "5.0",
+      "filename": "arkivstruktur.xsd",
+      "sha256": "77acc0f549f4f3856f56429cb30e6b626ddb05d8b8a3d6cae00cb5911b60f58c",
+      "repository_path": "docs/kilder/noark/noark5/v5.0/schemas/arkivstruktur.xsd"
+    },
+    {
+      "version": "5.0",
+      "filename": "endringslogg.xsd",
+      "sha256": "07cbc86e8b3c4b42ed831cdd5c09aa402a2c4049bbca2d287e184f3138edf1de",
+      "repository_path": "docs/kilder/noark/noark5/v5.0/schemas/endringslogg.xsd"
+    },
+    {
+      "version": "5.0",
+      "filename": "loependeJournal.xsd",
+      "sha256": "a631f05eac6496394e78597ac7d20d9e1269fcaccb6d1a8f5c50c75e53384f27",
+      "repository_path": "docs/kilder/noark/noark5/v5.0/schemas/loependeJournal.xsd"
+    },
+    {
+      "version": "5.0",
+      "filename": "metadatakatalog.xsd",
+      "sha256": "c7c0a7e7996f60b4c28eacd0e34e6af0d6ca2cfb76f58080221e163fb972a305",
+      "repository_path": "docs/kilder/noark/noark5/v5.0/schemas/metadatakatalog.xsd"
+    },
+    {
+      "version": "5.0",
+      "filename": "offentligJournal.xsd",
+      "sha256": "e3d9befccf53255be8233d2836ef1de35d9270d95bb3bcbd58ca63544fe170b3",
+      "repository_path": "docs/kilder/noark/noark5/v5.0/schemas/offentligJournal.xsd"
+    }
+  ],
+  "source_tree_sha": "82bd59f23aafdc2386e317e5492941862c2bab9a"
+}

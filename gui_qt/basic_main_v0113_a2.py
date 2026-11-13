@@ -201,6 +201,8 @@ class DwmMainWindow(_StableBasicWindow):
                 if viewer not in before:
                     controller.register_result_window(viewer)
                     self._a14_limit_result_label_columns(viewer)
+                    from .standard_values_v0114_a2 import install_standard_values_link
+                    install_standard_values_link(viewer)
         return result
 
     def _a14_limit_result_label_columns(self, viewer):

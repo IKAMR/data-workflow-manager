@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "description": "Extracted and checked simpleType restrictions from Noark 5 metadatakatalog.xsd. A field constraint is NOT a complete normative assessment.",
+  "source_repository": "https://github.com/IKAMR/digital-archive-workflow/tree/main/docs/kilder/noark/noark5",
+  "fields": {
+    "M300": {"name": "dokumentmedium", "versions": {
+      "3.1": {"restriction": "enumeration", "values": ["Fysisk medium", "Elektronisk arkiv", "Blandet fysisk og elektronisk arkiv"]},
+      "4.0": {"restriction": "enumeration", "values": ["Fysisk medium", "Elektronisk arkiv", "Blandet fysisk og elektronisk arkiv"]},
+      "5.0": {"restriction": "minLength", "min_length": 1}
+    }},
+    "M082": {"name": "journalposttype", "versions": {
+      "3.1": {"restriction": "enumeration", "values": ["Inngående dokument", "Utgående dokument", "Organinternt dokument for oppfølging", "Organinternt dokument uten oppfølging", "Saksframlegg"]},
+      "4.0": {"restriction": "enumeration", "values": ["Inngående dokument", "Utgående dokument", "Organinternt dokument for oppfølging", "Organinternt dokument uten oppfølging", "Saksframlegg"]},
+      "5.0": {"restriction": "minLength", "min_length": 1}
+    }},
+    "M500": {"name": "tilgangsrestriksjon", "versions": {
+      "3.1": {"restriction": "string"}, "4.0": {"restriction": "string"}, "5.0": {"restriction": "minLength", "min_length": 1}
+    }},
+    "M502": {"name": "skjermingMetadata", "versions": {
+      "3.1": {"restriction": "string"}, "4.0": {"restriction": "string"}, "5.0": {"restriction": "minLength", "min_length": 1}
+    }}
+  }
+}

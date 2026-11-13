@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "catalog_type": "dwm_noark5_experiences",
+  "publication": "local_seed_only",
+  "cases": [
+    {
+      "case_id": "NOARK5-M300-001",
+      "metadata_id": "M300",
+      "field": "document_medium",
+      "noark_versions": [
+        "5.0"
+      ],
+      "observed_value": "Elektroniskarkiv",
+      "reference_value": "Elektronisk arkiv",
+      "match_type": "exact",
+      "classification": "possible_semantic_equivalence",
+      "action": "manual_review",
+      "reference_xsd": "noark5/v5.0/schemas/metadatakatalog.xsd",
+      "xsd_constraint": {
+        "restriction": "minLength",
+        "minimum": 1,
+        "enumeration": false
+      },
+      "suggested_note": "M300 (dokumentmedium): Verdien «Elektroniskarkiv» er observert i uttrekket, mens DWM sitt historiske verdiregister har «Elektronisk arkiv». Noark 5 v5.0-XSD-typen krever minst ett tegn og oppstiller ingen fast verdiliste. Dette er derfor ikke i seg selv et brudd på denne XSD-feltregelen. Skrivemåten vurderes som en mulig semantisk variant; øvrige krav og depotfaglig betydning må vurderes særskilt.",
+      "review_status": "draft",
+      "source_notes": "Regelbekreftelse gjelder den undersøkte type-definisjonen i v5.0-XSD; semantisk ekvivalens og normative PDF/Word-krav er ikke endelig verifisert."
+    }
+  ]
+}

@@ -11,6 +11,28 @@ Prosjektets kode og dokumentasjon finnes i GitHub-repositoriet:
 Prosjektet viderefører hele Git-historikken fra **Noark 5 Workflow Manager**.
 **v0.1.3** var siste ferdige release under det gamle applikasjonsnavnet.
 
+## Standardkilder: Digital Archive Workflow
+
+**Felles kildebibliotek for Noark-spesifikasjoner og skjemaer:**
+[IKAMR/digital-archive-workflow – docs/kilder/noark](https://github.com/IKAMR/digital-archive-workflow/tree/main/docs/kilder/noark).
+Her ligger Noark 3, Noark 4/4.1 med DTD-er og Noark 5 v1.0–v6.0 med
+versjonsdelte XSD-er, standarddokumenter og vedlegg (ulike dekningsgrader).
+Dette er DWM sitt faste kildepunkt for historiske og versjonsbestemte Noark-referanser.
+Se [kildeoversikt og bruksregler](docs/NOARK-SOURCE-LIBRARY.md).
+
+## Varig Noark-plan: felles resultatdata, rapporter og erfaringsdeling
+
+Utviklingen av Noark 5-kontroller skal produsere **ett kanonisk, versjonert og
+kildesporbart datagrunnlag per uttrekk**, slik at de samme observasjonene kan
+brukes i depotrapporter (inkludert godkjenning/bevaring), sammenligning av flere
+uttrekk og statistikk på blant annet systemtype, arkivskaper og arkiveier.
+Kilden for teknisk standardtolkning er [Digital Archive Workflow / Noark](https://github.com/IKAMR/digital-archive-workflow/tree/main/docs/kilder/noark).
+
+Denne strategien, lokal XSD-evidens, historiske Noark-versjoner, lokal
+kunnskapsbase og videre utviklingstrinn er dokumentert i
+[docs/NOARK5-CANONICAL-RESULTS-AND-KNOWLEDGE-ROADMAP.md](docs/NOARK5-CANONICAL-RESULTS-AND-KNOWLEDGE-ROADMAP.md).
+Se også [docs/NOARK-XSD-VERSION-DETECTION.md](docs/NOARK-XSD-VERSION-DETECTION.md).
+
 ## Profiler og spesialisering
 
 Data Workflow Manager skal ha en generisk runtime, mens domene- og
@@ -181,6 +203,7 @@ Før større endringer, se blant annet:
 - [docs/SHARED-ROADMAP.md](docs/SHARED-ROADMAP.md)
 - [docs/RUNTIME-ENVIRONMENTS.md](docs/RUNTIME-ENVIRONMENTS.md)
 - [docs/RELEASES.md](docs/RELEASES.md)
+- [docs/NOARK-SOURCE-LIBRARY.md](docs/NOARK-SOURCE-LIBRARY.md)
 
 ## Historikk
 
@@ -190,3 +213,7 @@ prosjektet da het **Noark 5 Workflow Manager**.
 ## Lisens
 
 GNU General Public License v3. Se `LICENCE`.
+
+## Lokal erfaringsvurdering (v0.1.14-a7)
+
+Kjente Noark 5-observasjoner kan gi forslag til kontrollmerknad i Resultatvisninger. Kontrolløren lagrer eksplisitt en beslutningshendelse i jobbens Work. Valgfrie lokale tilpasninger lagres separat, uten å endre kontrollresultater. Se [docs/NOARK5-LOCAL-EXPERIENCE.md](docs/NOARK5-LOCAL-EXPERIENCE.md).

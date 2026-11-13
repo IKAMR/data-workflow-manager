@@ -80,6 +80,14 @@ def restored_main_rect(saved: Rect, screens: list[Rect], *,
                                if visible_on_any(saved, [screen])]):
         new_x = target.x + saved_relative[0]
         new_y = target.y + saved_relative[1]
+    # A correctly saved client rectangle on the same connected screen needs
+    # no added inset. In particular, do not pull user-positioned windows
+    # away from the top/right edge on a secondary widescreen.
+    if (target.x <= new_x and target.y <= new_y and
+            new_x + saved.width <= target.right and
+            new_y + saved.height <= target.bottom):
+        return Rect(new_x, new_y, saved.width, saved.height)
+    # Only recover a rectangle that has genuinely left the available screen.
     # QWidget.move uses client coordinates; availableGeometry constrains the
     # complete decorated window, which may be larger on high-DPI Windows.
     pad_x, pad_y = frame_padding
