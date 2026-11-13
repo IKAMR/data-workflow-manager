@@ -6,6 +6,9 @@ info.xml evidence is managed by the existing depot metadata implementation.
 from __future__ import annotations
 
 from pathlib import Path
+from contextlib import nullcontext
+import json
+import shutil
 import xml.etree.ElementTree as ET
 
 # Future Setup/per-job option. For a2 the requested default is fixed.
@@ -21,9 +24,9 @@ def linked_values(values: dict[str, str], changed: str = 'label') -> dict[str, s
             result['label'] = str(result.get('archive_description') or '').strip()
         else:
             label = str(result.get('label') or '').strip()
-            if not label:
+            if 'label' not in result:
                 label = str(result.get('archive_description') or '').strip()
-                result['label'] = label
+            result['label'] = label
             result['archive_description'] = label
     return result
 
@@ -55,28 +58,127 @@ def read_original(path: str | Path) -> dict[str, str]:
     return read_meta_from_mets(Path(path))
 
 
+def _direct_context(job):
+    """Scope resolution to the Work explicitly selected in the shared job.
+
+    Advanced-mode paths are not touched. In particular, never guess based on
+    a folder name such as a03 or dwm2.
+    """
+    from noark5_workflow.core.work_paths import selected_direct_work
+    work = getattr(job, 'work_operations', None)
+    getter = getattr(job, 'get_operation_params', None)
+    layout = getter('__dwm_work_layout__') if callable(getter) else {}
+    if work and isinstance(layout, dict) and layout.get('mode') == 'selected':
+        return selected_direct_work(work)
+    return nullcontext()
+
+
+def _old_metadata_dir(job) -> Path | None:
+    """Location mistakenly used by a2/a3 before job.json existed."""
+    work = getattr(job, 'work_operations', None)
+    if not work:
+        return None
+    getter = getattr(job, 'get_operation_params', None)
+    layout = getter('__dwm_work_layout__') if callable(getter) else {}
+    if not isinstance(layout, dict) or layout.get('mode') != 'selected':
+        return None
+    from settings import load_config
+    folder = str(load_config().get('app_work_subfolder', 'dwm') or '').strip()
+    sub = Path(folder)
+    if not folder or sub.is_absolute() or '..' in sub.parts:
+        return None
+    return Path(work) / sub / 'metadata'
+
+
+def _legacy_payload(job) -> dict | None:
+    """Read legacy misplaced metadata without modifying or moving anything."""
+    directory = _old_metadata_dir(job)
+    if directory is None:
+        return None
+    path = directory / 'depot_metadata.json'
+    if not path.is_file() or path.is_symlink():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding='utf-8'))
+    except (OSError, ValueError, UnicodeError):
+        return None
+    if (not isinstance(payload, dict) or payload.get('file_type') != 'dwm-depot-metadata'
+            or str(payload.get('job_id')) != str(job.job_id)):
+        return None
+    return payload
+
+
+def _copy_misplaced_metadata(job) -> None:
+    """Recover prior a3 metadata into the selected Work, without deleting it.
+
+    Never overwrite a correct Work metadata directory, merge unrelated jobs,
+    follow symlinks, or modify an original source file.
+    """
+    wrong = _old_metadata_dir(job)
+    if wrong is None or not wrong.is_dir():
+        return
+    if wrong.is_symlink():
+        raise ValueError('Kan ikke migrere symbolsk lenket metadataområde.')
+    from noark5_workflow.reporting.depot_metadata import metadata_root_path
+    with _direct_context(job):
+        correct = metadata_root_path(job)
+    if correct is None or correct == wrong:
+        return
+    if correct.exists():
+        # Never silently merge two potentially divergent sets of metadata.
+        return
+    if _legacy_payload(job) is None:
+        raise ValueError('Eldre metadata kan ikke knyttes til denne jobben. Ingen filer er endret.')
+    for candidate in wrong.rglob('*'):
+        if candidate.is_symlink():
+            raise ValueError('Eldre metadata inneholder symbolske lenker. Ingen filer er endret.')
+    correct.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(wrong, correct)
+
+
 def current_values(job) -> dict[str, str]:
-    from noark5_workflow.reporting.depot_metadata import load_depot_metadata
-    return dict(load_depot_metadata(job)['current'])
+    from noark5_workflow.reporting.depot_metadata import load_depot_metadata, metadata_root_path
+    with _direct_context(job):
+        root = metadata_root_path(job)
+        if root is not None and not (root / 'depot_metadata.json').is_file():
+            legacy = _legacy_payload(job)
+            if legacy is not None and isinstance(legacy.get('current'), dict):
+                return dict(legacy['current'])
+        return dict(load_depot_metadata(job)['current'])
 
 
 def original_evidence_path(job) -> Path | None:
-    """Return the preserved original if there is one, not its mutable Source."""
+    """Return preserved original, including read-only legacy location fallback."""
     from noark5_workflow.reporting.depot_metadata import load_depot_metadata, metadata_root_path
-    root = metadata_root_path(job)
-    if root is None:
-        return None
-    for source in reversed(load_depot_metadata(job)['source_imports']):
-        path = str(source.get('preserved_file') or '')
-        if path:
-            base = root.parent
-            candidate = (base / path).resolve(strict=False)
-            if candidate.is_relative_to(base.resolve(strict=False)) and candidate.is_file():
-                return candidate
+    with _direct_context(job):
+        root = metadata_root_path(job)
+        if root is None:
+            return None
+        payload = load_depot_metadata(job)
+        base = root.parent
+        if not (root / 'depot_metadata.json').is_file():
+            legacy = _legacy_payload(job)
+            wrong = _old_metadata_dir(job)
+            if legacy is not None and wrong is not None:
+                payload = legacy
+                base = wrong.parent
+        for source in reversed(payload.get('source_imports') or []):
+            path = str(source.get('preserved_file') or '')
+            if path:
+                candidate = (base / path).resolve(strict=False)
+                if candidate.is_relative_to(base.resolve(strict=False)) and candidate.is_file():
+                    return candidate
     return None
 
 
 def persist_metadata(job, values: dict[str, str], original: str | Path | None = None) -> tuple[Path, Path]:
+    """Persist in the selected Work; recover any misplaced a3 metadata safely."""
+    _copy_misplaced_metadata(job)
+    with _direct_context(job):
+        return _persist_metadata_in_resolved_work(job, values, original)
+
+
+def _persist_metadata_in_resolved_work(job, values: dict[str, str], original: str | Path | None = None) -> tuple[Path, Path]:
     """Save canonical metadata and an editable Work XML; never write to Source.
 
     The generated XML is a working metadata document, not a claim of XSD

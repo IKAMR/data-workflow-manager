@@ -21,7 +21,7 @@ class BasicStepTests(unittest.TestCase):
         fragment = ast.fix_missing_locations(ast.Module(body=[ast.ClassDef(
             name='StepWindow', bases=[], keywords=[], body=methods, decorator_list=[],
         )], type_ignores=[]))
-        scope = {'Path': Path}
+        scope = {'Path': Path, 'describe_info_xml_status': lambda *a, **k: 'Ikke funnet', 'DIAS_LINK_LABEL_DELIVERYSPECIFICATION': True}
         exec(compile(fragment, str(GUI), 'exec'), scope)
         cls.StepWindow = scope['StepWindow']
 
@@ -34,7 +34,7 @@ class BasicStepTests(unittest.TestCase):
         self.assertIn('self._save_as()', code)
         self.assertIn("self._a2_set_step('run')", code)
         self.assertIn('self._a2_overview_start.clicked.connect(self._start_basic_control)', code)
-        self.assertIn("'info-working.xml'", code)
+        self.assertIn("('info.xml', 'InfoStatus')", code)
         self.assertNotIn('setattr(ResultCenterWindow', code)
 
     def test_step_navigation_hides_other_groups(self):
@@ -79,15 +79,16 @@ class BasicStepTests(unittest.TestCase):
         w.basic_work_path = Label()
         w.basic_dias_label = Label()
         w._a2_original = None
+        w._a2_pending_dirty = False
         w._selected_basic_controls = lambda: ('dwm',)
         w._a2_overview_labels = {key: Label() for key in (
-            'Fil', 'Uttrekk', 'LABEL', 'Original', 'Arbeidskopi', 'Work', 'Valg', 'Status')}
+            'Fil', 'Uttrekk', 'LABEL', 'InfoStatus', 'Work', 'Valg', 'Status')}
         w._a2_overview_statuses = {key: Label() for key in ('joblist', 'source', 'work', 'run')}
         w._a2_overview_start = Button()
         w._a2_refresh_overview()
-        self.assertIn('Ingen jobbliste valgt', w._a2_overview_labels['Fil'].text())
+        self.assertEqual(w._a2_overview_labels['Fil'].text(), 'Ikke lagret')
         self.assertEqual(w._a2_overview_labels['Uttrekk'].text(), 'Ikke valgt')
-        self.assertEqual(w._a2_overview_labels['Arbeidskopi'].text(), 'Ikke opprettet')
+        self.assertEqual(w._a2_overview_labels['InfoStatus'].text(), 'Ikke funnet')
         self.assertFalse(w._a2_overview_start.enabled)
         source = r'C:\arc\2026\test\content'
         work = r'D:\work\2026\test'

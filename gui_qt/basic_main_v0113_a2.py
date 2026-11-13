@@ -7,18 +7,22 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer, QEvent
 from PySide6.QtWidgets import (
-    QDialog, QDialogButtonBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout,
+    QCheckBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout,
     QLabel, QLineEdit, QMessageBox, QPlainTextEdit, QPushButton, QScrollArea,
     QTabWidget, QVBoxLayout, QWidget, QFrame, QGridLayout, QApplication,
 )
 
+from app.dias_status_v0113_a3 import describe_info_xml_status
 from app.dias_info_v0113_a2 import (
     DIAS_LINK_LABEL_DELIVERYSPECIFICATION, candidate_info_xml, current_values,
     linked_values, original_evidence_path, persist_metadata, read_original,
 )
 from noark5_workflow.operations.dias_mets import DIAS_METADATA_FIELDS
+from app.basic_drop_v0113_a3 import classify_basic_drop
+from app.basic_work_guard_v0113_a3 import inspect_work, nearby_job_lists, _same, work_contains_only_joblists
+from app.basic_joblist_suggestion_v0113_a3 import suggest_joblist_path
 from .basic_main_v0113_a1 import DwmMainWindow as _StableBasicWindow
 
 
@@ -150,11 +154,21 @@ class DwmMainWindow(_StableBasicWindow):
     def __init__(self, *args, **kwargs):
         self._a2_pending_values: dict[str, str] = {}
         self._a2_original: Path | None = None
+        self._a2_original_fields: dict[str, str] = {}
         self._a2_pending_dirty = False
+        self._a3_manually_loaded_info = False
+        self._a3_work_approval = None
+        self._a3_autorun_armed = False
+        self._a3_auto_results_pending = False
         super().__init__(*args, **kwargs)
         self._a2_install_metadata_ui()
         self._a2_load_existing_metadata()
         self._a2_install_steps()
+        self._a3_install_new_control()
+        self._a3_install_auto_views()
+        self._a3_install_run_joblist()
+        self._a3_simplify_run_text()
+        self._a3_enable_drops()
         QTimer.singleShot(0, self._a2_fit_initial_window)
 
     def _a2_install_metadata_ui(self):
@@ -199,12 +213,31 @@ class DwmMainWindow(_StableBasicWindow):
             ('overview', 'Oversikt'), ('source', 'Source / metadata'),
             ('work', 'Work'), ('run', 'Kjøring'),
         ):
-            button = QPushButton(title, content)
+            button = QPushButton('Source' if key == 'source' else title, content)
             button.setCheckable(True)
+            button.setMinimumHeight(40)
+            # Only the active page has the accent; other tabs keep app styling.
+            button.setStyleSheet(
+                'QPushButton:checked {'
+                ' background-color: #307e60; color: white;'
+                ' border: 2px solid #8dd7ad; font-weight: 700;'
+                '}'
+            )
             button.clicked.connect(lambda _checked=False, selected=key:
                                    self._a2_set_step(selected))
             navigation.addWidget(button, 1)
             self._a2_step_buttons[key] = button
+        # Previous/Next belong to the same row as the stage tabs, so navigation
+        # remains visible without scrolling to the bottom of the form.
+        navigation.addSpacing(8)
+        self._a3_previous_button = QPushButton('← Forrige', content)
+        self._a3_previous_button.setToolTip('Gå til forrige steg')
+        self._a3_previous_button.clicked.connect(lambda: self._a3_move_step(-1))
+        navigation.addWidget(self._a3_previous_button)
+        self._a3_next_button = QPushButton('Neste →', content)
+        self._a3_next_button.setToolTip('Gå til neste steg')
+        self._a3_next_button.clicked.connect(lambda: self._a3_move_step(1))
+        navigation.addWidget(self._a3_next_button)
         layout.insertLayout(1, navigation)
 
         # Four short, read-only cards. Values are the actual paths, not
@@ -218,15 +251,15 @@ class DwmMainWindow(_StableBasicWindow):
         captions = {
             'joblist': (('Jobbliste', 'Fil'),),
             'source': (('Uttrekksmappe', 'Uttrekk'), ('LABEL', 'LABEL'),
-                       ('info.xml (original)', 'Original'), ('info.xml (arbeidskopi)', 'Arbeidskopi')),
+                       ('info.xml', 'InfoStatus')),
             'work': (('Arbeidsmappe', 'Work'),),
             'run': (('Kontrollgrupper', 'Valg'), ('Siste jobbstatus', 'Status')),
         }
         for key, title, action in (
-            ('joblist', 'Jobbliste', None),
-            ('source', 'Source og DIAS-metadata', 'source'),
-            ('work', 'Work', 'work'),
-            ('run', 'Kontroller og kjøring', 'run'),
+            ('source', '1. Source og DIAS-metadata', 'source'),
+            ('work', '2. Work', 'work'),
+            ('run', '3. Kontroller og kjøring', 'run'),
+            ('joblist', 'Jobbliste (valgfritt)', None),
         ):
             card = QFrame(overview)
             card.setObjectName('basic_a2_' + key)
@@ -286,7 +319,7 @@ class DwmMainWindow(_StableBasicWindow):
         layout.insertWidget(2, overview)
         for widget in content.findChildren(QLabel):
             if widget.text() == 'Tre steg for å kontrollere et Noark 5-uttrekk.':
-                widget.setText('Jobbliste · Source · Work · Kjøring')
+                widget.setText('Source og info.xml · Work · Kjøring · Jobbliste (valgfritt)')
                 break
         self._a2_overview_page = overview
         self.basic_dias_label.textChanged.connect(self._a2_refresh_overview)
@@ -295,6 +328,474 @@ class DwmMainWindow(_StableBasicWindow):
         for check in self.basic_option_checks.values():
             check.toggled.connect(self._a2_refresh_overview)
         self._a2_set_step('overview')
+
+    def _a3_install_run_joblist(self):
+        """Show the shared, optional job list where the run is configured.
+
+        These controls use the existing Basic/Advanced open and save methods;
+        they do not create a second job-list state or require saving to run.
+        """
+        group = self._a2_step_groups['run']
+        layout = group.layout()
+        row = QHBoxLayout()
+        caption = QLabel('Jobbliste (valgfritt):', group)
+        row.addWidget(caption)
+        self._a3_run_joblist_path = QLabel('Ikke lagret', group)
+        self._a3_run_joblist_path.setObjectName('basic_a3_run_joblist_path')
+        self._a3_run_joblist_path.setWordWrap(True)
+        self._a3_run_joblist_path.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse)
+        self._a3_run_joblist_path.setMinimumWidth(0)
+        row.addWidget(self._a3_run_joblist_path, 1)
+        self._a3_run_open_joblist = QPushButton('Åpne…', group)
+        self._a3_run_open_joblist.clicked.connect(self._a2_choose_joblist)
+        row.addWidget(self._a3_run_open_joblist)
+        self._a3_run_save_joblist = QPushButton('Lagre som…', group)
+        self._a3_run_save_joblist.clicked.connect(self._a2_save_joblist_as)
+        row.addWidget(self._a3_run_save_joblist)
+        layout.insertLayout(0, row)
+        self._a2_refresh_overview()
+
+    def _a3_simplify_run_text(self):
+        """Keep Basic run controls useful without repeating Setup documentation."""
+        # The existing Basic class updates this label when controls change.
+        # Preserve its underlying state, but do not display the long paragraph.
+        self.basic_workflow_description.hide()
+        group = self._a2_step_groups['run']
+        for note in group.findChildren(QLabel):
+            if note.text().startswith('Før første kjøring vil DWM'):
+                note.setText('Fullført kontroll betyr ikke faglig godkjent uttrekk.')
+                break
+
+    def _a3_install_new_control(self):
+        """New Basic run uses the same empty workspace as Advanced / Ny jobbliste."""
+        content = self.basic_advanced_button.parentWidget()
+        header = content.layout().itemAt(0).layout()
+        self.basic_new_control_button = QPushButton('Ny kontroll', content)
+        self.basic_new_control_button.setToolTip(
+            'Starter med tom Source, Work og jobbliste. Tidligere filer og resultater bevares.')
+        self.basic_new_control_button.clicked.connect(self._a3_new_control)
+        header.insertWidget(header.indexOf(self.basic_advanced_button),
+                            self.basic_new_control_button, 0, Qt.AlignmentFlag.AlignTop)
+
+        # Importing info.xml may precede the Source folder. Store metadata as a
+        # draft until the same shared job is created; no files are written to Source.
+        source_group = self._a2_step_groups['source']
+        source_layout = source_group.layout()
+        # The LABEL-adjacent "Info.xml – Les / endre" button handles both
+        # importing an original and editing the shared DIAS metadata.
+        # Avoid a duplicate button at the top of Source.
+        # One instruction only: both entry orders are valid.
+        for note in source_group.findChildren(QLabel):
+            if 'Velg mappen som inneholder selve Noark 5-uttrekket' in note.text():
+                note.setText('Velg uttrekksmappe eller les info.xml. Rekkefølgen er valgfri.')
+                break
+
+    def _a3_new_control(self):
+        """Reset open joblist, too. Do not discard unsaved changes silently."""
+        if self._worker is not None or self.api.running:
+            QMessageBox.information(self, 'Ny kontroll',
+                'Avslutt pågående kjøring før du starter en ny kontroll.')
+            return
+        if not self._maybe_save():
+            return
+        try:
+            # Identical state transition to Advanced / Ny jobbliste.
+            self.api.new_job_list()
+        except Exception as exc:
+            self._error(exc)
+            return
+        self._active_id = None
+        self._render_key = None
+        self._a8_run_context = None
+        self._a8_live_job = None
+        self.config.setValue('qt/skip_auto_reopen', True)
+        self.config.setValue('qt/last_job_list', '')
+        self._refresh_recent_menu()
+        self._a2_pending_values = {}
+        self._a2_original = None
+        self._a2_original_fields = {}
+        self._a2_pending_dirty = False
+        self._a3_manually_loaded_info = False
+        self._a3_work_approval = None
+        self._a3_auto_results_pending = False
+        self._reset_basic_selection()
+        self.basic_dias_label.clear()
+        self.basic_dias_note.setText('Ingen info.xml funnet eller valgt.')
+        self._refresh(force=True)
+        self._a2_set_step('overview')
+
+    def _a3_load_info_xml(self):
+        """The dedicated button loads original METS before Source or Work exists."""
+        if self._worker is not None or self.api.running:
+            QMessageBox.information(self, 'Info.xml',
+                'Avslutt pågående kjøring før metadata leses.')
+            return
+        source = self.basic_source_path.text().strip()
+        initial = str(Path(source) if source else
+                      self._a2_original.parent if self._a2_original else Path.home())
+        selected, _ = QFileDialog.getOpenFileName(
+            self, 'Les original info.xml', initial,
+            'XML-filer (*.xml);;Alle filer (*)')
+        if selected:
+            self._a3_import_info_path(selected)
+
+    def _a3_import_info_path(self, selected):
+        """Import as a pending draft; original bytes are copied to Work on save."""
+        if self._worker is not None or self.api.running:
+            return False
+        try:
+            path = Path(selected)
+            if not path.is_file() or path.stat().st_size > 8_000_000:
+                raise ValueError('info.xml mangler eller er større enn 8 MB.')
+            values = read_original(path)
+        except (ValueError, OSError) as exc:
+            QMessageBox.warning(self, 'Info.xml', str(exc))
+            return False
+        existing = dict(self._a2_pending_values)
+        existing.update({key: value for key, value in values.items() if value})
+        self._a2_pending_values = existing
+        self._a2_original = path
+        self._a2_original_fields = dict(values)
+        self._a2_pending_dirty = True
+        self._a3_manually_loaded_info = True
+        self.basic_dias_label.setText(str(values.get('label') or existing.get('label') or ''))
+        self.basic_dias_note.setText('Info.xml valgt: ' + str(path))
+        self._a2_set_step('source')
+        return True
+
+    def _a3_enable_drops(self):
+        """Attach local-file drops to the existing widgets, not a second GUI."""
+        self._a3_drop_targets = {}
+        targets = [
+            (self._a2_step_groups['source'], 'source'),
+            (self._a2_step_groups['work'], 'work'),
+            (self._a2_overview_page.findChild(QFrame, 'basic_a2_source'), 'source'),
+            (self._a2_overview_page.findChild(QFrame, 'basic_a2_work'), 'work'),
+            (self._a2_overview_page.findChild(QFrame, 'basic_a2_joblist'), 'joblist'),
+        ]
+        for root_widget, role in targets:
+            if root_widget is None:
+                continue
+            # All visible labels, path fields and card backgrounds are targets.
+            for widget in (root_widget, *root_widget.findChildren(QWidget)):
+                if widget is self.basic_dias_label:
+                    continue  # LABEL stays a normal editable text field.
+                self._a3_drop_targets[widget] = role
+                widget.setAcceptDrops(True)
+                widget.installEventFilter(self)
+        # The single Info.xml button also accepts direct XML drops.
+        widget = self.basic_info_xml_button
+        self._a3_drop_targets[widget] = 'info'
+        widget.setAcceptDrops(True)
+        widget.installEventFilter(self)
+
+    def eventFilter(self, watched, event):
+        role = getattr(self, '_a3_drop_targets', {}).get(watched)
+        if role and event.type() in (QEvent.Type.DragEnter, QEvent.Type.DragMove, QEvent.Type.Drop):
+            urls = event.mimeData().urls() if event.mimeData().hasUrls() else []
+            if len(urls) != 1 or not urls[0].isLocalFile():
+                event.ignore()
+                return True
+            try:
+                action, path = classify_basic_drop(urls[0].toLocalFile(), role)
+            except ValueError:
+                event.ignore()
+                return True
+            if event.type() in (QEvent.Type.DragEnter, QEvent.Type.DragMove):
+                event.acceptProposedAction()
+                return True
+            event.acceptProposedAction()
+            self._a3_handle_drop(action, path)
+            return True
+        return super().eventFilter(watched, event)
+
+    def _a3_handle_drop(self, action, path):
+        if self._worker is not None or self.api.running:
+            QMessageBox.information(self, 'Dra og slipp',
+                                    'Avslutt kjøringen før du endrer mapper eller metadata.')
+            return
+        if action == 'info':
+            self._a3_import_info_path(path)
+        elif action == 'source':
+            self._a3_accept_source(path)
+        elif action == 'work':
+            self._a3_accept_work(path)
+        elif action == 'joblist':
+            if self._maybe_save():
+                self._open_path(str(path))
+                self._a2_refresh_overview()
+
+    def _a3_accept_source(self, folder):
+        """Same validation and state transitions as ordinary Finn uttrekk."""
+        from app.job_preflight_v018_a6 import check_extraction_folder
+        from app.storage_profiles_v0110_a1 import suggest_known_source_work
+        from app.storage_profiles_v0110_a2 import resolve_storage_profile
+        source = str(folder)
+        try:
+            issues = check_extraction_folder(source, profile_id='noark5')
+        except Exception as exc:
+            QMessageBox.warning(self, 'Kunne ikke lese uttrekket', str(exc))
+            return
+        if issues:
+            QMessageBox.warning(self, 'Dette er ikke en Noark 5-uttrekksmappe',
+                                '\n\n'.join(issue.message for issue in issues))
+            return
+        old_source = self.basic_source_path.text().strip()
+        if old_source and Path(old_source).resolve(strict=False) != folder.resolve(strict=False):
+            self._a3_manually_loaded_info = False
+            self._a2_original = None
+            self._a2_original_fields = {}
+            self._a2_pending_values = {}
+            self._a2_pending_dirty = False
+        self.config.setValue('qt/last_new_source_dir', source)
+        self.basic_source_path.setText(source)
+        self.basic_work_path.clear()
+        self._a3_work_approval = None
+        self._basic_job_id = None
+        self._basic_legacy_layout = False
+        self._basic_selection_edited = True
+        self.basic_choose_work.setEnabled(True)
+        self.basic_source_hint.setText('Noark 5-uttrekksmappe gjenkjent.')
+        self.basic_work_hint.setText('Velg en tom Work-mappe. Valgt mappe brukes direkte.')
+        try:
+            profile = resolve_storage_profile(self.api.settings)
+            roles = suggest_known_source_work(source, profile_id=profile)
+            if roles.get('work_root'):
+                self.basic_work_hint.setText(
+                    'Mulig plassering: ' + str(roles['work_root']) +
+                    '. Basic bruker mappen du velger direkte.')
+        except (ValueError, OSError):
+            pass
+        self._sync_basic_status()
+        self._a2_set_step('source')
+
+    def _choose_basic_work(self):
+        """Apply the same guarded selection to the picker and drag-and-drop."""
+        if not self.basic_source_path.text() or self._worker is not None or self.api.running:
+            return
+        source = Path(self.basic_source_path.text())
+        current = self.basic_work_path.text().strip()
+        initial = current or str(source.parent)
+        folder = QFileDialog.getExistingDirectory(self, 'Velg Work-mappe', initial)
+        if folder:
+            self._a3_accept_work(Path(folder))
+
+    def _a3_accept_work(self, folder):
+        """Inspect Work, show contents, then request explicit permission."""
+        from app.basic_start_v0111_a1 import prepare_basic_plan, existing_basic_job
+        source = self.basic_source_path.text().strip()
+        if not source:
+            QMessageBox.information(self, 'Work', 'Velg Source før Work.')
+            return
+        try:
+            plan = prepare_basic_plan(source, str(folder), self.api.settings,
+                                      controls=self._selected_basic_controls())
+            inspection = inspect_work(plan.work_operations, plan.source_extraction)
+            match = existing_basic_job(self.api, plan)
+            kind = ('same_job' if inspection.kind == 'unknown_job' and match is not None
+                    else inspection.kind)
+        except (OSError, ValueError) as exc:
+            QMessageBox.warning(self, 'Ugyldig Work-plassering', str(exc))
+            return
+        if kind == 'different_source':
+            QMessageBox.warning(self, 'Work: feil Source',
+                'Registrert Source er forskjellig fra valgt uttrekk. '
+                'Denne Work-mappen kan ikke brukes. Ingen filer endres.\n\n'
+                + inspection.summary())
+            return
+        if kind == 'unknown_job':
+            self._a3_offer_existing_work(
+                plan, inspection, unknown_source=True)
+            return
+        if kind == 'same_job' and match is None:
+            self._a3_offer_existing_work(
+                plan, inspection, unknown_source=False)
+            return
+        if kind != 'empty':
+            answer = QMessageBox.question(
+                self, 'Work inneholder allerede data',
+                'Bekrefter du at denne mappen skal brukes til kontrollen?\n'
+                'DWM flytter eller sletter ikke eksisterende filer.\n\n'
+                + inspection.summary(),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                return
+        self._a3_work_approval = (str(plan.source_extraction.resolve(strict=False)),
+                                  str(plan.work_operations.resolve(strict=False)),
+                                  kind)
+        self.config.setValue('qt/last_work_dir', str(folder))
+        self.basic_work_path.setText(str(folder))
+        self._basic_job_id = None
+        self._basic_legacy_layout = False
+        self._basic_selection_edited = True
+        self.basic_work_hint.setText('Work valgt: ' + str(plan.work_operations) +
+                                     (' (eksisterende innhold godkjent)' if inspection.count else ' (tom mappe)'))
+        self._sync_basic_status()
+        self._a2_set_step('work')
+
+    def _a3_offer_existing_work(self, plan, inspection, *, unknown_source: bool):
+        """Offer recovery through the *shared* job-list API, never adopt raw Work.
+
+        A folder name or adjacent .n5jobs file is not proof of identity.
+        The opened job must independently match both source and Work path.
+        Existing controls and results are not rewritten or restarted.
+        """
+        if self._worker is not None or self.api.running:
+            return
+        candidates = nearby_job_lists(plan.work_operations)
+        caption = ('Source kan ikke bekreftes fra denne Work-mappen.'
+                   if unknown_source else
+                   'Source stemmer, men jobben er ikke åpnet i gjeldende jobbliste '
+                   'med samme kontrolloppsett.')
+        if candidates:
+            nearby = '\n'.join('  - ' + str(item) for item in candidates[:8])
+            caption += ('\n\nMulige jobblister i nærheten (ikke verifisert):\n'
+                        + nearby)
+        message = QMessageBox(self)
+        message.setWindowTitle('Eksisterende Work – åpne riktig jobb')
+        message.setIcon(QMessageBox.Icon.Warning)
+        message.setText(caption)
+        message.setInformativeText(
+            'Åpne eksisterende .n5jobs for å kontrollere jobbidentiteten. '
+            'Ingen Work-filer slettes eller overskrives.\n\n'
+            + inspection.summary())
+        open_button = message.addButton('Åpne jobbliste…', QMessageBox.ButtonRole.AcceptRole)
+        message.addButton('Velg annen Work', QMessageBox.ButtonRole.RejectRole)
+        message.exec()
+        if message.clickedButton() is not open_button:
+            return
+        if not self._maybe_save():
+            return
+        start_dir = str(candidates[0].parent) if candidates else str(plan.work_operations)
+        filename, _ = QFileDialog.getOpenFileName(
+            self, 'Åpne eksisterende DWM-jobbliste', start_dir,
+            'DWM-jobblister (*.n5jobs)')
+        if not filename:
+            return
+        # The regular open path validates the file and handles all shared state.
+        self._open_path(filename)
+        workspace = self.api.workspace()
+        if not workspace.job_list_path or not _same(workspace.job_list_path, filename):
+            return
+        found = None
+        for view in workspace.jobs:
+            try:
+                job = self.api.job_details(view.job_id).job
+                job_source = getattr(job, 'source_extraction', None)
+                job_work = getattr(job, 'effective_work_operations', None)
+                if (job_source and job_work and
+                        _same(job_source, plan.source_extraction) and
+                        _same(job_work, plan.work_operations)):
+                    found = view.job_id
+                    break
+            except (ValueError, OSError, AttributeError):
+                continue
+        if found is None:
+            QMessageBox.warning(
+                self, 'Jobblisten samsvarer ikke',
+                'Den åpnede jobblisten har ingen jobb med både valgt Source '
+                'og nøyaktig denne Work-mappen. Work er ikke godkjent. '
+                'Velg riktig jobbliste eller en ny Work-mappe.')
+            return
+        self.api.select_job(found)
+        self._active_id = found
+        self._basic_job_id = found
+        self._a3_work_approval = None
+        self._load_basic_active_job()
+        self._refresh(force=True)
+        self._a2_set_step('work')
+        QMessageBox.information(
+            self, 'Eksisterende jobb åpnet',
+            'Source og Work er bekreftet mot den åpne jobblisten. '
+            'Eksisterende kontrolloppsett og resultater er beholdt. '
+            'Kontroller valgte operasjoner før ny kjøring.')
+
+    def _a3_install_auto_views(self):
+        """Vis to tydelige grupper uten å endre kontroller eller kjøringslogikk."""
+        group = self._a2_step_groups['run']
+        layout = group.layout()
+        # Bruk den eksisterende overskriften over kontrollvalgene.
+        for label in group.findChildren(QLabel):
+            if label.text().strip() == 'Velg kontroller:':
+                label.setText('Kontroller som skal kjøres')
+                break
+        self._a3_auto_results = QCheckBox('Åpne Resultatvisninger etter kjøring', group)
+        self._a3_auto_details = QCheckBox('Åpne Kjøredetaljer ved start', group)
+        self._a3_auto_log = QCheckBox('Åpne kjørelogg ved start', group)
+        for key, widget, default in (
+            ('results', self._a3_auto_results, True),
+            ('details', self._a3_auto_details, False),
+            ('log', self._a3_auto_log, False),
+        ):
+            widget.setChecked(self.config.value('qt/a3_basic_auto_' + key, default, type=bool))
+            widget.toggled.connect(lambda checked, name=key:
+                                   self.config.setValue('qt/a3_basic_auto_' + name, checked))
+        anchor = layout.indexOf(self.basic_workflow_description)
+        self._a3_auto_views_heading = QLabel('Automatisk åpning av vinduer', group)
+        self._a3_auto_views_heading.setContentsMargins(0, 10, 0, 2)
+        layout.insertWidget(anchor + 1, self._a3_auto_views_heading)
+        for offset, widget in enumerate((self._a3_auto_results,
+                                          self._a3_auto_details, self._a3_auto_log), 2):
+            layout.insertWidget(anchor + offset, widget)
+
+    def _a3_create_approved_job(self, plan):
+        """Use the shared API to create a job in explicitly approved, non-DWM Work."""
+        from app.basic_start_v0111_a1 import existing_basic_job
+        previous = existing_basic_job(self.api, plan)
+        if previous is not None:
+            self.api.select_job(previous)
+            return previous, False
+        inspection = inspect_work(plan.work_operations, plan.source_extraction)
+        list_only = (inspection.kind == 'empty' and inspection.count > 0
+                     and work_contains_only_joblists(plan.work_operations))
+        if inspection.kind != 'unrelated' and not list_only:
+            raise ValueError('Work er ikke lenger en godkjent mappe uten DWM-jobbdata.')
+        token = getattr(self, '_a3_work_approval', None)
+        if (token is None or not _same(token[0], plan.source_extraction)
+                or not _same(token[1], plan.work_operations)
+                or token[2] not in ('unrelated', 'empty')):
+            raise ValueError('Work med innhold må først godkjennes i Work-steget.')
+        view = self.api.create_job(source_extraction=str(plan.source_extraction),
+                                   name=plan.source_extraction.name, profile_id='noark5')
+        try:
+            self.api.update_storage(view.job_id, {
+                'work_root': str(plan.work_root),
+                'work_operations': str(plan.work_operations),
+            })
+            self.api.set_workflow(view.job_id, plan.operation_ids)
+            self.api.use_selected_work_directly(view.job_id)
+        except Exception:
+            try:
+                self.api.remove_job(view.job_id)
+            except Exception:
+                pass
+            raise
+        return view.job_id, True
+
+    def _a3_auto_start_windows(self):
+        if not getattr(self, '_a3_autorun_armed', False):
+            return
+        self._a3_autorun_armed = False
+        if self._a3_auto_details.isChecked():
+            self._open_basic_run_details()
+        if self._a3_auto_log.isChecked():
+            self._a8_show_job_log()
+
+    @staticmethod
+    def _a3_neighbor_step(step, direction):
+        steps = ('overview', 'source', 'work', 'run')
+        if step not in steps or direction not in (-1, 1):
+            return None
+        next_index = steps.index(step) + direction
+        return steps[next_index] if 0 <= next_index < len(steps) else None
+
+    def _a3_move_step(self, direction):
+        target = self._a3_neighbor_step(self._a2_current_step, direction)
+        if target is not None:
+            self._a2_set_step(target)
 
     def _a2_set_step(self, step):
         if not hasattr(self, '_a2_step_buttons') or step not in self._a2_step_buttons:
@@ -305,6 +806,11 @@ class DwmMainWindow(_StableBasicWindow):
             group.setVisible(step == name)
         for name, button in self._a2_step_buttons.items():
             button.setChecked(name == step)
+        # Qt-free view contracts and early initialization can call this method
+        # before the optional navigation controls have been created.
+        if hasattr(self, '_a3_previous_button') and hasattr(self, '_a3_next_button'):
+            self._a3_previous_button.setEnabled(self._a3_neighbor_step(step, -1) is not None)
+            self._a3_next_button.setEnabled(self._a3_neighbor_step(step, 1) is not None)
         self._a2_refresh_overview()
 
     @staticmethod
@@ -317,30 +823,43 @@ class DwmMainWindow(_StableBasicWindow):
             return
         workspace = self.api.workspace()
         joblist = str(workspace.job_list_path or '').strip()
+        # The Kjøring page and Oversikt must always show the same live job-list
+        # selection, including after New Control, Open, Save As and auto-save.
+        if hasattr(self, '_a3_run_joblist_path'):
+            display = joblist or 'Ikke lagret'
+            self._a3_run_joblist_path.setText(display)
+            self._a3_run_joblist_path.setToolTip(display)
+            idle = self._worker is None and not self.api.running
+            self._a3_run_open_joblist.setEnabled(idle)
+            self._a3_run_save_joblist.setEnabled(idle)
         source = self.basic_source_path.text().strip()
         work = self.basic_work_path.text().strip()
         label = self.basic_dias_label.text().strip()
-        original = getattr(self, '_a2_original', None)
-        original_path = str(original) if original and Path(original).is_file() else ''
-        working_path = ''
         job = self._a2_matching_job() if self._active_id else None
+        current = {}
+        imports = ()
         if job is not None:
-            try:
-                from noark5_workflow.reporting.depot_metadata import metadata_root_path
-                metadata_dir = metadata_root_path(job)
-                if metadata_dir is not None:
-                    candidate = metadata_dir / 'info-working.xml'
-                    if candidate.is_file():
-                        working_path = str(candidate)
-            except (OSError, ValueError):
-                pass
+            from noark5_workflow.reporting.depot_metadata import load_depot_metadata
+            stored = load_depot_metadata(job)
+            current = dict(stored.get('current') or {})
+            imports = tuple(stored.get('source_imports') or ())
+        if self._a2_pending_dirty:
+            current = dict(self._a2_pending_values)
+            if label != str(current.get('label') or '').strip():
+                current['label'] = label
+                if DIAS_LINK_LABEL_DELIVERYSPECIFICATION:
+                    current['archive_description'] = label
+        info_status = describe_info_xml_status(
+            current, imports, original=self._a2_original,
+            original_fields=getattr(self, '_a2_original_fields', {}),
+            dirty=bool(self._a2_pending_dirty),
+        )
         selected = self._selected_basic_controls()
         values = {
-            'Fil': joblist or 'Ingen jobbliste valgt – valgfritt ved kjøring',
+            'Fil': joblist or 'Ikke lagret',
             'Uttrekk': self._a2_compact_path(source),
             'LABEL': label or 'Ikke angitt',
-            'Original': original_path or 'Ikke funnet / importert',
-            'Arbeidskopi': working_path or 'Ikke opprettet',
+            'InfoStatus': info_status,
             'Work': self._a2_compact_path(work),
             'Valg': f'{len(selected)} av 4 valgt',
             'Status': 'Ingen jobb valgt',
@@ -356,7 +875,7 @@ class DwmMainWindow(_StableBasicWindow):
                 widget.setText(value)
             widget.setToolTip(value)
         status_values = {
-            'joblist': ('Valgt' if joblist else 'Valgfritt'),
+            'joblist': ('Valgt' if joblist else 'Ikke lagret'),
             'source': ('Valgt' if source else 'Ikke valgt'),
             'work': ('Valgt' if work else 'Ikke valgt'),
             'run': ('Klar til kjøring' if source and work and selected else 'Mangler valg'),
@@ -409,6 +928,113 @@ class DwmMainWindow(_StableBasicWindow):
             self._open_path(path)
             self._a2_refresh_overview()
 
+    def _save_as(self) -> bool:
+        """Suggest a job-list location for Basic; retain Advanced's Save As."""
+        if not getattr(self, '_basic_active', False):
+            return super()._save_as()
+        workspace = self.api.workspace()
+        existing = str(workspace.job_list_path or '').strip()
+        if existing:
+            initial = existing
+        else:
+            proposal = suggest_joblist_path(
+                source=self.basic_source_path.text().strip(),
+                work=self.basic_work_path.text().strip(),
+                label=self.basic_dias_label.text().strip(),
+                settings=self.api.settings,
+            )
+            initial = str(proposal) if proposal else str(
+                self.config.value('qt/last_job_list', '') or Path.home())
+        # Windows native Save As falls back to the process CWD when the proposed
+        # directory does not exist. Create ONLY the proposed leaf directory for
+        # the dialog, and remove it on cancel if still empty. A confirmed save
+        # retains it; never touch an existing directory or files.
+        proposed_dir = Path(initial).parent
+        temporary_suggestion_dir = False
+        if (not existing and proposal is not None
+                and proposed_dir == proposal.parent
+                and proposed_dir.parent.is_dir() and not proposed_dir.exists()):
+            try:
+                proposed_dir.mkdir()
+                temporary_suggestion_dir = True
+            except OSError:
+                pass  # A platform-specific dialog can still be used manually.
+        try:
+            filename, _ = QFileDialog.getSaveFileName(
+                self, 'Lagre jobbliste som', initial, 'DWM-jobbliste (*.n5jobs)')
+        except BaseException:
+            if temporary_suggestion_dir:
+                try:
+                    proposed_dir.rmdir()
+                except OSError:
+                    pass
+            raise
+        if not filename:
+            if temporary_suggestion_dir:
+                try:
+                    proposed_dir.rmdir()  # Only succeeds while empty.
+                except OSError:
+                    pass
+            return False
+        if temporary_suggestion_dir and Path(filename).parent != proposed_dir:
+            try:
+                proposed_dir.rmdir()  # User chose another location.
+            except OSError:
+                pass
+        target = Path(filename)
+        if target.suffix.casefold() != '.n5jobs':
+            target = target.with_suffix('.n5jobs')
+        try:
+            # Persist the selected path only after explicit confirmation.
+            target.parent.mkdir(parents=True, exist_ok=True)
+            output = self.api.save_job_list(target)
+        except (OSError, ValueError, RuntimeError) as exc:
+            self._error(exc)
+            return False
+        self._remember_joblist(str(output))
+        self._refresh(force=True)
+        return True
+
+    def _start_worker(self, jobs, *, request_id=None):
+        """Basic: a job list is optional; Advanced keeps mandatory save."""
+        if not getattr(self, '_basic_active', False):
+            return super()._start_worker(jobs, request_id=request_id)
+        self._a3_run_without_joblist = False
+        if not self.api.workspace().job_list_path:
+            decision = QMessageBox.question(
+                self, 'Lagre jobbliste?',
+                'Vil du lagre jobblisten før kontrollen starter?\n\n'
+                'Ja: Velg fil og lagre.\n'
+                'Nei: Kjør uten jobblistefil; Work-resultatene lagres likevel.\n'
+                'Avbryt: Ikke start kontrollen.',
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Yes,
+            )
+            if decision == QMessageBox.StandardButton.Cancel:
+                return
+            if decision == QMessageBox.StandardButton.Yes:
+                if not self._save_as():
+                    return
+            elif decision == QMessageBox.StandardButton.No:
+                self._a3_run_without_joblist = True
+            else:
+                return
+        try:
+            return super()._start_worker(jobs, request_id=request_id)
+        finally:
+            self._a3_run_without_joblist = False
+
+    def _save(self) -> bool:
+        # Shared runner invokes _save() even when no list path exists. The
+        # operator explicitly chose to run unsaved, so bypass ONLY this one
+        # mandatory-save checkpoint in Basic; leave Advanced untouched.
+        if (getattr(self, '_basic_active', False)
+                and getattr(self, '_a3_run_without_joblist', False)
+                and not self.api.workspace().job_list_path):
+            return True
+        return super()._save()
+
     def _a2_save_joblist_as(self):
         if self._worker is not None or self.api.running:
             QMessageBox.information(self, 'Jobbliste', 'Avslutt kjøringen før jobblisten lagres.')
@@ -421,6 +1047,15 @@ class DwmMainWindow(_StableBasicWindow):
         # The existing 500 ms Basic timer is authoritative for job/run status.
         result = super()._sync_basic_status()
         self._a2_refresh_overview()
+        if (getattr(self, '_a3_auto_results_pending', False)
+                and self._worker is None and not self.api.running and self._active_id):
+            try:
+                status = self.api.job_details(self._active_id).job.status
+            except Exception:
+                status = ''
+            if status in ('Ferdig', 'Feil', 'Hoppet over'):
+                self._a3_auto_results_pending = False
+                QTimer.singleShot(0, self._open_basic_results)
         return result
 
     def _a2_matching_job(self):
@@ -452,15 +1087,24 @@ class DwmMainWindow(_StableBasicWindow):
         if job is not None and not self._a2_pending_dirty:
             self._a2_load_existing_metadata()
             return
+        if getattr(self, '_a3_manually_loaded_info', False) and self._a2_original:
+            # Source was selected after info.xml: do not discard the deliberate
+            # metadata selection. Only the Source path changes.
+            self._a2_pending_dirty = True
+            self.basic_dias_note.setText('Info.xml valgt: ' + str(self._a2_original))
+            return
         self._a2_pending_values = {}
-        self._a2_pending_dirty = bool(source)
+        self._a2_pending_dirty = False
         self._a2_original = candidate_info_xml(source) if source and Path(source).is_dir() else None
+        self._a2_original_fields = {}
         if self._a2_original:
             try:
                 self._a2_pending_values = read_original(self._a2_original)
+                self._a2_original_fields = dict(self._a2_pending_values)
             except (ValueError, OSError):
                 self._a2_original = None
-        label = self._a2_pending_values.get('label') or (Path(source).name if source else '')
+        self._a2_pending_dirty = bool(self._a2_original)
+        label = self._a2_pending_values.get('label') or ''
         self.basic_dias_label.setText(label)
         self.basic_dias_note.setText(
             ('Fant original: ' + str(self._a2_original)) if self._a2_original else
@@ -474,8 +1118,14 @@ class DwmMainWindow(_StableBasicWindow):
             return
         values = current_values(job)
         self._a2_original = original_evidence_path(job) or candidate_info_xml(self.basic_source_path.text())
+        self._a2_original_fields = {}
+        if self._a2_original:
+            try:
+                self._a2_original_fields = read_original(self._a2_original)
+            except (OSError, ValueError):
+                pass
         self._a2_pending_values = values
-        label = values.get('label') or self._a2_pending_values.get('archive_description') or getattr(job, 'name', '')
+        label = values.get('label') or ''
         self.basic_dias_label.setText(label)
         self.basic_dias_note.setText(
             'Gjeldende DIAS-metadata i Work. ' +
@@ -492,9 +1142,6 @@ class DwmMainWindow(_StableBasicWindow):
         if self._worker is not None or self.api.running:
             QMessageBox.information(self, 'DIAS-metadata', 'Avslutt kjøringen før metadata redigeres.')
             return
-        if not self.basic_source_path.text():
-            QMessageBox.information(self, 'DIAS-metadata', 'Velg Source først.')
-            return
         job = self._a2_matching_job()
         values = current_values(job) if job and not self._a2_pending_dirty else dict(self._a2_pending_values)
         if self.basic_dias_label.text().strip():
@@ -504,6 +1151,14 @@ class DwmMainWindow(_StableBasicWindow):
         if editor.exec() != QDialog.DialogCode.Accepted:
             return
         self._a2_original = editor.original
+        if self._a2_original and not self.basic_source_path.text().strip():
+            self._a3_manually_loaded_info = True
+        self._a2_original_fields = {}
+        if self._a2_original:
+            try:
+                self._a2_original_fields = read_original(self._a2_original)
+            except (OSError, ValueError):
+                pass
         self._a2_pending_values = editor.metadata()
         self._a2_pending_dirty = True
         self.basic_dias_label.setText(self._a2_pending_values.get('label', ''))
@@ -518,9 +1173,6 @@ class DwmMainWindow(_StableBasicWindow):
 
     def _a2_label_committed(self):
         value = self.basic_dias_label.text().strip()
-        if not value:
-            QMessageBox.warning(self, 'LABEL', 'LABEL kan ikke være tom.')
-            return
         self._a2_pending_values = linked_values({**self._a2_pending_values, 'label': value})
         self._a2_pending_dirty = True
         job = self._a2_matching_job()
@@ -546,14 +1198,87 @@ class DwmMainWindow(_StableBasicWindow):
         self.basic_dias_note.setText(f'Lagret i Work: {json_path.name} og {xml_path.name}')
 
     def _start_basic_control(self):
-        self._a2_set_step('run')
-        # The original Basic flow refreshes the job list after creating a job.
-        # Do not discard pre-run DIAS edits during that refresh.
+        """Same API and runner as Advanced, with approved Work preflight."""
+        from app.basic_start_v0111_a1 import (
+            prepare_basic_plan, require_basic_arkade_cli, require_basic_siegfried,
+            existing_basic_job, select_or_create_basic_job,
+        )
+        if self._basic_starting or self._worker is not None or self.api.running:
+            return
+        if self._basic_legacy_layout and not self._basic_selection_edited:
+            QMessageBox.information(self, 'Eksisterende Work-oppsett',
+                                    'Kjør denne jobben i Avansert modus.')
+            return
+        self._basic_starting = True
         self._a2_preserve_draft = True
+        self.basic_run_button.setEnabled(False)
+        started = False
         try:
-            return super()._start_basic_control()
+            plan = prepare_basic_plan(
+                self.basic_source_path.text(), self.basic_work_path.text(),
+                self.api.settings, controls=self._selected_basic_controls())
+            require_basic_arkade_cli(self.api, plan)
+            require_basic_siegfried(self.api, plan)
+            inspection = inspect_work(plan.work_operations, plan.source_extraction)
+            match = existing_basic_job(self.api, plan)
+            kind = ('same_job' if inspection.kind == 'unknown_job' and match is not None
+                    else inspection.kind)
+            if kind in ('different_source', 'unknown_job'):
+                raise ValueError('Work har ukjent eller annen Source. Velg trygg Work-mappe.')
+            if kind == 'same_job' and match is None:
+                raise ValueError('Åpne den eksisterende jobblisten før Work gjenbrukes.')
+            if kind != 'empty':
+                token = getattr(self, '_a3_work_approval', None)
+                if (token is None or not _same(token[0], plan.source_extraction)
+                        or not _same(token[1], plan.work_operations)
+                        or token[2] != kind):
+                    raise ValueError('Velg og bekreft denne Work-mappen i Work-steget først.')
+            if match is None and self.api.workspace().jobs:
+                answer = QMessageBox.question(
+                    self, 'Ny kontroll',
+                    'Det er allerede andre jobber i jobblisten.\n\n'
+                    'Opprette en egen jobbliste for dette uttrekket?',
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No)
+                if answer != QMessageBox.StandardButton.Yes or not self._maybe_save():
+                    return
+                self.api.new_job_list()
+                self._active_id = None
+            if (match is None and (inspection.kind == 'unrelated' or
+                    (inspection.kind == 'empty' and inspection.count > 0
+                     and work_contains_only_joblists(plan.work_operations)))):
+                job_id, _created = self._a3_create_approved_job(plan)
+            else:
+                job_id, _created = select_or_create_basic_job(self.api, plan)
+            self._basic_job_id = job_id
+            self._basic_last_run_signal = None
+            self._basic_last_run_message = ''
+            self._basic_operation_fraction = None
+            self._basic_operation_index = None
+            self._active_id = job_id
+            self._basic_selection_edited = False
+            self._basic_legacy_layout = False
+            self._refresh(force=True)
+            status = self.api.job_details(job_id).job.status
+            self._a3_auto_results_pending = self._a3_auto_results.isChecked()
+            self._a3_autorun_armed = True
+            if status == 'Venter ved kontrollpunkt':
+                self._continue_job()
+            else:
+                # A2's _run_selected persists pending DIAS metadata first.
+                self._run_selected()
+            started = self._worker is not None or self.api.running
+            if started:
+                QTimer.singleShot(350, self._a3_auto_start_windows)
+        except Exception as exc:
+            QMessageBox.warning(self, 'Kunne ikke starte kontroll', str(exc))
         finally:
+            if not started:
+                self._a3_auto_results_pending = False
+                self._a3_autorun_armed = False
             self._a2_preserve_draft = False
+            self._basic_starting = False
+            self._sync_basic_status()
 
     def _run_selected(self):
         # Basic and Advanced keep exactly the same worker path. Only persist
