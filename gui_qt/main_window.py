@@ -1038,15 +1038,47 @@ class DwmMainWindow(QMainWindow):
         if not self.config.value("qt/skip_auto_reopen", False, type=bool):
             candidates = self._recent_paths()
             if candidates:
-                try:
-                    self.open_job_list(candidates[0])
-                except Exception as exc:
-                    self._append_log(f"Kunne ikke åpne sist brukte jobbliste: {exc}")
+                # Never replace a disconnected last choice with another archive.
+                # Check only the explicitly chosen file, not Source/Work trees.
+                last = candidates[0]
+                if Path(last).is_file():
+                    self.open_job_list(last)
+                else:
+                    self._retry_unavailable_startup_joblist(last)
         self._refresh_recent_menu()
         # A10/A11 could persist a dock geometry that hides the job row behind
         # the horizontal scrollbar. Repair only this invalid state, without
         # discarding valid, deliberately saved window positions.
         QTimer.singleShot(0, self._a12_repair_cramped_job_panel)
+
+    def _retry_unavailable_startup_joblist(self, path: str) -> None:
+        """Let the operator unlock a disconnected drive and retry that same list.
+
+        The selected job-list reference remains in QSettings. No other recent
+        list is selected automatically and no Source, Work or job is created.
+        """
+        from app.workbench_recent_v018_a4 import disconnected_joblist_message
+
+        title, details = disconnected_joblist_message(path)
+        dialog = QMessageBox(self)
+        dialog.setIcon(QMessageBox.Icon.Warning)
+        dialog.setWindowTitle("Jobbliste ikke tilgjengelig")
+        dialog.setText(title)
+        dialog.setInformativeText(details)
+        retry = dialog.addButton("Prøv igjen", QMessageBox.ButtonRole.AcceptRole)
+        continue_button = dialog.addButton("Fortsett uten jobb", QMessageBox.ButtonRole.RejectRole)
+        dialog.setDefaultButton(continue_button)
+        while True:
+            dialog.exec()
+            if dialog.clickedButton() is not retry:
+                return
+            if Path(path).is_file():
+                # _open_path handles damaged/invalid job lists without changing
+                # the saved last choice. Do not silently open an older list.
+                self.open_job_list(path)
+                return
+            # Reuse the same dialog if the encrypted volume is still locked.
+            dialog.setInformativeText(details + "\n\nDisken er fortsatt ikke tilgjengelig.")
 
     def _a12_repair_cramped_job_panel(self):
         if (self.dock_jobs.isVisible() and self.dock_workflow.isVisible()

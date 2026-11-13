@@ -82,3 +82,19 @@ def recent_joblists(
 def remember_joblist(path: str | Path, previous: object, *, limit: int = MAX_RECENT) -> tuple[str, ...]:
     """Return updated Qt-only MRU without writing to source/legacy config."""
     return recent_joblists(path, previous, existing_only=False, limit=limit)
+
+
+def disconnected_joblist_message(path: str | Path) -> tuple[str, str]:
+    """A human-readable explanation without modifying a saved job choice.
+
+    The path is displayed to the user, not searched or normalized into a
+    different work area. A temporarily unavailable drive is not a new job.
+    """
+    saved_path = str(path).strip()
+    return (
+        "Sist brukte jobbliste er ikke tilgjengelig.",
+        "Disken kan være låst eller frakoblet. Koble den til eller lås den opp, "
+        "og velg «Prøv igjen». Du kan også fortsette uten å åpne en jobb; "
+        "den sist brukte jobblisten beholdes og kan åpnes senere."
+        f"\n\nJobbliste:\n{saved_path}",
+    )
