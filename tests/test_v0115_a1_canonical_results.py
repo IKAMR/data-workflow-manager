@@ -1,4 +1,4 @@
-"""Tests for the first explicit, read-only canonical result projection."""
+"""Regression tests for explicit canonical v1 projection (a1, carried into a2)."""
 from __future__ import annotations
 
 import json
@@ -168,9 +168,9 @@ class CanonicalA1Tests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1]
         import tomllib
         from version import VERSION
-        self.assertEqual(VERSION, '0.1.15-a1')
+        self.assertEqual(VERSION, '0.1.15-a2')
         with (root / 'pyproject.toml').open('rb') as handle:
-            self.assertEqual(tomllib.load(handle)['project']['version'], '0.1.15a1')
+            self.assertEqual(tomllib.load(handle)['project']['version'], '0.1.15a2')
 
     def test_schema_validates_materialized_snapshot_when_validator_available(self):
         try:
