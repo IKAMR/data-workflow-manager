@@ -34,7 +34,7 @@ class QaReportTests(unittest.TestCase):
         self.root = Path(self.tmp.name)
         (self.root / 'noark5_evidence').mkdir()
         self.canonical = self.root / 'noark5_evidence/canonical-results.json'
-        self.canonical.write_text('{"unchanged":true}', encoding='utf-8')
+        self.canonical.write_text(json.dumps({'model_id':'noark5.canonical-results.v1', 'extraction':{'stable_id':'job-test','delivery_id':None}, 'observations':[]}), encoding='utf-8')
         self.profile = self.root / 'control-profile.json'
         self.profile.write_text('{"approved":false}', encoding='utf-8')
         self.matrix = {
