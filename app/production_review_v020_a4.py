@@ -99,6 +99,7 @@ def inspect_production_evidence(
         discovery = discover_results
     if load_assessment is None:
         from noark5_workflow.analysis.depot_assessment import load_depot_assessment
+        load_assessment = load_depot_assessment
     if load_parts is None or assessment_labels is None:
         from app.depot_review_v019_a2 import STATUS_LABELS, load_part_decisions
         if load_parts is None:

@@ -181,7 +181,8 @@ class QtContractA4Tests(unittest.TestCase):
         self.assertNotIn('start_dias_package(', gui)
 
     def test_a4_is_consistent_between_version_and_distribution(self):
-        self.assertEqual(VERSION, '0.2.0-a4')
+        self.assertRegex(VERSION, r'^0\.2\.0-a\d+$')
+        self.assertGreaterEqual(int(VERSION.rsplit('-a', 1)[1]), 4)
         with (ROOT / 'pyproject.toml').open('rb') as handle:
             dist = tomllib.load(handle)['project']['version']
         self.assertEqual(dist, VERSION.replace('-a', 'a'))

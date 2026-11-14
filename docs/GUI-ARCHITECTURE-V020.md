@@ -183,3 +183,36 @@ Ingen faktisk DIAS-pakking eller produksjonsbeslutning kreves i GUI-røykprøven
 alle produksjonstrinn (a5); deretter CRM, Innsyn og GUI-regresjoner (a6).
 Antivirusmotor og reelle skanneresultater samt full Ingest-funksjonstest er
 fortsatt åpne produksjonsoppgaver og er ikke erklært bestått av a4.
+
+## v0.2.0-a5 - jobbstatus, dokumenterte produksjonstrinn og gjenopptakelse
+
+**Baseline:** commit `8329c603568a39a20920af468d930a5c826c9a8d`
+(v0.2.0-a4, committet og pushet).
+
+- `app/production_progress_v020_a5.py` projiserer de samme åtte
+  arbeidsområdene fra eksisterende `JobView`, lagret Work-evidens og
+  `app/production_review_v020_a4.py`. Dette er **ikke** en ny jobbmodell,
+  ferdigstillelsesjournal eller egen kjøre-/godkjenningsmotor.
+- Kontrollprosent er bare andelen fullførte operasjoner i gjeldende jobb.
+  Den fremstilles ikke som prosent ferdig med hele produksjonslinjen.
+  Teknisk jobbstatus, rapportens tekniske status, faglig depotvurdering
+  og en eventuell bevaringskandidat vises separat.
+- Historikk kommer fra eksisterende `job-events.jsonl`, `run_logs` og
+  rapportversjonsbundne vurderingsjournaler i Work. Lesing er begrenset
+  til kjente metadatastier og maks antall hendelser. `job_uid` binder
+  loggposter til korrekt jobb; Work-jobbens registrerte jobblistealiaser
+  kan tas med etter gjenoppretting/omnummerering. Historikk fra andre
+  jobber, gammel rapportversjon eller ukjent identitet skal ikke blandes inn.
+- Startside har lenke til den integrerte visningen **Jobbstatus og historikk**.
+  Den viser status for alle åtte trinn og lenker til faktisk tilgjengelige
+  trinn. Ikke implementert CRM/Innsyn vises uten handling.
+- **Fortsett sist** lagrer bare siste åpnede arbeidsområde som en
+  Qt-innstilling, bundet til varig Work-jobbidentitet eller en lagret
+  jobbliste pluss jobb-ID. Dette er navigasjon, ikke en videreføring
+  av en kontrollkjoring eller et teknisk kontrollpunkt.
+- Ingest og antivirus har ennå ikke validert jobbtilknyttet evidens;
+  deres status markeres ikke automatisk som fullført. En bevart
+  evidenskandidat er aldri automatisk en verifisert DIAS AIP.
+- All statuslesing er skrivebeskyttet. Det opprettes ingen mapper,
+  kjøres ingen kontroller, registreres ingen faglig godkjenning,
+  og endres ingen Source-/Work-/arkivfiler ved navigasjon.

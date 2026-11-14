@@ -17,6 +17,7 @@ from gui_qt.start_shell_v020_a1 import (
     normalize_profile, startup_page_target, visible_sections, open_startup_setup,
 )
 from version import VERSION
+from gui_qt.production_progress_v020_a5 import active_job_context, saved_section_for_window
 
 
 class ProductionStartPage(QWidget):
@@ -70,6 +71,21 @@ class ProductionStartPage(QWidget):
         self.context_label.setObjectName('v020_a2_context')
         self.context_label.setWordWrap(True)
         layout.addWidget(self.context_label)
+        self.production_status = QLabel(content)
+        self.production_status.setObjectName('v020_a5_quick_status')
+        self.production_status.setWordWrap(True)
+        layout.addWidget(self.production_status)
+        status_actions = QHBoxLayout()
+        progress_button = QPushButton('Jobbstatus og historikk', content)
+        progress_button.setObjectName('v020_a5_status_button')
+        progress_button.clicked.connect(lambda: self.window.v020_show_progress_page())
+        status_actions.addWidget(progress_button)
+        self.resume_button = QPushButton('Fortsett sist', content)
+        self.resume_button.setObjectName('v020_a5_resume_button')
+        self.resume_button.clicked.connect(lambda: self.window.v020_resume_area())
+        status_actions.addWidget(self.resume_button)
+        status_actions.addStretch(1)
+        layout.addLayout(status_actions)
 
         self.cards = QGridLayout()
         self.cards.setSpacing(12)
@@ -105,6 +121,17 @@ class ProductionStartPage(QWidget):
             ('Aktiv jobb: ' + str(active)) if active else
             'Ingen aktiv jobb valgt. Valg på Startsiden oppretter ikke jobber.'
         )
+        job, _key = active_job_context(self.window)
+        if job is None:
+            self.production_status.setText('Ingen jobbstatus å vise. Velg en jobb i Kontroll.')
+        else:
+            from app.production_progress_v020_a5 import _progress_percent
+            self.production_status.setText(
+                'Lagret kontrollstatus: ' + str(job.status) +
+                f' | {_progress_percent(job.progress)} % av kontrolloperasjonene. '
+                'Faglig depotvurdering og bevaring er separate trinn.'
+            )
+        self.resume_button.setEnabled(bool(saved_section_for_window(self.window)))
         for index, (key, title, capability) in enumerate(cards):
             frame = QFrame(self)
             frame.setObjectName('startCard')
@@ -199,6 +226,8 @@ class ProductionStartPage(QWidget):
         window._enter_basic()
         window._a2_set_step('work')
         window.v020_sync_navigation()
+        if hasattr(window, 'v020_remember_area'):
+            window.v020_remember_area('workspace')
 
     def _report_actions(self):
         """Use the a4 page in this QMainWindow, not a floating choice dialog."""
@@ -235,6 +264,7 @@ def install_integrated_home(window):
     from gui_qt.ingest_v020_a3 import IngestPage
     from gui_qt.antivirus_v020_a3 import AntivirusPage
     from gui_qt.reporting_preservation_v020_a4 import ReportingPage, PreservationPage
+    from gui_qt.production_progress_v020_a5 import ProductionProgressPage
 
     original = window.takeCentralWidget()
     if original is None:
@@ -252,6 +282,8 @@ def install_integrated_home(window):
     preservation = PreservationPage(window)
     stack.addWidget(reporting)
     stack.addWidget(preservation)
+    progress = ProductionProgressPage(window)
+    stack.addWidget(progress)
     window.setCentralWidget(stack)
     saved_advanced = None
     original_sync = window.v020_sync_navigation
@@ -270,6 +302,16 @@ def install_integrated_home(window):
             window.v020_section_label.setText('Rapportering · Work og depotvurdering')
         elif active is preservation:
             window.v020_section_label.setText('Bevaring · Forberedelse og DIAS')
+        elif active is progress:
+            window.v020_section_label.setText('Produksjonsstatus · Aktiv jobb')
+
+    def remember_area(area):
+        if area not in ('ingest', 'antivirus', 'workspace', 'control', 'report', 'preserve'):
+            return
+        _job, job_key = active_job_context(window)
+        if job_key:
+            window.config.setValue('qt/v020_last_area_job_key', job_key)
+            window.config.setValue('qt/v020_last_area', area)
 
     def show_home(*, record=True):
         nonlocal saved_advanced
@@ -302,6 +344,7 @@ def install_integrated_home(window):
         nonlocal saved_advanced
         if record:
             window.config.setValue('qt/v020_last_page', 'control')
+            remember_area('control')
         if stack.currentWidget() is original:
             sync_navigation()
             return
@@ -320,22 +363,26 @@ def install_integrated_home(window):
         # changing their saved visibility, then show the integrated form.
         show_home(record=True)
         stack.setCurrentWidget(ingest)
+        remember_area('ingest')
         sync_navigation()
 
     def show_antivirus():
         show_home(record=True)
         stack.setCurrentWidget(antivirus)
+        remember_area('antivirus')
         sync_navigation()
 
     def show_reporting():
         show_home(record=True)
         stack.setCurrentWidget(reporting)
+        remember_area('report')
         reporting.refresh()
         sync_navigation()
 
     def show_preservation():
         show_home(record=True)
         stack.setCurrentWidget(preservation)
+        remember_area('preserve')
         preservation.refresh()
         sync_navigation()
 
@@ -344,8 +391,37 @@ def install_integrated_home(window):
         show_control()
         window._enter_basic()
         window._a2_set_step('work')
+        remember_area('workspace')
         sync_navigation()
 
+    def show_progress():
+        show_home(record=True)
+        stack.setCurrentWidget(progress)
+        progress.refresh()
+        sync_navigation()
+
+    def open_area(area):
+        routes = {
+            'ingest': show_ingest,
+            'antivirus': show_antivirus,
+            'workspace': go_to_work,
+            'control': show_control,
+            'report': show_reporting,
+            'preserve': show_preservation,
+        }
+        action = routes.get(area)
+        if action is not None:
+            action()
+
+    def resume_area():
+        area = saved_section_for_window(window)
+        if area:
+            open_area(area)
+
+    window.v020_remember_area = remember_area
+    window.v020_show_progress_page = show_progress
+    window.v020_open_area = open_area
+    window.v020_resume_area = resume_area
     window.v020_integrated_home = show_home
     window.v020_show_control_page = show_control
     window.v020_show_ingest_page = show_ingest

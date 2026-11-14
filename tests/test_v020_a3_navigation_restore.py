@@ -121,6 +121,9 @@ def isolated_install():
         'AntivirusPage': FakePage,
         'ReportingPage': FakePage,
         'PreservationPage': FakePage,
+        'ProductionProgressPage': FakePage,
+        'active_job_context': lambda w: (None, ''),
+        'saved_section_for_window': lambda w: '',
         'PROFILE_NAMES': {'depot': 'Depot'},
         'PROFILE_KEY': 'ui_work_profile',
         'normalize_profile': lambda x: x,
@@ -186,6 +189,32 @@ class NavigationA3Tests(unittest.TestCase):
         self.assertEqual(candidate.refresh_calls, 1)
         w.v020_show_reporting_page()
         self.assertEqual(report.refresh_calls, 2)
+
+    def test_a5_progress_is_read_only_and_restores_advanced_docks(self):
+        w = self.window
+        previous = dict(w.config.items)
+        w.v020_show_progress_page()
+        status_page = w._central.currentWidget()
+        self.assertEqual(status_page.refresh_calls, 1)
+        self.assertFalse(w.dock_jobs.isVisible())
+        w.v020_integrated_home()
+        w.v020_show_control_page()
+        self.assertTrue(w.dock_jobs.isVisible())
+        self.assertFalse(w.dock_workflow.isVisible())
+        self.assertNotIn('qt/v020_last_area', w.config.items)
+        self.assertEqual(previous['qt/v020_last_page'], 'control')
+
+    def test_a5_navigation_only_resumes_allowed_areas(self):
+        w = self.window
+        w.v020_open_area('report')
+        self.assertEqual(w._central.currentWidget().refresh_calls, 1)
+        w.v020_open_area('preserve')
+        self.assertEqual(w._central.currentWidget().refresh_calls, 1)
+        old = w._central.currentWidget()
+        w.v020_open_area('crm')
+        self.assertIs(w._central.currentWidget(), old)
+        w.v020_resume_area()  # no job identity, so no stored resume
+        self.assertIs(w._central.currentWidget(), old)
 
     def test_mode_button_switches_back_to_control_from_ingest(self):
         w = self.window
