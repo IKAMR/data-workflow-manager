@@ -22,6 +22,7 @@ if importlib.util.find_spec('noark5_workflow.analysis.canonical_external_v0115_a
     stub.inspect_external = lambda p: {'format':'unrecognized','interpretation':'not_parsed'}
     sys.modules[stub.__name__] = stub
 from noark5_workflow.analysis.canonical_completion_v0115_a14 import build_completion_draft, OUTPUT, CompletionDraftError
+from version import VERSION
 
 class CompletionTests(unittest.TestCase):
     def setUp(self):
@@ -53,7 +54,7 @@ class CompletionTests(unittest.TestCase):
         self.assertFalse(result['summary']['journal_reference_registered'])
         self.assertEqual(result['summary']['issues'],1)
         html=(self.root/OUTPUT).read_text(encoding='utf8')
-        for phrase in ('IKKE GODKJENT','N5.15','Journalpost-ID',digest,'Data Workflow Manager','v0.1.15-a14'):
+        for phrase in ('IKKE GODKJENT','N5.15','Journalpost-ID',digest,'Data Workflow Manager', f'v{VERSION}'):
             self.assertIn(phrase,html)
         self.assertNotIn('<script>',html)
         self.assertEqual(self.qa.read_text(),'KS UTKAST')

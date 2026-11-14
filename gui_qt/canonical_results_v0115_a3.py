@@ -36,6 +36,7 @@ from noark5_workflow.analysis.canonical_matrix_v0115_a11 import (
 )
 from noark5_workflow.analysis.canonical_qa_report_v0115_a12 import build_qa_draft, OUTPUT as QA_OUT
 from noark5_workflow.analysis.canonical_completion_v0115_a14 import build_completion_draft, OUTPUT as COMPLETION_OUT
+from noark5_workflow.analysis.canonical_preservation_v0115_a15 import prepare_candidate, verify_candidate, OUT as AIP_OUT
 
 
 class _Task(QObject):
@@ -58,6 +59,8 @@ class _Task(QObject):
                 result['external_status'] = load_external_status(self.work)
             elif '__a10_external' in self.selection:
                 result = {'a10_external': analyze_external_results(self.work, self.selection['__a10_external'])}
+            elif '__a15_candidate' in self.selection:
+                result = {'a15_candidate': prepare_candidate(self.work)}
             elif '__a14_completion' in self.selection:
                 result = {'a14_completion': build_completion_draft(self.work, self.selection['__a14_completion'])}
             elif '__a12_qa_draft' in self.selection:
@@ -152,6 +155,8 @@ class CanonicalResultsDialog(QDialog):
         self.matrix_button = QPushButton('Dekningsmatrise (utkast)...')
         self.completion_button = QPushButton('Ferdigstillingsrapport (utkast)...')
         self.completion_button.clicked.connect(self.create_completion_report)
+        self.aip_button = QPushButton('Bevaringspakke – kandidat...')
+        self.aip_button.clicked.connect(self.create_aip_candidate)
         self.qa_button = QPushButton('KS-rapport til arkivskaper (utkast)...')
         self.qa_button.clicked.connect(self.create_qa_report)
         self.matrix_button.clicked.connect(self.select_matrix_profile)
@@ -168,7 +173,7 @@ class CanonicalResultsDialog(QDialog):
         self._action_buttons = [
             self.refresh_button, self.external_discover_button,
             self.coverage_button, self.profile_button, self.outcomes_button, self.matrix_button,
-            self.qa_button, self.completion_button,
+            self.qa_button, self.completion_button, self.aip_button,
             self.build_button, self.context_button, self.external_analyze_button, self.close_button,
         ]
         self._button_host = button_host
@@ -192,6 +197,7 @@ class CanonicalResultsDialog(QDialog):
         self.matrix_button.setEnabled(not busy)
         self.qa_button.setEnabled(not busy)
         self.completion_button.setEnabled(not busy)
+        self.aip_button.setEnabled(not busy)
         self.context_button.setEnabled(not busy)
         self.external_analyze_button.setEnabled(not busy)
         self.close_button.setEnabled(not busy)
@@ -229,7 +235,19 @@ class CanonicalResultsDialog(QDialog):
             self.report.setPlainText('FEIL: ' + error)
             QMessageBox.warning(self, 'Kanoniske resultatdata', error)
             return
-        if 'a14_completion' in result:
+        if 'a15_candidate' in result:
+            package = result['a15_candidate']
+            lines = ['BEVARINGSPAKKE – PAKKEKANDIDAT (IKKE GODKJENT)',
+                     'Staging i Work: '+package['output'],
+                     f"Kopierte og SHA-256-verifiserte filer: {package['files']}",
+                     f"Manglende evidenskilder: {package['missing']}",
+                     'Manifest: '+package['output']+'/manifest-sha256.json',
+                     '', 'Ingen arkivskaperaksept, depotgodkjenning eller journalføring.',
+                     'Source er ikke inkludert. Dette er ikke en ferdig AIP.']
+            self.report.setPlainText('\n'.join(lines))
+            self._set_view('aip_candidate')
+            self.selection_status.setText('Pakkekandidat opprettet i Work – ikke godkjent.')
+        elif 'a14_completion' in result:
             report = result['a14_completion']
             info = report['summary']
             self.report.setPlainText(
@@ -494,7 +512,7 @@ class CanonicalResultsDialog(QDialog):
         avg_char = max(5.0, fm.horizontalAdvance('abcdefghijklmnopqrstuvwxyz') / 26.0)
         wrap_count = text_visual_lines(lines, usable_width, avg_char)
         report_need = 24 + wrap_count * max(1, fm.lineSpacing())
-        if self._last_view in ('matrix', 'qa_report', 'completion_report'):
+        if self._last_view in ('matrix', 'qa_report', 'completion_report', 'aip_candidate'):
             report_need += min(160, total // 5)  # reserve room for longer review text
         wanted = content_split(total, tree_need, report_need,
                                tree_min=112, report_min=115)
@@ -527,6 +545,22 @@ class CanonicalResultsDialog(QDialog):
         if hasattr(self, '_button_grid'):
             self._reflow_buttons()
             self._schedule_content_layout()
+
+    def create_aip_candidate(self):
+        """Create an explicitly unapproved, verified package candidate in Work."""
+        if (self.work / AIP_OUT).exists():
+            QMessageBox.information(self, 'Pakkekandidat finnes',
+                'Eksisterende kandidat overskrives ikke. Behold den og gi den et nytt navn før ny klargjøring.')
+            return
+        answer = QMessageBox.question(
+            self, 'Bevaringspakke – pakkekandidat',
+            'Kopiere tilgjengelig dokumentert evidens og rapportutkast til en egen '
+            'pakkekandidat i Work?\n\n'
+            'Originalene og Source endres ikke. Dette er IKKE en ferdig AIP eller depotgodkjenning.',
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No)
+        if answer == QMessageBox.StandardButton.Yes:
+            self._start({'__a15_candidate': True})
 
     def create_completion_report(self):
         """Explicitly create an unapproved completion/decision worksheet."""
