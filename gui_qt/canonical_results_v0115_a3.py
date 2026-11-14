@@ -27,6 +27,10 @@ from noark5_workflow.analysis.canonical_external_v0115_a5 import discover_extern
 from noark5_workflow.analysis.canonical_control_plan_v0115_a6 import coverage_report
 from noark5_workflow.analysis.canonical_control_requirements_v0115_a7 import evaluate_control_profile
 from noark5_workflow.analysis.canonical_outcomes_v0115_a8 import evaluate_recorded_outcomes
+from noark5_workflow.analysis.canonical_external_import_v0115_a10 import (
+    analyze_external_results, discover_analysis_candidates, previous_analysis_selection,
+)
+from app.canonical_external_selection_v0115_a10 import selected_external_rows
 
 
 class _Task(QObject):
@@ -41,6 +45,13 @@ class _Task(QObject):
         try:
             if self.selection is None:
                 result = discover_work_sources(self.work)
+                # Discover in the same background task, never in a nested dialog.
+                from app.canonical_external_selection_v0115_a10 import external_row_metadata
+                candidates = discover_analysis_candidates(self.work)
+                previous = previous_analysis_selection(self.work, candidates)
+                result['external_candidates'] = external_row_metadata(candidates, previous)
+            elif '__a10_external' in self.selection:
+                result = {'a10_external': analyze_external_results(self.work, self.selection['__a10_external'])}
             elif '__a8_outcomes' in self.selection:
                 result = {'a8_outcomes': evaluate_recorded_outcomes(self.work, self.selection['__a8_outcomes'])}
             elif '__a7_profile' in self.selection:
@@ -78,10 +89,14 @@ class CanonicalResultsDialog(QDialog):
         work_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         work_label.setWordWrap(True)
         layout.addWidget(work_label)
+        self.selection_status = QLabel('Laster resultatkilder fra valgt Work...')
+        self.selection_status.setWordWrap(True)
+        layout.addWidget(self.selection_status)
         self.tree = QTreeWidget(self)
-        self.tree.setHeaderLabels(['Bruk', 'Kilde', 'Status', 'Tester / bytes'])
+        self.tree.setHeaderLabels(['Bruk', 'Kilde / resultatfil i Work', 'Status', 'Tester / bytes'])
         self.tree.setRootIsDecorated(False)
         self.tree.setSortingEnabled(True)
+        self.tree.itemChanged.connect(self._selection_changed)
         self.tree.header().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.tree.header().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         self.tree.header().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
@@ -126,6 +141,8 @@ class CanonicalResultsDialog(QDialog):
         self.external_discover_button.clicked.connect(lambda: self._start({'__a5_discover_external': True}))
         self.build_button = QPushButton('Opprett resultatindeks...')
         self.build_button.clicked.connect(self.create_snapshot)
+        self.external_analyze_button = QPushButton('Analyser valgte eksterne resultater')
+        self.external_analyze_button.clicked.connect(self.analyze_external)
         self.context_button = QPushButton('Koble vurderinger / ekstern evidens...')
         self.context_button.clicked.connect(self.create_context)
         self.close_button = QPushButton('Lukk')
@@ -133,7 +150,7 @@ class CanonicalResultsDialog(QDialog):
         self._action_buttons = [
             self.refresh_button, self.external_discover_button,
             self.coverage_button, self.profile_button, self.outcomes_button,
-            self.build_button, self.context_button, self.close_button,
+            self.build_button, self.context_button, self.external_analyze_button, self.close_button,
         ]
         self._button_host = button_host
         self._button_grid = buttons
@@ -154,8 +171,11 @@ class CanonicalResultsDialog(QDialog):
         self.profile_button.setEnabled(not busy)
         self.outcomes_button.setEnabled(not busy)
         self.context_button.setEnabled(not busy)
+        self.external_analyze_button.setEnabled(not busy)
         self.close_button.setEnabled(not busy)
         self.tree.setEnabled(not busy)
+        if not busy and self._last_view == 'sources':
+            self._selection_changed()
 
     def _start(self, selection: dict | None):
         if self._busy:
@@ -187,7 +207,37 @@ class CanonicalResultsDialog(QDialog):
             self.report.setPlainText('FEIL: ' + error)
             QMessageBox.warning(self, 'Kanoniske resultatdata', error)
             return
-        if 'a8_outcomes' in result:
+        if 'a10_external' in result:
+            data = result['a10_external']
+            info = data['summary']
+            lines = ['EKSTERNE RESULTATER - ANALYSE (IKKE GODKJENNING)',
+                     f"Valgte filer: {info['selected_files']}",
+                     f"Normaliserte testposter (ikke verifisert status): {info['reported_external_test_records']}",
+                     f"Siegfried formatidentifikasjoner: {info['format_identification_files']}",
+                     f"Filer som ikke kunne tolkes: {info['unparsed_files']}", '']
+            for source in data['sources']:
+                entry = source['analysis']
+                lines.append(source['evidence']['work_relative_path'])
+                lines.append(f"  Format: {entry['source_format']} | Tolkning: {entry['interpretation']}")
+                if entry.get('reason'):
+                    lines.append('  ' + entry['reason'])
+                if entry.get('record_count') is not None:
+                    lines.append(f"  Registrerte testposter: {entry['record_count']}")
+                if entry.get('format_rows') is not None:
+                    lines.append(f"  PRONOM-formatrader: {entry['format_rows']} | Filer: {entry['reported_total_files']}")
+                if entry.get('reported_status_counts') is not None:
+                    lines.append(f"  Arkade rapportert status: {entry['reported_status_counts']}")
+                if entry.get('file_records') is not None:
+                    lines.append(f"  Formatidentifiserte filposter: {entry['file_records']}")
+            lines.extend(['', 'Lagret: noark5_evidence/canonical-external-analysis.json',
+                         'Ingen kontroll er godkjent av denne analysen.'])
+            self.report.setPlainText('\n'.join(lines))
+            self._set_view('external_analysis')
+            self.selection_status.setText(
+                f"Lagret samlet analyse av {info['selected_files']} eksterne filer. "
+                f"{info['reported_external_test_records']} Arkade-testposter; "
+                f"{info['unparsed_files']} ukjente filer. Originalene er uendret.")
+        elif 'a8_outcomes' in result:
             review = result['a8_outcomes']
             info = review['summary']
             lines = ['KONTROLLUTFALL / KS-GRUNNLAG - UTKAST',
@@ -254,22 +304,39 @@ class CanonicalResultsDialog(QDialog):
                 'Formatidentifikasjon er IKKE testgodkjenning eller depotaksept.')
         elif 'candidates' in result:
             self._set_view('sources')
-            self.tree.clear()
-            for category, candidates in result['candidates'].items():
-                for candidate in candidates:
-                    status = candidate['status']
-                    row = QTreeWidgetItem(['', candidate['path'], status,
-                        str(candidate.get('tests', candidate.get('bytes', '')))])
+            self.tree.blockSignals(True)
+            try:
+                self.tree.clear()
+                for category, candidates in result['candidates'].items():
+                    for candidate in candidates:
+                        status = candidate['status']
+                        row = QTreeWidgetItem(['', 'DWM: ' + candidate['path'], status,
+                            str(candidate.get('tests', candidate.get('bytes', '')))])
+                        row.setData(0, Qt.ItemDataRole.UserRole,
+                                    (category, candidate['path'], status))
+                        row.setFlags(row.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+                        row.setCheckState(0, Qt.CheckState.Unchecked)
+                        if status not in ALLOWED.get(category, set()):
+                            row.setDisabled(True)
+                        self.tree.addTopLevelItem(row)
+                for candidate in result.get('external_candidates', []):
+                    row = QTreeWidgetItem(['', candidate['label'] + ': ' + candidate['path'],
+                                           'Ekstern - ikke analysert', str(candidate['bytes'])])
                     row.setData(0, Qt.ItemDataRole.UserRole,
-                                (category, candidate['path'], status))
+                                ('external', candidate['path'], 'candidate'))
                     row.setFlags(row.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-                    row.setCheckState(0, Qt.CheckState.Unchecked)
-                    if status not in ALLOWED.get(category, set()):
-                        row.setDisabled(True)
+                    row.setCheckState(0, Qt.CheckState.Checked if candidate['selected']
+                                      else Qt.CheckState.Unchecked)
+                    row.setToolTip(1, candidate['path'])
                     self.tree.addTopLevelItem(row)
+            finally:
+                self.tree.blockSignals(False)
+            self._selection_changed()
             self.report.setPlainText(
-                'Velg kilder og trykk Opprett resultatindeks. '\
-                'Ingen kilder er valgt automatisk.')
+                'Velg kilder øverst. Bruk «Opprett resultatindeks» for DWM-kilder, '
+                'eller «Analyser valgte eksterne resultater» for Arkade/Siegfried.\n'
+                'Analysefilen erstattes ved ny analyse; originale kildefiler endres aldri. '
+                'Ingen kontroll blir automatisk godkjent.')
         else:
             self._set_view('snapshot')
             lines = [f"Observasjoner: {result['observations']}",
@@ -281,6 +348,30 @@ class CanonicalResultsDialog(QDialog):
                              f"mangler {row['unavailable']}, ukjent {row['unknown']})")
             lines.append('Lagret: noark5_evidence/canonical-results.json')
             self.report.setPlainText('\n'.join(lines))
+
+    def _selected_external(self):
+        rows = []
+        for i in range(self.tree.topLevelItemCount()):
+            row = self.tree.topLevelItem(i)
+            metadata = row.data(0, Qt.ItemDataRole.UserRole)
+            if metadata:
+                rows.append((metadata[0], metadata[1],
+                             row.checkState(0) == Qt.CheckState.Checked))
+        return selected_external_rows(rows)
+
+    def _selection_changed(self, *_args):
+        if not hasattr(self, 'selection_status'):
+            return
+        count = len(self._selected_external())
+        total = sum(1 for i in range(self.tree.topLevelItemCount())
+                    if (self.tree.topLevelItem(i).data(0, Qt.ItemDataRole.UserRole)
+                        or (None,))[0] == 'external')
+        self.selection_status.setText(
+            f'Eksterne resultatfiler valgt: {count} av {total}. '
+            'Analyser valgte lagrer én samlet analyse og erstatter forrige analysefil. '
+            'Originalene endres ikke.')
+        if hasattr(self, 'external_analyze_button'):
+            self.external_analyze_button.setEnabled(not self._busy and count > 0)
 
     def _set_view(self, view: str):
         # Explicitly changing the shown dataset releases manual splitter control;
@@ -375,6 +466,8 @@ class CanonicalResultsDialog(QDialog):
         for i in range(self.tree.topLevelItemCount()):
             row = self.tree.topLevelItem(i)
             category, path, status = row.data(0, Qt.ItemDataRole.UserRole)
+            if category == 'external':
+                continue
             rows.append((category, path,
                          row.checkState(0) == Qt.CheckState.Checked, status))
         try:
@@ -392,6 +485,22 @@ class CanonicalResultsDialog(QDialog):
                 QMessageBox.StandardButton.No) != QMessageBox.StandardButton.Yes:
             return
         self._start(selection)
+
+    def analyze_external(self):
+        """Analyze checked external rows directly in this dialog; no nested popup."""
+        if not (self.work / 'noark5_evidence' / 'canonical-results.json').is_file():
+            self.report.setPlainText('Opprett kanonisk resultatindeks foerst.')
+            self._set_view('error')
+            return
+        files = self._selected_external()
+        if not files:
+            self.report.setPlainText('Ingen eksterne filer valgt. Kryss av ønskede Arkade-/Siegfried-filer øverst.')
+            self._set_view('sources')
+            return
+        # Explicit action, and the on-screen status makes the replacement clear.
+        # Only the generated analysis projection is replaced, not source evidence.
+        self._start({'__a10_external': files})
+        self.selection_status.setText(f'Analyserer {len(files)} valgte eksterne filer ...')
 
     def create_context(self):
         """Require explicit operator selection; no implicit ingestion of source XML."""
