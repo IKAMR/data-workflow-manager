@@ -1,4 +1,4 @@
-"""v0.2.0-a2: depot production navigation integrated in the main Qt window.
+"""v0.2.0-a3: depot production navigation integrated in the main Qt window.
 
 Home is a QWidget in the original QMainWindow, NOT a modal popup. Existing
 Noark 5 jobs, runner, result windows and DIAS implementation are reused.
@@ -185,6 +185,10 @@ class ProductionStartPage(QWidget):
             self._report_actions()
         elif route == 'preservation':
             self._preservation_actions()
+        elif route == 'qt_ingest':
+            self.window.v020_show_ingest_page()
+        elif route == 'antivirus_info':
+            self.window.v020_show_antivirus_page()
         elif route == 'legacy_ingest':
             self._legacy_launch('Ingest / mottak')
 
@@ -256,6 +260,8 @@ def install_integrated_home(window):
     controller and mode switches. No new application/runner is created.
     """
     from gui_qt.main_window import DOCK_NAMES
+    from gui_qt.ingest_v020_a3 import IngestPage
+    from gui_qt.antivirus_v020_a3 import AntivirusPage
 
     original = window.takeCentralWidget()
     if original is None:
@@ -265,15 +271,24 @@ def install_integrated_home(window):
     stack.addWidget(original)
     home = ProductionStartPage(window)
     stack.addWidget(home)
+    ingest = IngestPage(window)
+    antivirus = AntivirusPage(window)
+    stack.addWidget(ingest)
+    stack.addWidget(antivirus)
     window.setCentralWidget(stack)
     saved_advanced = None
     original_sync = window.v020_sync_navigation
 
     def sync_navigation(*_args):
         original_sync()
-        if stack.currentWidget() is home:
+        active = stack.currentWidget()
+        if active is home:
             window.v020_section_label.setText('Startside · ' +
                 PROFILE_NAMES[normalize_profile(window.api.settings.get(PROFILE_KEY))])
+        elif active is ingest:
+            window.v020_section_label.setText('Ingest · Mottak / Uttrekk')
+        elif active is antivirus:
+            window.v020_section_label.setText('Antiviruskontroll · Ikke skannet')
 
     def show_home(*, record=True):
         nonlocal saved_advanced
@@ -283,7 +298,9 @@ def install_integrated_home(window):
             home.refresh()
             sync_navigation()
             return
-        if not window._basic_active:
+        # Visiting Home -> Ingest -> Home must NOT snapshot already-hidden
+        # Advanced docks a second time; only the first departure may save.
+        if not window._basic_active and saved_advanced is None:
             saved_advanced = {
                 'docks': {name: getattr(window, 'dock_' + name).isVisible()
                           for name in DOCK_NAMES},
@@ -317,8 +334,30 @@ def install_integrated_home(window):
         saved_advanced = None
         sync_navigation()
 
+    def show_ingest():
+        # Reuse the proven a2 home transition to hide Advanced docks without
+        # changing their saved visibility, then show the integrated form.
+        show_home(record=True)
+        stack.setCurrentWidget(ingest)
+        sync_navigation()
+
+    def show_antivirus():
+        show_home(record=True)
+        stack.setCurrentWidget(antivirus)
+        sync_navigation()
+
+    def go_to_work():
+        # No implicit job association or relocation of Source/Work.
+        show_control()
+        window._enter_basic()
+        window._a2_set_step('work')
+        sync_navigation()
+
     window.v020_integrated_home = show_home
     window.v020_show_control_page = show_control
+    window.v020_show_ingest_page = show_ingest
+    window.v020_show_antivirus_page = show_antivirus
+    window.v020_go_to_work = go_to_work
     window.v020_sync_navigation = sync_navigation
     # The fixed toolbar's existing mode button is reused. Switching from
     # Startside must reveal Control before changing Basic/Advanced state.

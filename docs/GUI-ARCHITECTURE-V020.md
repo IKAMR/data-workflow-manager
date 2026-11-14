@@ -79,3 +79,51 @@ Historisk mottaksfunksjonskontrakt: `docs/plans/N5-WF-MAN-19-A19-INGEST.md`, sæ
 - Det eksisterende **«Vis operasjoner»**-valget (`operation_visibility`) beholdes
   uavhengig av det nye **«Synlige arbeidsområder etter modenhet»**-valget
   (`ui_area_visibility`).
+
+## v0.2.0-a3 – integrert Ingest, antivirusavgrensning og Work-navigasjon
+
+**Baseline:** siste committede og push-ede `main`, commit
+`8fec1f5b6e6217d1420d879e2b2fa2109a0e46cf` (v0.2.0-a2).
+A3 er én ordinær delta-ZIP med komplette, endrede filer; ingen commit eller push.
+
+- **Ingest** åpner nå en PySide6-side i samme hovedvindu som Startside/Kontroll.
+  Ikke egen Tk-prosess. Siden bruker `app/grouped_ingest.py` via en tynn,
+  Qt-uavhengig adapter, ikke en ny/parallel mottaksmotor. Den støtter både
+  Mottak (flat `E-FFKK-YYYY-nnnn`) og Uttrekk (separat søskenmappe), ekstern
+  depot-setup, mottaksnummerforslag, valg av eksisterende mottak, valgfri
+  `info.xml`/LABEL, planforhåndsvisning og eksplisitt bekreftelse før opprettelse.
+- Mottak oppretter **kun** den flate E-mappen og eksisterende backendlogger
+  `ingest.events.jsonl`/`depot-log.txt` direkte i E-mappen. Uttrekk oppretter
+  mappetreet ved siden av E-mappen og viderefører kanonisk og portabel
+  hendelseslogg med eksisterende hendelses-ID-er. Appen laster ikke ned,
+  kopierer, pakker ut, skanner eller flytter arkivdata.
+- Ingest-brukerprofiler åpnes/lagres via eksisterende
+  `app/ingest_saved_profiles.py`; de inneholder bare oppsettfil, mappeprofil,
+  disk, gruppemappe, eierkommune og foretrukket handling. Tidligere mottaksnummer,
+  LABEL, `info.xml` og uttrekks-ID lagres **ikke**.
+- **Antiviruskontroll** har egen Qt-side for å velge og vise den aktuelle
+  karantenemappen. **Ingen antivirusmotor er integrert i a3**. Ingen knapp
+  markerer mappe som skannet, ren eller godkjent; ingen falsk hendelse loggføres.
+  Motor-/signaturversjon og reelt skanneresultat må inn i et senere utviklingstrinn.
+- **Til arbeidsområde** og «Gå til eksisterende Work» åpner det eksisterende
+  Work-steget i Enkel kontroll. Brukeren må selv velge jobbkontekst. Ingen
+  automatisk kobling mellom et nyopprettet uttrekk og en jobb, og ingen
+  automatisk filoverføring/Work-endring.
+- Modenhet 0/1/2 beholdes uendret for alle åtte områder. Ingest=Alpha (0)
+  selv om Qt-ruten er tilgjengelig. Antivirus=Alpha (0) og avgrenset som
+  **ikke skannet**; statusen beskriver GUI-integrasjon, aldri depotgodkjenning.
+- Når man navigerer Avansert → Startside → Ingest/Antivirus → Startside →
+  Kontroll, lagres synlige Avansert-docker bare én gang og gjenopprettes.
+  Oppstartssiden «Sist brukte» behandles fortsatt som Startside eller Kontroll;
+  ufullførte Ingest-skjemaer startes ikke automatisk ved neste programoppstart.
+
+**Test:** Kjør `test.bat` og `start.bat` i Windows. Velg arbeidsprofil
+«Depot – produksjonslinje» og modenhetsfilter 0 for å vise Ingest/Antivirus.
+Test Mottak/Uttrekk på en **egen testdisk/-mappe**, kontroller at første nivå
+kun får to logger, at uttrekk blir søskenmappe og at ingen arkivdata kopieres.
+Test avvisning/duplikat mottaksnummer, gjenåpning av brukerprofil,
+antivirusstatus «IKKE SKANNET», Work-navigasjon og Avansert-panelretur.
+
+**Videre etter a3:** Verifisert antivirusmotor og skanneresultater, eksplisitt
+arbeidsområde-/jobbkobling, kontroll-til-rapport-til-bevaring og tverrgående
+oppgavestatus; aldri utled skannestatus bare fra at en mappe finnes.

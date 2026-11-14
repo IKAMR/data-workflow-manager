@@ -32,11 +32,14 @@ class WorkArea:
 # Ingest is alpha as a GUI integration even though an established legacy
 # receiving implementation exists. Stable indicates only a stable GUI route.
 WORK_AREAS = (
-    WorkArea('ingest', 'legacy', 'Eldre GUI',
-             'Mottak/Ingest finnes i det eksisterende grensesnittet. '
-             'Det startes separat etter bekreftelse.', 'legacy_ingest', 'alpha'),
-    WorkArea('antivirus', 'planned', 'Ikke integrert',
-             'Ingen antiviruskontroll er koblet til denne arbeidsflaten.', None, 'alpha'),
+    WorkArea('ingest', 'available', 'Qt-integrasjon (Alpha)',
+             'Mottak og uttrekk bruker den eksisterende mottaksmotoren. '
+             'Krever forhåndsvisning og eksplisitt godkjenning; ingen filer kopieres.',
+             'qt_ingest', 'alpha'),
+    WorkArea('antivirus', 'partial', 'Forberedt – ingen skanner',
+             'Vis hvilket mottak som skal kontrolleres eksternt. Ingen '
+             'antivirusmotor, skannestatus eller godkjenning er integrert.',
+             'antivirus_info', 'alpha'),
     WorkArea('workspace', 'available', 'Tilgjengelig',
              'Gå til eksisterende Work-steg i Enkel modus. '
              'Ingen mapper opprettes automatisk.', 'basic_work', 'stable'),

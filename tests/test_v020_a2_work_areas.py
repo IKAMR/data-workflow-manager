@@ -49,15 +49,17 @@ class ProductionA2Tests(unittest.TestCase):
         self.assertEqual(cards_for((), SECTION_DEFS), ())
 
     def test_unimplemented_sections_are_non_actions(self):
-        for key in ('antivirus', 'crm', 'access'):
+        for key in ('crm', 'access'):
             self.assertEqual(AREA_BY_KEY[key].state, 'planned')
             self.assertIsNone(destination(key))
         with self.assertRaises(KeyError):
             destination('not-an-area')
 
-    def test_legacy_ui_is_not_presented_as_qt_integration(self):
-        self.assertEqual(AREA_BY_KEY['ingest'].state, 'legacy')
-        self.assertEqual(destination('ingest'), 'legacy_ingest')
+    def test_ingest_qt_and_antivirus_are_truthfully_routed_in_a3(self):
+        self.assertEqual(AREA_BY_KEY['ingest'].state, 'available')
+        self.assertEqual(destination('ingest'), 'qt_ingest')
+        self.assertEqual(AREA_BY_KEY['antivirus'].state, 'partial')
+        self.assertEqual(destination('antivirus'), 'antivirus_info')
         self.assertEqual(AREA_BY_KEY['preserve'].state, 'partial')
         self.assertEqual(destination('preserve'), 'preservation')
 
@@ -75,9 +77,12 @@ class ProductionA2Tests(unittest.TestCase):
             _report_actions=lambda: events.append('report-options'),
             _preservation_actions=lambda: events.append('preservation-options'),
             _legacy_launch=lambda purpose: events.append('legacy-prompt'),
+            window=SimpleNamespace(
+                v020_show_ingest_page=lambda: events.append('ingest-qt'),
+                v020_show_antivirus_page=lambda: events.append('antivirus-info'),
+            ),
         )
         route = load_gui_method('_open_section')
-        route(stub, 'antivirus')
         route(stub, 'crm')
         route(stub, 'access')
         self.assertEqual(events, [])
@@ -87,8 +92,9 @@ class ProductionA2Tests(unittest.TestCase):
         route(stub, 'report')
         route(stub, 'preserve')
         route(stub, 'ingest')
+        route(stub, 'antivirus')
         self.assertEqual(events, ['accept', 'schedule', 'report-options',
-                                  'preservation-options', 'legacy-prompt'])
+                                  'preservation-options', 'ingest-qt', 'antivirus-info'])
 
     def test_work_uses_existing_basic_step_without_creating_directories(self):
         events = []
@@ -134,10 +140,10 @@ class ProductionA2Tests(unittest.TestCase):
         self.assertIn('window.basic_advanced_button', nav)
 
     def test_release_and_distribution_agree(self):
-        self.assertEqual(VERSION, '0.2.0-a2')
+        self.assertEqual(VERSION, '0.2.0-a3')
         with (ROOT / 'pyproject.toml').open('rb') as stream:
             project = tomllib.load(stream)['project']
-        self.assertEqual(project['version'], '0.2.0a2')
+        self.assertEqual(project['version'], '0.2.0a3')
         self.assertEqual(project['version'], VERSION.replace('-a', 'a'))
 
 
