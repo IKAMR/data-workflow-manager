@@ -73,7 +73,16 @@ class DiasMetadataTests(unittest.TestCase):
         basic = (ROOT / 'gui_qt' / 'basic_main_v0113_a2.py').read_text('utf-8')
         ast.parse(entry)
         ast.parse(basic)
-        self.assertIn('from gui_qt.basic_main_v0113_a2 import DwmMainWindow', entry)
+        if 'from gui_qt.main_v020_a6 import DwmMainWindow' in entry:
+            wrapper = (ROOT / 'gui_qt' / 'main_v020_a6.py').read_text('utf-8')
+            ast.parse(wrapper)
+            self.assertIn(
+                'from gui_qt.basic_main_v0113_a2 import DwmMainWindow as _ExistingMainWindow',
+                wrapper,
+            )
+            self.assertIn('class DwmMainWindow(_ExistingMainWindow):', wrapper)
+        else:
+            self.assertIn('from gui_qt.basic_main_v0113_a2 import DwmMainWindow', entry)
         self.assertIn('class DwmMainWindow(_StableBasicWindow):', basic)
         self.assertNotIn('setattr(ResultCenterWindow', basic)
         self.assertIn('self._a2_save_metadata(job)', basic)

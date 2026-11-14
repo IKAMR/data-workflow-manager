@@ -216,3 +216,25 @@ fortsatt åpne produksjonsoppgaver og er ikke erklært bestått av a4.
 - All statuslesing er skrivebeskyttet. Det opprettes ingen mapper,
   kjøres ingen kontroller, registreres ingen faglig godkjenning,
   og endres ingen Source-/Work-/arkivfiler ved navigasjon.
+
+## v0.2.0-a6 – mindre skjermer og faglig lesbarhet
+
+**Baseline:** commit `4cbc28eb4b468278a2ab29e5f3dc9aef67ed8a26`
+(v0.2.0-a5, committet og pushet).
+
+- Resultatvisninger bruker nå fire korte navigasjonsgrupper med en egen liste
+  over visninger i valgt gruppe. Alle opprinnelige resultatsider, fanewidgeter,
+  signaler og knapphandlinger beholdes uendret. Programmatisk navigasjon fra
+  periode- og depotvurdering skal fortsatt velge rett visning.
+- Depotvurderingens hovedrute viser et skrivebeskyttet, lesbart sammendrag av
+  valgt uttrekk eller arkivdel. Valget **Vis rå JSON** viser hele den opprinnelige
+  evidensstrukturen. Fullstendige modalvinduer og beslutningslagring er fremdeles
+  ivaretatt av eksisterende depotvurderingskomponenter.
+- Uregistrert status og manglende tall vises som ukjent/ikke oppgitt. Vurderings-
+  punkter for hele uttrekket brukes ikke som arkivdelsspesifikke vurderinger.
+  Kilder registrert på uttrekksnivå fremstilles ikke som verifisert per arkivdel.
+- **Fortsett sist** og **Oppdater status** ligger nå på samme rad som
+  historikkfilteret, ikke under hendelsesloggen. **Fortsett sist** er fremdeles
+  en jobbtilknyttet GUI-navigasjon uten automatisk kjøring eller faglig beslutning.
+- Integrering med intern CRM og Innsyn er **ikke** implementert. Ingen eksport,
+  publisering, automatisk godkjenning eller DIAS-pakking skjer ved å åpne sidene.

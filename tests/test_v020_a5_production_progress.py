@@ -328,9 +328,9 @@ class GUIContractTests(unittest.TestCase):
         self.assertNotIn('os.replace(',src)
 
     def test_release_version_matches_distribution(self):
-        self.assertEqual(VERSION,'0.2.0-a5')
+        self.assertRegex(VERSION, r'^0\.2\.0-a[0-9]+$')
         with (ROOT/'pyproject.toml').open('rb') as f:
-            self.assertEqual(tomllib.load(f)['project']['version'],'0.2.0a5')
+            self.assertEqual(tomllib.load(f)['project']['version'], VERSION.replace('-',''))
 
 
 if __name__=='__main__':

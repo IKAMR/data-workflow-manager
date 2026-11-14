@@ -12,7 +12,7 @@ def main() -> int:
         return 2
     from gui_qt.bootstrap_v0113_a1 import install
     install()
-    from gui_qt.basic_main_v0113_a2 import DwmMainWindow
+    from gui_qt.main_v020_a6 import DwmMainWindow
     from gui_qt.canonical_results_v0115_a3 import install_canonical_results_menu
     from gui_qt.start_shell_v020_a1 import install_setup_tab, install_start_navigation
     from gui_qt.production_home_v020_a2 import ProductionStartPage, install_integrated_home
