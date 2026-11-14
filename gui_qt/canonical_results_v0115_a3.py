@@ -21,6 +21,7 @@ from noark5_workflow.analysis.canonical_results import build_canonical_results
 
 from app.canonical_selection_v0115_a3 import ALLOWED, selected_sources
 from noark5_workflow.analysis.canonical_context_v0115_a4 import build_context
+from noark5_workflow.analysis.canonical_external_v0115_a5 import discover_external_candidates
 
 
 class _Task(QObject):
@@ -35,6 +36,8 @@ class _Task(QObject):
         try:
             if self.selection is None:
                 result = discover_work_sources(self.work)
+            elif '__a5_discover_external' in self.selection:
+                result = {'a5_candidates': discover_external_candidates(self.work)}
             elif '__a4_context' in self.selection:
                 context = build_context(self.work, **self.selection['__a4_context'])
                 result = {'a4_context': context['summary']}
@@ -82,6 +85,8 @@ class CanonicalResultsDialog(QDialog):
         buttons = QHBoxLayout()
         self.refresh_button = QPushButton('Finn resultatkilder')
         self.refresh_button.clicked.connect(self.refresh)
+        self.external_discover_button = QPushButton('Finn ekstern evidens')
+        self.external_discover_button.clicked.connect(lambda: self._start({'__a5_discover_external': True}))
         self.build_button = QPushButton('Opprett resultatindeks...')
         self.build_button.clicked.connect(self.create_snapshot)
         self.context_button = QPushButton('Koble vurderinger / ekstern evidens...')
@@ -89,6 +94,7 @@ class CanonicalResultsDialog(QDialog):
         self.close_button = QPushButton('Lukk')
         self.close_button.clicked.connect(self.reject)
         buttons.addWidget(self.refresh_button)
+        buttons.addWidget(self.external_discover_button)
         buttons.addWidget(self.build_button)
         buttons.addWidget(self.context_button)
         buttons.addStretch(1)
@@ -101,6 +107,7 @@ class CanonicalResultsDialog(QDialog):
         self._busy = busy
         self.refresh_button.setEnabled(not busy)
         self.build_button.setEnabled(not busy)
+        self.external_discover_button.setEnabled(not busy)
         self.context_button.setEnabled(not busy)
         self.close_button.setEnabled(not busy)
         self.tree.setEnabled(not busy)
@@ -133,14 +140,25 @@ class CanonicalResultsDialog(QDialog):
             self.report.setPlainText('FEIL: ' + error)
             QMessageBox.warning(self, 'Kanoniske resultatdata', error)
             return
-        if 'a4_context' in result:
+        if 'a5_candidates' in result:
+            rows = result['a5_candidates']
+            lines = [f'Eksterne evidenskandidater funnet: {len(rows)}',
+                     'Ingen filer er valgt eller analysert. Velg dem eksplisitt ved kobling:']
+            lines.extend('  ' + x['path'] for x in rows)
+            if len(rows) >= 150:
+                lines.append('Listen er avgrenset til 150 filer.')
+            self.report.setPlainText('\n'.join(lines))
+        elif 'a4_context' in result:
             totals = result['a4_context']
             self.report.setPlainText(
                 'Kanonisk kontekstindeks lagret: noark5_evidence/canonical-context.json\n'
                 f"Faglige vurderinger: {totals['human_assessments']}\n"
                 f"Eksterne evidensfiler (ikke tolket): {totals['external_unparsed_files']}\n"
                 f"Vurderinger uten test-ID-kobling: {totals['unlinked_assessments']}\n"
-                'Dette er dokumentasjon, ikke automatisk godkjenning.')
+                f"Faglig ikke-verifiserte vurderinger: {totals['unverified_assessments']}\n"
+                f"Siegfried JSON identifisert: {totals['identified_siegfried_files']}\n"
+                'Testreferanse er IKKE en faglig verifisert M-ID-kobling.\n'
+                'Formatidentifikasjon er IKKE testgodkjenning eller depotaksept.')
         elif 'candidates' in result:
             self.tree.clear()
             for category, candidates in result['candidates'].items():
@@ -202,9 +220,11 @@ class CanonicalResultsDialog(QDialog):
             QMessageBox.information(self, 'Kanonisk resultatindeks',
                                     'Opprett resultatindeksen foerst.')
             return
+        assessment_default = self.work / 'noark5_evidence' / 'experience_assessments.json'
         selected, _ = QFileDialog.getOpenFileName(
             self, 'Velg faglige vurderinger (valgfritt)',
-            str(self.work / 'noark5_evidence'), 'JSON (*.json);;Alle filer (*)',
+            str(assessment_default if assessment_default.is_file() else self.work / 'noark5_evidence'),
+            'JSON (*.json);;Alle filer (*)',
             options=QFileDialog.Option.DontUseNativeDialog)
         external, _ = QFileDialog.getOpenFileNames(
             self, 'Velg eksterne evidensfiler i Work (valgfritt)',
@@ -215,7 +235,7 @@ class CanonicalResultsDialog(QDialog):
         if QMessageBox.question(
                 self, 'Koble evidens til kanonisk indeks',
                 'Opprett/erstatt en separat kontekstindeks for de valgte filene?\n'
-                'Kildene blir ikke endret. Eksterne filer blir foreloepig bare referert, ikke analysert.',
+                'Kildene blir ikke endret. Bare gjenkjent Siegfried JSON tolkes som formatidentifikasjon; Arkade-filer uten kjent skjema beholdes som referanser.',
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No) != QMessageBox.StandardButton.Yes:
             return

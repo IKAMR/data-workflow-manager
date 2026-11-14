@@ -82,6 +82,10 @@ def _assessment_events(path: Path, canonical: dict) -> tuple[list[dict], int]:
         if (test_id, metadata_id or 'None') in known and metadata_id:
             match = 'test_and_metadata_id'
         result.append({
+            'reference_status': ('test_and_metadata_id_present' if match == 'test_and_metadata_id' else
+                                 'test_id_present' if match == 'test_id_only' else 'no_matching_test_id'),
+            'evidence_verification': 'not_verified',
+            'human_verification': 'not_recorded',
             'event_id': uid, 'test_id': test_id or None, 'metadata_id': metadata_id,
             'case_id': event.get('case_id'), 'recorded_at': event.get('recorded_at'),
             'decision': event.get('decision'), 'note': event.get('note'),
@@ -120,6 +124,7 @@ def build_context(work: str | Path, *, assessments_path: str | Path | None = Non
         seen.add(rel)
         assessments, _ = _assessment_events(path, canonical)
         assessment_ref = _fingerprint(path, rel)
+    from noark5_workflow.analysis.canonical_external_v0115_a5 import inspect_external
     external = []
     if len(external_paths) > MAX_EXTERNAL:
         raise ContextError('For mange eksterne filer')
@@ -128,8 +133,12 @@ def build_context(work: str | Path, *, assessments_path: str | Path | None = Non
         if rel in seen or rel == OUT:
             raise ContextError('Duplisert eller ugyldig ekstern evidens')
         seen.add(rel)
-        external.append({'source_kind': 'external_opaque', 'evidence': _fingerprint(path, rel),
-                         'interpretation': 'not_parsed', 'authoritative_internal_master': False})
+        inspected = inspect_external(path)
+        external.append({'source_kind': ('siegfried' if inspected['format'] == 'siegfried_json' else 'external_opaque'),
+                         'evidence': _fingerprint(path, rel),
+                         'interpretation': inspected['interpretation'],
+                         'inspection': inspected,
+                         'authoritative_internal_master': False})
     document = {
         'model_id': MODEL, 'schema_version': '1.0',
         'generated_at': generated_at or datetime.now(timezone.utc).isoformat(timespec='seconds'),
@@ -137,13 +146,16 @@ def build_context(work: str | Path, *, assessments_path: str | Path | None = Non
         'canonical_reference': _fingerprint(canonical_path, canonical_rel),
         'assessment_source': assessment_ref, 'assessments': assessments,
         'external_evidence': external,
-        'summary': {'human_assessments': len(assessments), 'external_unparsed_files': len(external),
+        'summary': {'human_assessments': len(assessments), 'external_unparsed_files': sum(x['interpretation'] == 'not_parsed' for x in external),
                     'unlinked_assessments': sum(x['link_status'] == 'unlinked' for x in assessments),
+                    'unverified_assessments': sum(x['evidence_verification'] != 'verified' for x in assessments),
+                    'identified_siegfried_files': sum(x['interpretation'] == 'format_identification_only' for x in external),
                     'is_approval': False},
         'limitations': [
             'Vurderinger endrer aldri teknisk kontrollstatus',
+            'Referanse/status er aldri faglig verifikasjon av evidens, inkludert M300',
             'Kobling paa test-ID alene er ikke dokumentasjon paa konkret XML-forekomst',
-            'Eksterne filer beholdes som opak evidens inntil formatadapter er godkjent',
+            'Kun strengt gjenkjent Siegfried JSON tolkes som formatidentifikasjon; Arkade og andre kilder er opake',
             'Endret kanonisk fil krever ny kontekstindeks med ny SHA-256',
         ],
     }

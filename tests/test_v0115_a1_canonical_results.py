@@ -168,9 +168,9 @@ class CanonicalA1Tests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1]
         import tomllib
         from version import VERSION
-        self.assertEqual(VERSION, '0.1.15-a4')
+        self.assertEqual(VERSION, '0.1.15-a5')
         with (root / 'pyproject.toml').open('rb') as handle:
-            self.assertEqual(tomllib.load(handle)['project']['version'], '0.1.15a4')
+            self.assertEqual(tomllib.load(handle)['project']['version'], '0.1.15a5')
 
     def test_schema_validates_materialized_snapshot_when_validator_available(self):
         try:
