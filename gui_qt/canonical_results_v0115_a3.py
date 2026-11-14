@@ -31,6 +31,9 @@ from noark5_workflow.analysis.canonical_external_import_v0115_a10 import (
     analyze_external_results, discover_analysis_candidates, previous_analysis_selection,
 )
 from app.canonical_external_selection_v0115_a10 import selected_external_rows
+from noark5_workflow.analysis.canonical_matrix_v0115_a11 import (
+    evaluate_control_matrix, load_external_status,
+)
 
 
 class _Task(QObject):
@@ -50,8 +53,11 @@ class _Task(QObject):
                 candidates = discover_analysis_candidates(self.work)
                 previous = previous_analysis_selection(self.work, candidates)
                 result['external_candidates'] = external_row_metadata(candidates, previous)
+                result['external_status'] = load_external_status(self.work)
             elif '__a10_external' in self.selection:
                 result = {'a10_external': analyze_external_results(self.work, self.selection['__a10_external'])}
+            elif '__a11_matrix' in self.selection:
+                result = {'a11_matrix': evaluate_control_matrix(self.work, self.selection['__a11_matrix'])}
             elif '__a8_outcomes' in self.selection:
                 result = {'a8_outcomes': evaluate_recorded_outcomes(self.work, self.selection['__a8_outcomes'])}
             elif '__a7_profile' in self.selection:
@@ -137,6 +143,8 @@ class CanonicalResultsDialog(QDialog):
         self.profile_button.clicked.connect(self.select_profile)
         self.outcomes_button = QPushButton('Kontrollutfall / KS...')
         self.outcomes_button.clicked.connect(self.select_outcome_profile)
+        self.matrix_button = QPushButton('Dekningsmatrise (utkast)...')
+        self.matrix_button.clicked.connect(self.select_matrix_profile)
         self.external_discover_button = QPushButton('Finn ekstern evidens')
         self.external_discover_button.clicked.connect(lambda: self._start({'__a5_discover_external': True}))
         self.build_button = QPushButton('Opprett resultatindeks...')
@@ -149,7 +157,7 @@ class CanonicalResultsDialog(QDialog):
         self.close_button.clicked.connect(self.reject)
         self._action_buttons = [
             self.refresh_button, self.external_discover_button,
-            self.coverage_button, self.profile_button, self.outcomes_button,
+            self.coverage_button, self.profile_button, self.outcomes_button, self.matrix_button,
             self.build_button, self.context_button, self.external_analyze_button, self.close_button,
         ]
         self._button_host = button_host
@@ -170,6 +178,7 @@ class CanonicalResultsDialog(QDialog):
         self.coverage_button.setEnabled(not busy)
         self.profile_button.setEnabled(not busy)
         self.outcomes_button.setEnabled(not busy)
+        self.matrix_button.setEnabled(not busy)
         self.context_button.setEnabled(not busy)
         self.external_analyze_button.setEnabled(not busy)
         self.close_button.setEnabled(not busy)
@@ -233,10 +242,43 @@ class CanonicalResultsDialog(QDialog):
                          'Ingen kontroll er godkjent av denne analysen.'])
             self.report.setPlainText('\n'.join(lines))
             self._set_view('external_analysis')
+            analyzed_paths = {x['evidence']['work_relative_path']:
+                              x['analysis']['interpretation'] for x in data['sources']}
+            for i in range(self.tree.topLevelItemCount()):
+                row = self.tree.topLevelItem(i)
+                meta = row.data(0, Qt.ItemDataRole.UserRole)
+                if meta and meta[0] == 'external':
+                    interpretation = analyzed_paths.get(meta[1])
+                    if interpretation:
+                        row.setText(2, 'Ikke tolket' if interpretation == 'not_parsed' else 'Analysert')
+                    else:
+                        row.setText(2, 'Ekstern - ikke analysert')
             self.selection_status.setText(
                 f"Lagret samlet analyse av {info['selected_files']} eksterne filer. "
                 f"{info['reported_external_test_records']} Arkade-testposter; "
                 f"{info['unparsed_files']} ukjente filer. Originalene er uendret.")
+        elif 'a11_matrix' in result:
+            matrix = result['a11_matrix']
+            summary = matrix['summary']
+            lines = ['DEKNINGSMATRISE - ARBEIDSUTKAST (IKKE GODKJENT)',
+                     'Profil: ' + matrix['profile_id'],
+                     'Ekstern analyse: ' + matrix['external_analysis_state'],
+                     f"Paa krevde kategorier med evidens: {summary['required_with_registered_evidence']}/{summary['required_categories']}",
+                     f"Arkade rapporterte feil: {summary['reported_arkade_errors']}",
+                     'Kravoppfyllelse: IKKE VERIFISERT',
+                     'Arkivskapers aksept / depotgodkjenning: IKKE REGISTRERT', '']
+            for item in matrix['controls']:
+                lines.append(f"{item['title']} [{item['requirement']}]: {item['assessment']}")
+                lines.append(f"  DWM-observasjoner: {item['internal_observations']}; eksterne testposter: {item['external_test_records']}")
+                if item['external_status_counts']:
+                    lines.append('  Arkade rapportert status: ' + str(item['external_status_counts']))
+                if item['pronom_format_rows']:
+                    lines.append(f"  PRONOM-formatrader: {item['pronom_format_rows']}")
+                if item['requirement'] == 'conditional':
+                    lines.append('  Betingelse: IKKE FAGLIG VURDERT')
+            lines.extend(['', matrix['warning']])
+            self.report.setPlainText('\n'.join(lines))
+            self._set_view('matrix')
         elif 'a8_outcomes' in result:
             review = result['a8_outcomes']
             info = review['summary']
@@ -320,8 +362,11 @@ class CanonicalResultsDialog(QDialog):
                             row.setDisabled(True)
                         self.tree.addTopLevelItem(row)
                 for candidate in result.get('external_candidates', []):
+                    source_state = result.get('external_status', {}).get('sources', {}).get(candidate['path'])
+                    text_state = {'analyzed': 'Analysert', 'not_parsed': 'Ikke tolket',
+                                  'source_missing_or_changed': 'Endret kilde'}.get(source_state, 'Ekstern - ikke analysert')
                     row = QTreeWidgetItem(['', candidate['label'] + ': ' + candidate['path'],
-                                           'Ekstern - ikke analysert', str(candidate['bytes'])])
+                                           text_state, str(candidate['bytes'])])
                     row.setData(0, Qt.ItemDataRole.UserRole,
                                 ('external', candidate['path'], 'candidate'))
                     row.setFlags(row.flags() | Qt.ItemFlag.ItemIsUserCheckable)
@@ -437,6 +482,11 @@ class CanonicalResultsDialog(QDialog):
         if hasattr(self, '_button_grid'):
             self._reflow_buttons()
             self._schedule_content_layout()
+
+    def select_matrix_profile(self):
+        """Click explicitly selects the bundled, unapproved draft profile."""
+        profile = Path(__file__).resolve().parents[1] / 'config' / 'noark5' / 'control-profile-dwm-draft-v1.json'
+        self._start({'__a11_matrix': str(profile)})
 
     def select_outcome_profile(self):
         """Select explicit draft profile; do not infer one from Work."""
