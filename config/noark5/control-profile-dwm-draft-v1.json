@@ -1,0 +1,14 @@
+{
+  "model_id": "noark5.control-profile.v1",
+  "profile_id": "dwm.noark5.draft.v1",
+  "approved": false,
+  "description": "Arbeidsutkast for kontrollplan. Ikke godkjent kravprofil for Noark 5 eller depotaksept.",
+  "requirements": [
+    {"control_id": "xml_schema", "requirement": "required"},
+    {"control_id": "xpath", "requirement": "required"},
+    {"control_id": "arkade_noark", "requirement": "conditional", "condition": "Dersom Arkade 5 inngaar i avtalt kontrollprofil"},
+    {"control_id": "siegfried_pronom", "requirement": "conditional", "condition": "Dersom PRONOM-identifikasjon inngaar i avtalt kontrollprofil"},
+    {"control_id": "arkade_pronom", "requirement": "conditional", "condition": "Dersom Arkade 5 PRONOM inngaar i avtalt kontrollprofil"},
+    {"control_id": "depot_report", "requirement": "optional"}
+  ]
+}

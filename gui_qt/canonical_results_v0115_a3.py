@@ -23,6 +23,7 @@ from app.canonical_selection_v0115_a3 import ALLOWED, selected_sources
 from noark5_workflow.analysis.canonical_context_v0115_a4 import build_context
 from noark5_workflow.analysis.canonical_external_v0115_a5 import discover_external_candidates
 from noark5_workflow.analysis.canonical_control_plan_v0115_a6 import coverage_report
+from noark5_workflow.analysis.canonical_control_requirements_v0115_a7 import evaluate_control_profile
 
 
 class _Task(QObject):
@@ -37,6 +38,8 @@ class _Task(QObject):
         try:
             if self.selection is None:
                 result = discover_work_sources(self.work)
+            elif '__a7_profile' in self.selection:
+                result = {'a7_profile': evaluate_control_profile(self.work, self.selection['__a7_profile'])}
             elif '__a6_coverage' in self.selection:
                 result = {'a6_coverage': coverage_report(self.work)}
             elif '__a5_discover_external' in self.selection:
@@ -106,6 +109,8 @@ class CanonicalResultsDialog(QDialog):
         self.refresh_button.clicked.connect(self.refresh)
         self.coverage_button = QPushButton('Kontrolldekning')
         self.coverage_button.clicked.connect(lambda: self._start({'__a6_coverage': True}))
+        self.profile_button = QPushButton('Kontrollplan (utkast)...')
+        self.profile_button.clicked.connect(self.select_profile)
         self.external_discover_button = QPushButton('Finn ekstern evidens')
         self.external_discover_button.clicked.connect(lambda: self._start({'__a5_discover_external': True}))
         self.build_button = QPushButton('Opprett resultatindeks...')
@@ -117,6 +122,7 @@ class CanonicalResultsDialog(QDialog):
         buttons.addWidget(self.refresh_button)
         buttons.addWidget(self.external_discover_button)
         buttons.addWidget(self.coverage_button)
+        buttons.addWidget(self.profile_button)
         buttons.addWidget(self.build_button)
         buttons.addWidget(self.context_button)
         buttons.addStretch(1)
@@ -131,6 +137,7 @@ class CanonicalResultsDialog(QDialog):
         self.build_button.setEnabled(not busy)
         self.external_discover_button.setEnabled(not busy)
         self.coverage_button.setEnabled(not busy)
+        self.profile_button.setEnabled(not busy)
         self.context_button.setEnabled(not busy)
         self.close_button.setEnabled(not busy)
         self.tree.setEnabled(not busy)
@@ -163,7 +170,20 @@ class CanonicalResultsDialog(QDialog):
             self.report.setPlainText('FEIL: ' + error)
             QMessageBox.warning(self, 'Kanoniske resultatdata', error)
             return
-        if 'a6_coverage' in result:
+        if 'a7_profile' in result:
+            report = result['a7_profile']
+            summary = report['summary']
+            lines = ['KONTROLLPLAN - UTKAST (ikke godkjent)',
+                     'Profil: ' + report['profile_id'],
+                     f"Påkrevde kontrollomrader med registrert evidens: {summary['required_with_registered_evidence']}/{summary['required_categories']}",
+                     'Kravoppfyllelse: IKKE VERIFISERT',
+                     'Ingen teknisk eller depotfaglig godkjenning.', '']
+            for item in report['controls']:
+                lines.append(f"{item['title']} [{item['requirement']}]: {item['evidence_state']} ({item['observation_count']} observasjoner)")
+            lines.append('Kontrollprofilen er et arbeidsutkast. Kontrollutfall og anvendelighet ma vurderes.')
+            self.report.setPlainText('\n'.join(lines))
+            self._expand_report()
+        elif 'a6_coverage' in result:
             report = result['a6_coverage']
             summary = report['summary']
             lines = [f"Kontrollområder med registrert evidens: {summary['categories_with_registered_evidence']}/{summary['categories']}",
@@ -229,6 +249,16 @@ class CanonicalResultsDialog(QDialog):
         total = sum(sizes)
         if total > 250:
             self.splitter.setSizes([max(140, total * 2 // 5), max(110, total * 3 // 5)])
+
+    def select_profile(self):
+        """Require an intentional choice of a draft requirement profile."""
+        default = Path(__file__).resolve().parents[1] / 'config' / 'noark5' / 'control-profile-dwm-draft-v1.json'
+        chosen, _ = QFileDialog.getOpenFileName(
+            self, 'Velg kontrollprofil (utkast)', str(default),
+            'JSON (*.json);;Alle filer (*)',
+            options=QFileDialog.Option.DontUseNativeDialog)
+        if chosen:
+            self._start({'__a7_profile': chosen})
 
     def refresh(self):
         self._start(None)
@@ -331,4 +361,6 @@ def install_canonical_results_menu(window):
     action.triggered.connect(launch)
     menu.addAction(action)
     window._a15_canonical_action = action
+    from .menu_position_v0115_a7 import install_main_menu_guard
+    install_main_menu_guard(window)
     return True
