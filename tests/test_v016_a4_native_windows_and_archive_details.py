@@ -1,6 +1,7 @@
 from pathlib import Path
 import re
 import unittest
+from version_assertions import assert_v016_at_least
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -9,9 +10,7 @@ class V016A4NativeWindowsAndArchiveDetailsTests(unittest.TestCase):
 
     def test_version_is_a4_or_newer_v016(self):
         version = (ROOT / "version.py").read_text(encoding="utf-8")
-        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a(\d+)(?:\.\d+)*"', version)
-        self.assertIsNotNone(match)
-        self.assertGreaterEqual(int(match.group(1)), 4)
+        assert_v016_at_least(self, version, 4, 0)
 
     def test_global_map_hook_only_places_windows(self):
         source = (ROOT / "gui" / "window_placement.py").read_text(encoding="utf-8")

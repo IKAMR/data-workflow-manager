@@ -8,6 +8,7 @@ from unittest.mock import patch
 from noark5_workflow.core.job import Job
 from noark5_workflow.external_evidence.arkade5_discovery import Arkade5Candidate
 from noark5_workflow.job_batch_actions import discover_arkade5_results_for_jobs
+from version_assertions import assert_v016_at_least
 
 
 class A252ArkadeCorrelationAndProgressTests(unittest.TestCase):
@@ -118,11 +119,7 @@ class A252ArkadeCorrelationAndProgressTests(unittest.TestCase):
         version = Path("version.py").read_text(encoding="utf-8")
         self.assertIn("from gui.persistent_app_a25_2 import run_gui", main)
         import re
-        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a(\d+)(?:\.(\d+))?"', version)
-        self.assertIsNotNone(match)
-        alpha = int(match.group(1))
-        increment = int(match.group(2) or 0)
-        self.assertTrue(alpha > 25 or (alpha == 25 and increment >= 2))
+        assert_v016_at_least(self, version, 25, 2)
 
 
 if __name__ == "__main__":

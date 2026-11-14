@@ -1,15 +1,13 @@
 from pathlib import Path
 import re
 import unittest
+from version_assertions import assert_v016_at_least
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def _assert_version_at_least(testcase, version_text, alpha, sub=0):
-    match = re.search(r'VERSION = "0\.1\.6-a(\d+)(?:\.(\d+))?"', version_text)
-    testcase.assertIsNotNone(match)
-    actual = (int(match.group(1)), int(match.group(2) or 0))
-    testcase.assertGreaterEqual(actual, (alpha, sub))
+    assert_v016_at_least(testcase, version_text, alpha, sub)
 
 
 class A192OverviewAndLoadingTests(unittest.TestCase):

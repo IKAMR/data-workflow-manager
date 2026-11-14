@@ -1,14 +1,15 @@
 from pathlib import Path
 import re
 import unittest
+from version_assertions import parse_release_or_alpha
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def _a14_or_newer_version():
-    text = (ROOT / "version.py").read_text(encoding="utf-8")
-    match = re.search(r'VERSION\s*=\s*"0\.1\.6-a(\d+)', text)
-    return match if match and int(match.group(1)) >= 14 else None
+    version = (ROOT / "version.py").read_text(encoding="utf-8")
+    value = parse_release_or_alpha(version, "0.1.6")
+    return value if value is not None and value >= (14, 0) else None
 
 
 

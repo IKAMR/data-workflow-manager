@@ -13,6 +13,7 @@ from noark5_workflow.external_tools.arkade5_jobs import (
     resolve_arkade5_output_subfolder,
     run_arkade5_plan,
 )
+from version_assertions import assert_v016_at_least
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -112,7 +113,7 @@ class V016A268ArkadeOutputLayoutTests(unittest.TestCase):
         version = (ROOT / "version.py").read_text(encoding="utf-8")
         self.assertIn("from gui.persistent_app_a26_8 import run_gui", main)
         self.assertIn("class WorkflowApp(A26_7WorkflowApp)", runtime)
-        self.assertRegex(version, r'VERSION\s*=\s*"0\.1\.6-a(?:(?:26|2[7-9]|[3-9]\d|[1-9]\d{2,})(?:\.\d+)?)"')
+        assert_v016_at_least(self, version, 26, 0)
 
 
 if __name__ == "__main__":

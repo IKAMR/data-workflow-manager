@@ -9,6 +9,7 @@ from noark5_workflow.extraction_discovery import (
     extraction_definition,
     load_extraction_definitions,
 )
+from version_assertions import assert_v016_at_least
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -63,9 +64,7 @@ class A242GenericExtractionDiscoveryTests(unittest.TestCase):
         main = (ROOT / "main.py").read_text(encoding="utf-8")
         version = (ROOT / "version.py").read_text(encoding="utf-8")
         self.assertIn("from gui.persistent_app_a24_2 import run_gui", main)
-        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a(\d+)(?:\.(\d+))?"', version)
-        self.assertIsNotNone(match)
-        self.assertGreaterEqual(int(match.group(1)), 24)
+        assert_v016_at_least(self, version, 24, 0)
 
 
 if __name__ == "__main__":

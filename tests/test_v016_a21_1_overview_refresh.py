@@ -1,6 +1,7 @@
 from pathlib import Path
 import re
 import unittest
+from version_assertions import assert_v016_at_least
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -10,9 +11,7 @@ class A211OverviewRefreshTests(unittest.TestCase):
         main = (ROOT / "main.py").read_text(encoding="utf-8")
         version = (ROOT / "version.py").read_text(encoding="utf-8")
         self.assertIn("from gui.persistent_app_a21_1 import run_gui", main)
-        match = re.search(r'VERSION = "0\.1\.6-a(\d+)(?:\.(\d+))?"', version)
-        self.assertIsNotNone(match)
-        self.assertTrue(int(match.group(1)) > 21 or (int(match.group(1)) == 21 and (match.group(2) is None or int(match.group(2)) >= 1)))
+        assert_v016_at_least(self, version, 21, 1, consolidated_alpha=True)
 
     def test_overview_has_distinct_orientation_sections(self):
         text = (ROOT / "gui" / "depot_result_center_a21_1.py").read_text(encoding="utf-8")

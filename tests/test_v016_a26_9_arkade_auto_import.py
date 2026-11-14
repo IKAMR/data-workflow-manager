@@ -14,6 +14,7 @@ from noark5_workflow.external_tools.arkade5_jobs import (
     Arkade5JobRun,
     Arkade5PlannedRun,
 )
+from version_assertions import assert_v016_at_least
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -90,7 +91,7 @@ class V016A269ArkadeAutoImportTests(unittest.TestCase):
         self.assertIn("from gui.persistent_app_a26_9 import run_gui", main)
         self.assertIn("import_arkade5_run_outputs", runtime)
         self.assertIn("Automatisk import:", dialog)
-        self.assertRegex(version, r'VERSION\s*=\s*"0\.1\.6-a(?:(?:26|2[7-9]|[3-9]\d|[1-9]\d{2,})(?:\.\d+)?)"')
+        assert_v016_at_least(self, version, 26, 0)
 
 
 if __name__ == "__main__":

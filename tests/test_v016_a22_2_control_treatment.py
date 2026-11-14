@@ -1,6 +1,7 @@
 from pathlib import Path
 import re
 import unittest
+from version_assertions import assert_v016_at_least
 
 ROOT = Path(__file__).resolve().parents[1]
 CENTER = ROOT / "gui" / "depot_result_center_a22_2.py"
@@ -13,9 +14,7 @@ class A222ControlTreatmentTests(unittest.TestCase):
 
     def test_version(self):
         text = (ROOT / "version.py").read_text(encoding="utf-8")
-        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a(\d+)(?:\.\d+)*"', text)
-        self.assertIsNotNone(match)
-        self.assertGreaterEqual(int(match.group(1)), 22)
+        assert_v016_at_least(self, text, 22, 0)
 
     def test_control_treatment_is_separate_sidecar(self):
         source = CENTER.read_text(encoding="utf-8")

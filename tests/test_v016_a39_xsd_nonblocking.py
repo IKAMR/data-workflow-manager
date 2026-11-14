@@ -7,6 +7,7 @@ from noark5_workflow.core.job import Job, JobStatus
 from noark5_workflow.core.job_runner_a39 import A39JobRunner
 from noark5_workflow.core.operation import BaseOperation, OperationDefinition
 from noark5_workflow.core.result import OperationResult
+from version_assertions import assert_v016_at_least
 
 
 class FakeRegistry:
@@ -111,7 +112,7 @@ class V016A39XsdNonBlockingTests(unittest.TestCase):
     def test_version_is_a39(self):
         root = Path(__file__).resolve().parents[1]
         source = (root / "version.py").read_text(encoding="utf-8")
-        self.assertIn('VERSION = "0.1.6-a39"', source)
+        assert_v016_at_least(self, 'VERSION = "0.1.6-a39"', 39, 0)
 
 
 if __name__ == "__main__":

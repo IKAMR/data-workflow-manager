@@ -1,5 +1,6 @@
 from pathlib import Path
 import unittest
+from version_assertions import assert_v016_at_least
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -28,7 +29,7 @@ class A182QuickReviewTests(unittest.TestCase):
         version = (ROOT / "version.py").read_text(encoding="utf-8")
         chain = (ROOT / "gui" / "persistent_app_a18_3.py").read_text(encoding="utf-8")
         self.assertIn("from .persistent_app_a18_2 import WorkflowApp as A18_2WorkflowApp", chain)
-        self.assertRegex(version, r'VERSION = "0\.1\.6-a(?:18(?:\.\d+)?|(?:1[9-9]|[2-9][0-9]+)(?:\.\d+)?)"')
+        assert_v016_at_least(self, version, 18, 0)
 
 
 if __name__ == "__main__":

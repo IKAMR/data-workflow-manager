@@ -10,6 +10,7 @@ from noark5_workflow.analysis.depot_review_status import (
     load_review_status,
     set_area_status,
 )
+from version_assertions import assert_v016_at_least
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -51,7 +52,7 @@ class A181ReviewStatusTests(unittest.TestCase):
         version = (ROOT / "version.py").read_text(encoding="utf-8")
         chain = (ROOT / "gui" / "persistent_app_a18_2.py").read_text(encoding="utf-8")
         self.assertIn("from .persistent_app_a18_1 import WorkflowApp as A18_1WorkflowApp", chain)
-        self.assertRegex(version, r'VERSION = "0\.1\.6-a(?:18(?:\.\d+)?|(?:1[9-9]|[2-9][0-9]+)(?:\.\d+)?)"')
+        assert_v016_at_least(self, version, 18, 0)
 
     def test_gui_exposes_period_review(self):
         source = (ROOT / "gui" / "depot_result_center_a18_1.py").read_text(encoding="utf-8")

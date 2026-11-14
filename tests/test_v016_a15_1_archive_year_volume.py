@@ -5,6 +5,7 @@ import unittest
 from lxml import etree
 from noark5_workflow.analysis.xpath_test_engine import _eval_metrics
 from noark5_workflow.analysis.depot_report_builder import build_depot_report_model
+from version_assertions import assert_v016_at_least
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -102,7 +103,7 @@ class V016A151ArchiveYearVolumeTests(unittest.TestCase):
         main = (ROOT / "main.py").read_text(encoding="utf-8")
         version = (ROOT / "version.py").read_text(encoding="utf-8")
         self.assertIn("from gui.persistent_app_a15_1 import run_gui", main)
-        self.assertRegex(version, r'VERSION = "0\.1\.6-a(?:1[5-9]|[2-9][0-9]+)(?:\.\d+)*"')
+        assert_v016_at_least(self, version, 15, 0)
 
 
 if __name__ == "__main__":

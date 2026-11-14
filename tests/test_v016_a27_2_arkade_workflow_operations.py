@@ -8,6 +8,7 @@ from noark5_workflow.app import build_registry
 from noark5_workflow.core.job import Job, JobStatus
 from app.operation_metadata import display_category, short_name
 from app.workflow_sequence import load_workflow_sequences
+from version_assertions import assert_v016_at_least
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -115,9 +116,7 @@ class V016A272ArkadeWorkflowOperationTests(unittest.TestCase):
         version = (ROOT / "version.py").read_text(encoding="utf-8")
         self.assertIn("from gui.persistent_app_a27_2 import run_gui", main)
         self.assertIn("class WorkflowApp(A27_1WorkflowApp)", runtime)
-        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a(\d+)(?:\.\d+)?"', version)
-        self.assertIsNotNone(match, version)
-        self.assertGreaterEqual(int(match.group(1)), 27)
+        assert_v016_at_least(self, version, 27, 0)
 
 
 if __name__ == "__main__":

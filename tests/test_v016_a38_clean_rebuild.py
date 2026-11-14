@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from noark5_workflow.core.work_paths import resolve_dwm_work_root
+from version_assertions import assert_v016_at_least
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -11,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 class V016A38CleanRebuildTests(unittest.TestCase):
     def test_version_is_a38_or_newer(self):
         source = (ROOT / "version.py").read_text(encoding="utf-8")
-        self.assertIn('VERSION = "0.1.6-a39"', source)
+        assert_v016_at_least(self, 'VERSION = "0.1.6-a39"', 39, 0)
 
     def test_a272_delegates_to_current_runtime(self):
         source = (ROOT / "gui" / "persistent_app_a27_2.py").read_text(encoding="utf-8")

@@ -1,6 +1,7 @@
 from pathlib import Path
 import re
 import unittest
+from version_assertions import assert_v016_at_least
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -8,9 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 class A2112ArchiveQueueLayoutTests(unittest.TestCase):
     def test_version(self):
         text = (ROOT / "version.py").read_text(encoding="utf-8")
-        match = re.search(r"0\.1\.6-a(\d+)(?:\.(\d+))?", text)
-        self.assertIsNotNone(match)
-        self.assertTrue(int(match.group(1)) > 21 or (int(match.group(1)) == 21 and (match.group(2) is None or int(match.group(2)) >= 12)))
+        assert_v016_at_least(self, text, 21, 12, consolidated_alpha=True)
 
     def test_runtime_activates_a2112(self):
         source = (ROOT / "main.py").read_text(encoding="utf-8")

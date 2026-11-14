@@ -1,6 +1,7 @@
 from pathlib import Path
 import re
 import unittest
+from version_assertions import assert_v016_at_least
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -8,9 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 class A2114FormatSortAndHoverTests(unittest.TestCase):
     def test_version(self):
         text = (ROOT / 'version.py').read_text(encoding='utf-8')
-        m = re.search(r'0\.1\.6-a(\d+)(?:\.(\d+))?', text)
-        self.assertIsNotNone(m)
-        self.assertTrue(int(m.group(1)) > 21 or (int(m.group(1)) == 21 and (m.group(2) is None or int(m.group(2)) >= 14)))
+        assert_v016_at_least(self, text, 21, 14, consolidated_alpha=True)
 
     def test_runtime_activates_a2114(self):
         source = (ROOT / 'main.py').read_text(encoding='utf-8')

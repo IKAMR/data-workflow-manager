@@ -8,6 +8,7 @@ from unittest.mock import patch
 from noark5_workflow.core.job import Job
 from noark5_workflow.external_evidence.arkade5_discovery import Arkade5Candidate
 from noark5_workflow.job_batch_actions import import_selected_arkade5_results
+from version_assertions import assert_v016_at_least
 
 
 class A254ArkadeSelectedImportTests(unittest.TestCase):
@@ -83,11 +84,7 @@ class A254ArkadeSelectedImportTests(unittest.TestCase):
         self.assertIn("import_selected_arkade5_results", app)
         self.assertIn("from gui.persistent_app_a25_4 import run_gui", main)
         import re
-        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a(\d+)(?:\.(\d+))?"', version)
-        self.assertIsNotNone(match)
-        alpha = int(match.group(1))
-        increment = int(match.group(2) or 0)
-        self.assertTrue(alpha > 25 or (alpha == 25 and increment >= 4))
+        assert_v016_at_least(self, version, 25, 4)
 
 
 if __name__ == "__main__":

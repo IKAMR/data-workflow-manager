@@ -1,6 +1,7 @@
 from pathlib import Path
 import re
 import unittest
+from version_assertions import assert_v016_at_least
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -9,9 +10,7 @@ class V016A10TargetArchiveLayoutTests(unittest.TestCase):
 
     def test_version_is_a10_or_newer(self):
         text = (ROOT / "version.py").read_text(encoding="utf-8")
-        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a(\d+)', text)
-        self.assertIsNotNone(match)
-        self.assertGreaterEqual(int(match.group(1)), 10)
+        assert_v016_at_least(self, text, 10, 0)
 
     def test_archive_target_tabs_exist(self):
         source = (ROOT / "gui" / "depot_result_views_a30.py").read_text(

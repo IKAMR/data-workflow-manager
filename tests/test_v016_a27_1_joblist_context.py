@@ -6,6 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from noark5_workflow.core.joblist_context import JobListContext
+from version_assertions import assert_v016_at_least
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -63,9 +64,7 @@ class V016A271JobListContextTests(unittest.TestCase):
 
     def test_version_is_a271_or_newer_v016_alpha(self):
         version = (ROOT / "version.py").read_text(encoding="utf-8")
-        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a(\d+)(?:\.\d+)?"', version)
-        self.assertIsNotNone(match, version)
-        self.assertGreaterEqual(int(match.group(1)), 27)
+        assert_v016_at_least(self, version, 27, 0)
 
 
 if __name__ == "__main__":

@@ -14,8 +14,6 @@ if str(ROOT) not in sys.path:
 from version import VERSION
 
 
-_ORIGINAL_PATH_READ_TEXT = Path.read_text
-
 
 def _iter_tests(suite: unittest.TestSuite):
     for item in suite:
@@ -44,83 +42,6 @@ def _test_sort_key(test) -> tuple[int, str]:
     return (0 if is_current else 1, test_id)
 
 
-def _current_release_tuple() -> tuple[int, int, int] | None:
-    match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)(?:-a\d+(?:\.\d+)*)?", VERSION)
-    if not match:
-        return None
-    return tuple(int(match.group(index)) for index in (1, 2, 3))
-
-
-def _historical_version_markers() -> tuple[str, ...]:
-    """Create a test-only compatibility view for older release guards.
-
-    Historical tests intentionally lock milestones from the release in which a
-    feature was introduced.  Moving to a newer release series must keep those
-    guards true.  Path.read_text() therefore gets synthetic markers for older
-    releases while the physical version.py remains unchanged.
-    """
-    current = _current_release_tuple()
-    if current is None:
-        return ()
-
-    major, minor, patch = current
-    releases = [
-        f"{major}.{minor}.{old_patch}"
-        for old_patch in range(patch)
-    ]
-    if not releases:
-        return ()
-
-    exact: set[str] = set()
-    for path in (ROOT / "tests").glob("test_*.py"):
-        try:
-            source = _ORIGINAL_PATH_READ_TEXT(path, encoding="utf-8")
-        except OSError:
-            continue
-        for release in releases:
-            release_re = re.escape(release)
-            for alpha in re.findall(
-                rf'VERSION\s*=\s*["\']({release_re}-a\d+(?:\.\d+)*)["\']',
-                source,
-            ):
-                exact.add(alpha)
-
-    markers: list[str] = []
-    for release in releases:
-        markers.append(f'VERSION = "{release}"')
-        markers.append(f'VERSION = "{release}-a999999"')
-    markers.extend(f'VERSION = "{value}"' for value in sorted(exact))
-    return tuple(markers)
-
-
-def _install_historical_version_test_compatibility():
-    markers = _historical_version_markers()
-    if not markers:
-        return lambda: None
-
-    version_path = (ROOT / "version.py").resolve()
-    suffix = (
-        "\n# Test-only historical version compatibility view.\n"
-        + "\n".join(markers)
-        + "\n"
-    )
-
-    def compatible_read_text(self: Path, *args, **kwargs):
-        text = _ORIGINAL_PATH_READ_TEXT(self, *args, **kwargs)
-        try:
-            is_version_file = self.resolve() == version_path
-        except OSError:
-            is_version_file = False
-        if is_version_file:
-            return text + suffix
-        return text
-
-    Path.read_text = compatible_read_text
-
-    def restore():
-        Path.read_text = _ORIGINAL_PATH_READ_TEXT
-
-    return restore
 
 
 class CompactTextTestResult(unittest.TextTestResult):
@@ -130,30 +51,26 @@ class CompactTextTestResult(unittest.TextTestResult):
 
 
 def main() -> int:
-    restore_read_text = _install_historical_version_test_compatibility()
-    try:
-        discovered = unittest.defaultTestLoader.discover(
-            str(ROOT / "tests"), pattern="test_*.py"
-        )
-        tests = sorted(list(_iter_tests(discovered)), key=_test_sort_key)
-        suite = unittest.TestSuite(tests)
+    discovered = unittest.defaultTestLoader.discover(
+        str(ROOT / "tests"), pattern="test_*.py"
+    )
+    tests = sorted(list(_iter_tests(discovered)), key=_test_sort_key)
+    suite = unittest.TestSuite(tests)
 
-        test_ids = []
-        for test in tests:
-            try:
-                test_ids.append(test.id())
-            except Exception:
-                test_ids.append(str(test))
+    test_ids = []
+    for test in tests:
+        try:
+            test_ids.append(test.id())
+        except Exception:
+            test_ids.append(str(test))
 
-        stream = io.StringIO()
-        runner = unittest.TextTestRunner(
-            stream=stream,
-            verbosity=2,
-            resultclass=CompactTextTestResult,
-        )
-        result = runner.run(suite)
-    finally:
-        restore_read_text()
+    stream = io.StringIO()
+    runner = unittest.TextTestRunner(
+        stream=stream,
+        verbosity=2,
+        resultclass=CompactTextTestResult,
+    )
+    result = runner.run(suite)
 
     output = stream.getvalue()
     print(output, end="")

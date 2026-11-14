@@ -12,6 +12,7 @@ from noark5_workflow.external_tools.arkade5_jobs import (
     build_arkade5_plan,
     run_arkade5_plan,
 )
+from version_assertions import assert_v016_at_least
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -107,7 +108,7 @@ class V016A266Arkade5RunTests(unittest.TestCase):
 
     def test_version_is_a266(self):
         version = (ROOT / "version.py").read_text(encoding="utf-8")
-        self.assertRegex(version, r'VERSION\s*=\s*"0\.1\.6-a(?:(?:26|2[7-9]|[3-9]\d|[1-9]\d{2,})(?:\.\d+)?)"')
+        assert_v016_at_least(self, version, 26, 0)
 
 
 if __name__ == "__main__":

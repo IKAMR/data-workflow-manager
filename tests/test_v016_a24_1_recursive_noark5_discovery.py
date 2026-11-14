@@ -6,6 +6,7 @@ import tempfile
 import unittest
 
 from noark5_workflow.noark5_discovery import discover_noark5_extractions
+from version_assertions import assert_v016_at_least
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -62,9 +63,7 @@ class A241RecursiveNoark5DiscoveryTests(unittest.TestCase):
 
     def test_version_is_a241(self):
         source = (ROOT / "version.py").read_text(encoding="utf-8")
-        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a(\d+)(?:\.(\d+))?"', source)
-        self.assertIsNotNone(match)
-        self.assertGreaterEqual(int(match.group(1)), 24)
+        assert_v016_at_least(self, source, 24, 0)
 
     def test_jobs_window_exposes_recursive_discovery_action(self):
         source = (ROOT / "gui" / "jobs_window_a29.py").read_text(encoding="utf-8")

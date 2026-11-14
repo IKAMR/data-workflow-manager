@@ -1,23 +1,12 @@
 from pathlib import Path
 import re
 import unittest
+from version_assertions import assert_v016_at_least
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def _a14_version():
-    text = (ROOT / "version.py").read_text(encoding="utf-8")
-    match = re.search(r'VERSION\s*=\s*"0\.1\.6-a(\d+)(?:\.(\d+)(?:\.(\d+))?)?"', text)
-    if not match:
-        return None, None
-    alpha = int(match.group(1))
-    if alpha > 14:
-        return match, (999, 0)
-    if alpha < 14:
-        return None, None
-    if match.group(2) is None:
-        return match, (999, 0)
-    return match, (int(match.group(2)), int(match.group(3) or 0))
+# Version minimum is checked through the shared semantic comparator.
 
 
 
@@ -55,9 +44,8 @@ class V016A143ResultWindowFixTests(unittest.TestCase):
         compile((ROOT / "gui" / "depot_result_center_a14_3.py").read_text(encoding="utf-8"), "depot_result_center_a14_3.py", "exec")
 
     def test_version_is_a14_3_or_newer_increment(self):
-        match, version = _a14_version()
-        self.assertIsNotNone(match)
-        self.assertGreaterEqual(version, (3, 0))
+        version = (ROOT / "version.py").read_text(encoding="utf-8")
+        assert_v016_at_least(self, version, 14, 3, consolidated_alpha=True)
 
 
 if __name__ == "__main__":

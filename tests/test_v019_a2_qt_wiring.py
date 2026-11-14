@@ -8,6 +8,7 @@ import tomllib
 import unittest
 
 from version import APP_NAME, VERSION
+from version_assertions import assert_release_at_least
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -15,12 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 class A2DepotQtContractTests(unittest.TestCase):
     def test_a2_version_is_clean_and_distribution_matches(self):
         self.assertEqual(APP_NAME, "Data Workflow Manager")
-        match = re.fullmatch(r"0\.1\.(\d+)(?:-a(\d+))?", VERSION)
-        self.assertIsNotNone(match, VERSION)
-        patch_version, alpha = int(match[1]), match[2]
-        self.assertGreaterEqual(patch_version, 9)
-        if patch_version == 9 and alpha is not None:
-            self.assertGreaterEqual(int(alpha), 2)
+        assert_release_at_least(self, f'VERSION = "{VERSION}"', "0.1.9", 2)
         with (ROOT / "pyproject.toml").open("rb") as handle:
             project = tomllib.load(handle)["project"]
         self.assertEqual(project["name"], "noark5-workflow-manager")

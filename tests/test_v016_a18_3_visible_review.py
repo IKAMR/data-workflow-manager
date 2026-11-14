@@ -1,6 +1,7 @@
 from pathlib import Path
 import re
 import unittest
+from version_assertions import assert_v016_at_least
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -24,9 +25,7 @@ class A183VisibleReviewTests(unittest.TestCase):
         chain = (ROOT / "gui" / "persistent_app_a18_4.py").read_text(encoding="utf-8")
         self.assertIn("from .persistent_app_a18_3 import WorkflowApp as A18_3WorkflowApp", chain)
 
-        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a(\d+)(?:\.(\d+))?"', version)
-        self.assertIsNotNone(match)
-        self.assertGreaterEqual(int(match.group(1)), 18)
+        assert_v016_at_least(self, version, 18, 0)
 
 
 if __name__ == "__main__":

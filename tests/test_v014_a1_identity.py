@@ -13,7 +13,7 @@ class V014A1IdentityTests(unittest.TestCase):
         self.assertEqual(APP_NAME, "Data Workflow Manager")
         self.assertRegex(
             VERSION,
-            r"^0\.1\.\d+(?:-a\d+(?:\.\d+)*)?$",
+            r"^\d+\.\d+\.\d+(?:-a\d+(?:\.\d+)*)?$",
         )
 
     def test_repository_identity_is_documented(self):

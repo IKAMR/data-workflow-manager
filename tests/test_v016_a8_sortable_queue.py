@@ -1,6 +1,7 @@
 from pathlib import Path
 import re
 import unittest
+from version_assertions import assert_v016_at_least
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -9,9 +10,7 @@ class V016A8SortableQueueTests(unittest.TestCase):
 
     def test_version_is_a8_or_newer_v016(self):
         text = (ROOT / "version.py").read_text(encoding="utf-8")
-        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a(\d+)(?:\.\d+)*"', text)
-        self.assertIsNotNone(match)
-        self.assertGreaterEqual(int(match.group(1)), 8)
+        assert_v016_at_least(self, text, 8, 0)
 
     def test_a8_builds_on_a7_queue(self):
         source = (ROOT / "gui" / "depot_result_views_a28.py").read_text(

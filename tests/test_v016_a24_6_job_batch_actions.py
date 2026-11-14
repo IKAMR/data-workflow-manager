@@ -7,6 +7,7 @@ from pathlib import Path
 
 from noark5_workflow.core.job import Job
 from noark5_workflow.job_batch_actions import fill_missing_storage_suggestions
+from version_assertions import assert_v016_at_least
 
 
 class A246JobBatchActionsTests(unittest.TestCase):
@@ -66,9 +67,7 @@ class A246JobBatchActionsTests(unittest.TestCase):
         main = Path('main.py').read_text(encoding='utf-8')
         version = Path('version.py').read_text(encoding='utf-8')
         self.assertIn('from gui.persistent_app_a24_5 import run_gui', main)
-        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a(\d+)(?:\.(\d+))?"', version)
-        self.assertIsNotNone(match)
-        self.assertGreaterEqual(int(match.group(1)), 24)
+        assert_v016_at_least(self, version, 24, 0)
 
 
 if __name__ == '__main__':

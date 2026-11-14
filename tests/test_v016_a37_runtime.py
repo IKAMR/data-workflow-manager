@@ -4,6 +4,7 @@ import json
 import re
 import unittest
 from pathlib import Path
+from version_assertions import assert_v016_at_least
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -11,9 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 class V016A37RuntimeTests(unittest.TestCase):
     def test_version_is_a37_or_newer(self):
         source = (ROOT / "version.py").read_text(encoding="utf-8")
-        match = re.search(r'VERSION\s*=\s*"0\.1\.6-a(\d+)"', source)
-        self.assertIsNotNone(match, source)
-        self.assertGreaterEqual(int(match.group(1)), 37)
+        assert_v016_at_least(self, source, 37, 0)
 
     def test_a272_delegates_to_current_runtime_after_a37(self):
         source = (ROOT / "gui" / "persistent_app_a27_2.py").read_text(encoding="utf-8")
