@@ -34,6 +34,7 @@ from app.canonical_external_selection_v0115_a10 import selected_external_rows
 from noark5_workflow.analysis.canonical_matrix_v0115_a11 import (
     evaluate_control_matrix, load_external_status,
 )
+from noark5_workflow.analysis.canonical_qa_report_v0115_a12 import build_qa_draft, OUTPUT as QA_OUT
 
 
 class _Task(QObject):
@@ -56,6 +57,8 @@ class _Task(QObject):
                 result['external_status'] = load_external_status(self.work)
             elif '__a10_external' in self.selection:
                 result = {'a10_external': analyze_external_results(self.work, self.selection['__a10_external'])}
+            elif '__a12_qa_draft' in self.selection:
+                result = {'a12_qa_draft': build_qa_draft(self.work, self.selection['__a12_qa_draft'])}
             elif '__a11_matrix' in self.selection:
                 result = {'a11_matrix': evaluate_control_matrix(self.work, self.selection['__a11_matrix'])}
             elif '__a8_outcomes' in self.selection:
@@ -144,6 +147,8 @@ class CanonicalResultsDialog(QDialog):
         self.outcomes_button = QPushButton('Kontrollutfall / KS...')
         self.outcomes_button.clicked.connect(self.select_outcome_profile)
         self.matrix_button = QPushButton('Dekningsmatrise (utkast)...')
+        self.qa_button = QPushButton('KS-rapport til arkivskaper (utkast)...')
+        self.qa_button.clicked.connect(self.create_qa_report)
         self.matrix_button.clicked.connect(self.select_matrix_profile)
         self.external_discover_button = QPushButton('Finn ekstern evidens')
         self.external_discover_button.clicked.connect(lambda: self._start({'__a5_discover_external': True}))
@@ -158,6 +163,7 @@ class CanonicalResultsDialog(QDialog):
         self._action_buttons = [
             self.refresh_button, self.external_discover_button,
             self.coverage_button, self.profile_button, self.outcomes_button, self.matrix_button,
+            self.qa_button,
             self.build_button, self.context_button, self.external_analyze_button, self.close_button,
         ]
         self._button_host = button_host
@@ -179,6 +185,7 @@ class CanonicalResultsDialog(QDialog):
         self.profile_button.setEnabled(not busy)
         self.outcomes_button.setEnabled(not busy)
         self.matrix_button.setEnabled(not busy)
+        self.qa_button.setEnabled(not busy)
         self.context_button.setEnabled(not busy)
         self.external_analyze_button.setEnabled(not busy)
         self.close_button.setEnabled(not busy)
@@ -216,7 +223,22 @@ class CanonicalResultsDialog(QDialog):
             self.report.setPlainText('FEIL: ' + error)
             QMessageBox.warning(self, 'Kanoniske resultatdata', error)
             return
-        if 'a10_external' in result:
+        if 'a12_qa_draft' in result:
+            report = result['a12_qa_draft']
+            summary = report['summary']
+            self.report.setPlainText(
+                'KVALITETSSIKRINGSRAPPORT – UTKAST (IKKE GODKJENT)\n'
+                f"Opprettet: {report['output']}\n"
+                f"Påkrevde områder med evidens: {summary['required_evidence']}/{summary['required_categories']}\n"
+                f"Arkade rapporterte tester med feil: {summary['reported_arkade_errors']}\n"
+                f"Detaljerte feil-/advarselsposter: {summary['detailed_issue_records']}\n"
+                'Arkivskapers aksept: IKKE REGISTRERT\n'
+                'Depotgodkjenning: IKKE REGISTRERT\n\n'
+                'Rapporten er lagret i Work og kan åpnes i nettleser og skrives ut.\n'
+                'Original evidens og kanonisk resultatindeks er uendret.')
+            self._set_view('qa_report')
+            self.selection_status.setText('KS-utkast lagret i Work. Ingen godkjenning registrert.')
+        elif 'a10_external' in result:
             data = result['a10_external']
             info = data['summary']
             lines = ['EKSTERNE RESULTATER - ANALYSE (IKKE GODKJENNING)',
@@ -451,6 +473,8 @@ class CanonicalResultsDialog(QDialog):
         avg_char = max(5.0, fm.horizontalAdvance('abcdefghijklmnopqrstuvwxyz') / 26.0)
         wrap_count = text_visual_lines(lines, usable_width, avg_char)
         report_need = 24 + wrap_count * max(1, fm.lineSpacing())
+        if self._last_view in ('matrix', 'qa_report'):
+            report_need += min(160, total // 5)  # reserve room for longer review text
         wanted = content_split(total, tree_need, report_need,
                                tree_min=112, report_min=115)
         self._auto_split_change = True
@@ -482,6 +506,21 @@ class CanonicalResultsDialog(QDialog):
         if hasattr(self, '_button_grid'):
             self._reflow_buttons()
             self._schedule_content_layout()
+
+    def create_qa_report(self):
+        """Generate a separate, explicitly unapproved HTML draft within Work."""
+        profile = Path(__file__).resolve().parents[1] / 'config' / 'noark5' / 'control-profile-dwm-draft-v1.json'
+        output = self.work / QA_OUT
+        verb = 'Erstatt eksisterende' if output.is_file() else 'Opprett'
+        answer = QMessageBox.question(
+            self, 'KS-rapport – arbeidsutkast',
+            f'{verb} KS-rapport i valgt Work?\n\n{QA_OUT}\n\n'
+            'Dette er et arbeidsutkast for arkivskaper, ikke en bekreftelse eller depotgodkjenning. '
+            'Eksisterende kontrollresultater og Source endres ikke.',
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No)
+        if answer == QMessageBox.StandardButton.Yes:
+            self._start({'__a12_qa_draft': str(profile)})
 
     def select_matrix_profile(self):
         """Click explicitly selects the bundled, unapproved draft profile."""
