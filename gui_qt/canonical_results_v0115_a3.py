@@ -7,11 +7,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QObject, QThread, Signal, QSettings
+from PySide6.QtCore import Qt, QObject, QThread, Signal, QSettings, QTimer
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QTreeWidget, QTreeWidgetItem,
     QHeaderView, QPushButton, QMessageBox, QPlainTextEdit, QFileDialog, QSplitter,
+    QWidget, QGridLayout,
 )
 
 from noark5_workflow.analysis.canonical_work_adapter import (
@@ -20,6 +21,7 @@ from noark5_workflow.analysis.canonical_work_adapter import (
 from noark5_workflow.analysis.canonical_results import build_canonical_results
 
 from app.canonical_selection_v0115_a3 import ALLOWED, selected_sources
+from .canonical_layout_v0115_a9 import content_split, button_columns, text_visual_lines
 from noark5_workflow.analysis.canonical_context_v0115_a4 import build_context
 from noark5_workflow.analysis.canonical_external_v0115_a5 import discover_external_candidates
 from noark5_workflow.analysis.canonical_control_plan_v0115_a6 import coverage_report
@@ -96,18 +98,22 @@ class CanonicalResultsDialog(QDialog):
         splitter.addWidget(self.report)
         splitter.setStretchFactor(0, 1)
         splitter.setStretchFactor(1, 1)
-        saved = self._settings.value("qt/a6/canonical_splitter_sizes")
-        if isinstance(saved, list) and len(saved) == 2:
-            try:
-                splitter.setSizes([max(100, int(x)) for x in saved])
-            except (TypeError, ValueError):
-                splitter.setSizes([300, 220])
-        else:
-            splitter.setSizes([300, 220])
+        # Dynamic content sizing replaces a6's fixed / persisted ratio.
+        self._auto_split_change = False
+        self._manual_split = False
+        self._last_view = 'sources'
+        self._layout_timer = QTimer(self)
+        self._layout_timer.setSingleShot(True)
+        self._layout_timer.timeout.connect(self._apply_content_layout)
+        splitter.splitterMoved.connect(self._splitter_moved)
         self.splitter = splitter
         layout.addWidget(splitter, 1)
         layout.addWidget(note)
-        buttons = QHBoxLayout()
+        button_host = QWidget(self)
+        buttons = QGridLayout(button_host)
+        buttons.setContentsMargins(0, 0, 0, 0)
+        buttons.setHorizontalSpacing(8)
+        buttons.setVerticalSpacing(6)
         self.refresh_button = QPushButton('Finn resultatkilder')
         self.refresh_button.clicked.connect(self.refresh)
         self.coverage_button = QPushButton('Kontrolldekning')
@@ -124,18 +130,20 @@ class CanonicalResultsDialog(QDialog):
         self.context_button.clicked.connect(self.create_context)
         self.close_button = QPushButton('Lukk')
         self.close_button.clicked.connect(self.reject)
-        buttons.addWidget(self.refresh_button)
-        buttons.addWidget(self.external_discover_button)
-        buttons.addWidget(self.coverage_button)
-        buttons.addWidget(self.profile_button)
-        buttons.addWidget(self.outcomes_button)
-        buttons.addWidget(self.build_button)
-        buttons.addWidget(self.context_button)
-        buttons.addStretch(1)
-        buttons.addWidget(self.close_button)
-        layout.addLayout(buttons)
+        self._action_buttons = [
+            self.refresh_button, self.external_discover_button,
+            self.coverage_button, self.profile_button, self.outcomes_button,
+            self.build_button, self.context_button, self.close_button,
+        ]
+        self._button_host = button_host
+        self._button_grid = buttons
+        self._button_columns = 0
+        self._reflow_buttons()
+        layout.addWidget(button_host)
         self._busy = False
         self.refresh()
+        QTimer.singleShot(0, self._reflow_buttons)
+        QTimer.singleShot(0, self._schedule_content_layout)
 
     def _set_busy(self, busy: bool):
         self._busy = busy
@@ -154,11 +162,13 @@ class CanonicalResultsDialog(QDialog):
             return
         self._set_busy(True)
         self.report.setPlainText('Leser Work...')
+        self._set_view('loading')
         thread = QThread(self)
         task = _Task(self.work, selection)
         task.moveToThread(thread)
         thread.started.connect(task.run)
         task.finished.connect(self._complete)
+        task.finished.connect(lambda *_args: self._schedule_content_layout())
         task.finished.connect(thread.quit)
         thread.finished.connect(task.deleteLater)
         thread.finished.connect(thread.deleteLater)
@@ -195,7 +205,7 @@ class CanonicalResultsDialog(QDialog):
             lines.extend('- ' + q for q in review['quality_assurance_preparation']['open_questions'])
             lines.append('Bare faktagrunnlag. Ingen automatisk godkjenning.')
             self.report.setPlainText('\n'.join(lines))
-            self._expand_report()
+            self._set_view('outcomes')
         elif 'a7_profile' in result:
             report = result['a7_profile']
             summary = report['summary']
@@ -208,7 +218,7 @@ class CanonicalResultsDialog(QDialog):
                 lines.append(f"{item['title']} [{item['requirement']}]: {item['evidence_state']} ({item['observation_count']} observasjoner)")
             lines.append('Kontrollprofilen er et arbeidsutkast. Kontrollutfall og anvendelighet ma vurderes.')
             self.report.setPlainText('\n'.join(lines))
-            self._expand_report()
+            self._set_view('profile')
         elif 'a6_coverage' in result:
             report = result['a6_coverage']
             summary = report['summary']
@@ -220,7 +230,7 @@ class CanonicalResultsDialog(QDialog):
                 lines.append(f"{control['title']}: {control['presence']} ({control['observation_count']} observasjoner)")
             lines.append('Kontrollplanen må senere knyttes til versjonert Noark-/leveranseprofil.')
             self.report.setPlainText('\n'.join(lines))
-            self._expand_report()
+            self._set_view('coverage')
         elif 'a5_candidates' in result:
             rows = result['a5_candidates']
             lines = [f'Eksterne evidenskandidater funnet: {len(rows)}',
@@ -229,8 +239,9 @@ class CanonicalResultsDialog(QDialog):
             if len(rows) >= 150:
                 lines.append('Listen er avgrenset til 150 filer.')
             self.report.setPlainText('\n'.join(lines))
-            self._expand_report()
+            self._set_view('external')
         elif 'a4_context' in result:
+            self._set_view('context')
             totals = result['a4_context']
             self.report.setPlainText(
                 'Kanonisk kontekstindeks lagret: noark5_evidence/canonical-context.json\n'
@@ -242,6 +253,7 @@ class CanonicalResultsDialog(QDialog):
                 'Testreferanse er IKKE en faglig verifisert M-ID-kobling.\n'
                 'Formatidentifikasjon er IKKE testgodkjenning eller depotaksept.')
         elif 'candidates' in result:
+            self._set_view('sources')
             self.tree.clear()
             for category, candidates in result['candidates'].items():
                 for candidate in candidates:
@@ -259,6 +271,7 @@ class CanonicalResultsDialog(QDialog):
                 'Velg kilder og trykk Opprett resultatindeks. '\
                 'Ingen kilder er valgt automatisk.')
         else:
+            self._set_view('snapshot')
             lines = [f"Observasjoner: {result['observations']}",
                      f"Jobb-ID: {result['extraction_stable_id']}",
                      'Kildedekning (ingen summering av arkivdata):']
@@ -269,12 +282,70 @@ class CanonicalResultsDialog(QDialog):
             lines.append('Lagret: noark5_evidence/canonical-results.json')
             self.report.setPlainText('\n'.join(lines))
 
-    def _expand_report(self):
-        """Give freshly discovered results room without hiding source choices."""
+    def _set_view(self, view: str):
+        # Explicitly changing the shown dataset releases manual splitter control;
+        # ordinary resizes of the same view keep the user's split ratio.
+        if view != self._last_view:
+            self._manual_split = False
+            self._last_view = view
+        self._schedule_content_layout()
+
+    def _schedule_content_layout(self):
+        if hasattr(self, '_layout_timer') and not self._manual_split:
+            self._layout_timer.start(0)
+
+    def _splitter_moved(self, _position, _index):
+        if not self._auto_split_change:
+            self._manual_split = True
+
+    def _apply_content_layout(self):
+        if self._manual_split or not self.splitter.isVisible():
+            return
         sizes = self.splitter.sizes()
         total = sum(sizes)
-        if total > 250:
-            self.splitter.setSizes([max(140, total * 2 // 5), max(110, total * 3 // 5)])
+        if total < 210:
+            return
+        # Use actual tree rows and text font metrics, not a fixed 20/80 ratio.
+        rows = self.tree.topLevelItemCount()
+        item_height = max(self.tree.fontMetrics().lineSpacing() + 6, 22)
+        tree_need = self.tree.header().height() + 16 + rows * item_height
+        fm = self.report.fontMetrics()
+        lines = self.report.toPlainText().split('\n')
+        usable_width = max(100, self.report.viewport().width() - 16)
+        avg_char = max(5.0, fm.horizontalAdvance('abcdefghijklmnopqrstuvwxyz') / 26.0)
+        wrap_count = text_visual_lines(lines, usable_width, avg_char)
+        report_need = 24 + wrap_count * max(1, fm.lineSpacing())
+        wanted = content_split(total, tree_need, report_need,
+                               tree_min=112, report_min=115)
+        self._auto_split_change = True
+        try:
+            self.splitter.setSizes(list(wanted))
+        finally:
+            self._auto_split_change = False
+
+    def _reflow_buttons(self):
+        if not hasattr(self, '_button_grid'):
+            return
+        grid = self._button_grid
+        available = max(350, self.width() - 32)
+        widths = [b.sizeHint().width() + 6 for b in self._action_buttons]
+        columns = button_columns(available, widths, spacing=8)
+        if columns == self._button_columns:
+            return
+        self._button_columns = columns
+        for button in self._action_buttons:
+            grid.removeWidget(button)
+        for i, button in enumerate(self._action_buttons):
+            grid.addWidget(button, i // columns, i % columns)
+        for col in range(len(self._action_buttons)):
+            grid.setColumnStretch(col, 1 if col < columns else 0)
+        self._button_host.updateGeometry()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, '_button_grid'):
+            self._reflow_buttons()
+            self._schedule_content_layout()
 
     def select_outcome_profile(self):
         """Select explicit draft profile; do not infer one from Work."""
@@ -355,12 +426,9 @@ class CanonicalResultsDialog(QDialog):
 
     def reject(self):
         if not self._busy:
-            self._settings.setValue("qt/a6/canonical_splitter_sizes", self.splitter.sizes())
             super().reject()
 
     def closeEvent(self, event):
-        if not self._busy:
-            self._settings.setValue("qt/a6/canonical_splitter_sizes", self.splitter.sizes())
         if self._busy:
             event.ignore()
         else:
