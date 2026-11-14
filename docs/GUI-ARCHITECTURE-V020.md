@@ -127,3 +127,59 @@ antivirusstatus «IKKE SKANNET», Work-navigasjon og Avansert-panelretur.
 **Videre etter a3:** Verifisert antivirusmotor og skanneresultater, eksplisitt
 arbeidsområde-/jobbkobling, kontroll-til-rapport-til-bevaring og tverrgående
 oppgavestatus; aldri utled skannestatus bare fra at en mappe finnes.
+
+## v0.2.0-a4 – rapportering, depotvurdering og bevaringsforberedelse
+
+**Baseline:** commit `406fbcea2982e1199315d02f39f501af7b076d1c`
+(v0.2.0-a3, committet og pushet). Deltaen inneholder bare filer som er
+nye/endret etter denne committen. A3s Ingest-/antivirussider og jobbmotor
+beholdes uendret.
+
+- **Rapportering** er nå en egen arbeidsflate i samme Qt-hovedvindu, ikke en
+  dialog for å velge mellom to knapper. Den viser aktiv jobb, Work operations,
+  gjeldende lagret depotrapport, teknisk rapportstatus, *faglig registrert*
+  depotstatus og antall vurderte arkivdeler. Lesingen er begrenset til etablerte
+  DWM-resultatplasseringer i Work (`app/result_center_v018_a12.py`).
+- Handlingene åpner **eksisterende Qt-resultatvisninger** og den etablerte
+  **Depotvurdering**-fanen. Beslutning for hele uttrekket eller én arkivdel
+  registreres der med bruker, begrunnelse, tidspunkt og vurderingshistorikk
+  gjennom `app/depot_review_v019_a2.py` og eksisterende depotvurderingstjeneste.
+  Periodevurdering ligger fortsatt i de etablerte resultatvisningene. A4 har
+  **ikke** opprettet en ny parallell journal eller godkjenningsmotor.
+- **Lag rapport / samlerapport** og **Kanoniske resultatdata / KS-utkast**
+  bruker uendrede, eksisterende dialoger. Brukeren må selv velge kilder og
+  uttrykkelig bekrefte eventuelle skriveresultater. Det skjer ingen generering
+  ved å navigere til Rapportering.
+- **Bevaring** er en egen Qt-arbeidsflate med samme jobb-/Work-kontekst.
+  Den viser eventuell evidenskandidat ved dens *eksakte*, kjente Work-sti
+  (`preservation_staging/dwm-aip-candidate-v1`), men **påstår aldri at
+  manifestet er integritetsverifisert**. Eksisterende kanonisk resultatdialog
+  gir eksplisitt tilgang til **DIAS AIP – koblingskontroll**. DIAS AIP-pakking
+  ligger fortsatt i eldre GUI og startes bare etter eget spørsmål.
+- «Teknisk fullført», «Faglig akseptert», «Evidenskandidat verifisert»,
+  «Bevaring godkjent» og «Ferdig AIP» er **ulike** forhold. Ingen av dem
+  utledes fra et tidligere arbeidssteg. Faglig status vises bare når den
+  lagrede beslutningen gjelder akkurat gjeldende rapportversjon (SHA-256).
+  Endrede/utgåtte rapporter vises som **Historikk krever kontroll**.
+- Begge nye sidene er navigasjonsflater i den allerede eksisterende
+  `QStackedWidget`. De deler samme `_active_id`, jobb-/Work-API og Avansert-
+  paneltilstand som Kontroll og Ingest. Ingen Source-fil, Work-rolle, jobbfil
+  eller AIP endres av å åpne disse sidene. Handlinger som kan skrive,
+  herunder faglige vurderinger, er sperret i a4 mens en DWM-kjøring pågår.
+- **GUI-modningsnivåene** er fremdeles Rapportering=Beta (1) og Bevaring=Beta
+  (1). Bevaring er kun delvis Qt-integrert inntil selve DIAS-pakkingen eventuelt
+  flyttes. Disse nivåene er ikke faglige statuser.
+
+**Manuell verifisering:** Kjør `test.bat` og `start.bat` på Windows. Velg
+«Depot – produksjonslinje» og filter 0 eller 1. Åpne en eksisterende Noark 5-jobb,
+velg Rapportering, kontroller Work-rapportstatus og åpne «Faglig depotvurdering».
+Kontroller at registrering av vurdering fremdeles krever bruker, begrunnelse
+og uttrykkelig bekreftelse. Gå til Bevaring og tilbake til Kontroll fra både
+Enkel og Avansert modus. Uten depotrapport skal sidene vise ukjent/ikke vurdert,
+aldri akseptert; uten evidenskandidat skal det heller ikke stå at AIP finnes.
+Ingen faktisk DIAS-pakking eller produksjonsbeslutning kreves i GUI-røykprøven.
+
+**Videre etter a4:** felles oppgavestatus/progresjon og gjenopptakelse mellom
+alle produksjonstrinn (a5); deretter CRM, Innsyn og GUI-regresjoner (a6).
+Antivirusmotor og reelle skanneresultater samt full Ingest-funksjonstest er
+fortsatt åpne produksjonsoppgaver og er ikke erklært bestått av a4.

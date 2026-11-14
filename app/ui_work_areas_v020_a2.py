@@ -45,11 +45,12 @@ WORK_AREAS = (
              'Ingen mapper opprettes automatisk.', 'basic_work', 'stable'),
     WorkArea('control', 'available', 'Tilgjengelig',
              'Bruk eksisterende Enkel eller Avansert kontroll av uttrekk.', 'control', 'stable'),
-    WorkArea('report', 'available', 'Tilgjengelig',
-             'Åpne eksisterende resultatvisninger eller rapportdialog.', 'report', 'beta'),
-    WorkArea('preserve', 'partial', 'Delvis integrert',
-             'DIAS-koblingskontroll i Qt; eksisterende DIAS AIP-pakking '
-             'ligger fremdeles i eldre GUI.', 'preservation', 'beta'),
+    WorkArea('report', 'available', 'Integrert i Qt',
+             'Rapportoversikt i hovedvinduet med teknisk status, faglig depotstatus, '
+             'resultatvisninger, periodevurdering og samlerapport.', 'report', 'beta'),
+    WorkArea('preserve', 'partial', 'Delvis integrert i Qt',
+             'Skrivebeskyttet bevaringsoversikt og DIAS-koblingskontroll i Qt. '
+             'DIAS AIP-pakking ligger fremdeles i eldre GUI.', 'preservation', 'beta'),
     WorkArea('crm', 'planned', 'Ikke integrert',
              'Ingen kobling til intern CRM er implementert.', None, 'alpha'),
     WorkArea('access', 'planned', 'Ikke integrert',

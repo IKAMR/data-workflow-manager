@@ -1,4 +1,4 @@
-"""v0.2.0-a3: depot production navigation integrated in the main Qt window.
+"""v0.2.0-a4: depot production navigation integrated in the main Qt window.
 
 Home is a QWidget in the original QMainWindow, NOT a modal popup. Existing
 Noark 5 jobs, runner, result windows and DIAS implementation are reused.
@@ -201,40 +201,12 @@ class ProductionStartPage(QWidget):
         window.v020_sync_navigation()
 
     def _report_actions(self):
-        dialog = QMessageBox(self)
-        dialog.setWindowTitle('Rapportering')
-        dialog.setText('Velg en eksisterende rapportfunksjon.')
-        results = dialog.addButton('Resultatvisninger', QMessageBox.ButtonRole.ActionRole)
-        report = dialog.addButton('Lag rapport / samlerapport', QMessageBox.ButtonRole.ActionRole)
-        dialog.addButton('Avbryt', QMessageBox.ButtonRole.RejectRole)
-        dialog.exec()
-        chosen = dialog.clickedButton()
-        if chosen is results:
-            self._close_and_run(self.window._a12_open_result_center)
-        elif chosen is report:
-            self._close_and_run(self.window._a12_open_selected_report)
+        """Use the a4 page in this QMainWindow, not a floating choice dialog."""
+        self.window.v020_show_reporting_page()
 
     def _preservation_actions(self):
-        dialog = QMessageBox(self)
-        dialog.setWindowTitle('Bevaring')
-        dialog.setText(
-            'DIAS AIP-pakking er ikke flyttet til Qt. Velg mellom kontroll av '
-            'kobling/evidens eller eksisterende pakking i eldre GUI. '
-            'Ingen AIP opprettes ved å åpne dette valget.'
-        )
-        inspect = dialog.addButton('DIAS-kobling / evidens (Qt)', QMessageBox.ButtonRole.ActionRole)
-        legacy = dialog.addButton('DIAS AIP (eldre GUI)', QMessageBox.ButtonRole.ActionRole)
-        dialog.addButton('Avbryt', QMessageBox.ButtonRole.RejectRole)
-        dialog.exec()
-        chosen = dialog.clickedButton()
-        if chosen is inspect:
-            action = getattr(self.window, '_a15_canonical_action', None)
-            if action is None:
-                QMessageBox.warning(self, 'Bevaring', 'Kanoniske resultatdata er ikke tilgjengelig.')
-                return
-            self._close_and_run(action.trigger)
-        elif chosen is legacy:
-            self._legacy_launch('DIAS AIP-pakking')
+        """Expose status/actions; visiting Bevaring never generates a package."""
+        self.window.v020_show_preservation_page()
 
     def _legacy_launch(self, purpose):
         if getattr(self.window, '_worker', None) is not None or self.window.api.running:
@@ -262,6 +234,7 @@ def install_integrated_home(window):
     from gui_qt.main_window import DOCK_NAMES
     from gui_qt.ingest_v020_a3 import IngestPage
     from gui_qt.antivirus_v020_a3 import AntivirusPage
+    from gui_qt.reporting_preservation_v020_a4 import ReportingPage, PreservationPage
 
     original = window.takeCentralWidget()
     if original is None:
@@ -275,6 +248,10 @@ def install_integrated_home(window):
     antivirus = AntivirusPage(window)
     stack.addWidget(ingest)
     stack.addWidget(antivirus)
+    reporting = ReportingPage(window)
+    preservation = PreservationPage(window)
+    stack.addWidget(reporting)
+    stack.addWidget(preservation)
     window.setCentralWidget(stack)
     saved_advanced = None
     original_sync = window.v020_sync_navigation
@@ -289,6 +266,10 @@ def install_integrated_home(window):
             window.v020_section_label.setText('Ingest · Mottak / Uttrekk')
         elif active is antivirus:
             window.v020_section_label.setText('Antiviruskontroll · Ikke skannet')
+        elif active is reporting:
+            window.v020_section_label.setText('Rapportering · Work og depotvurdering')
+        elif active is preservation:
+            window.v020_section_label.setText('Bevaring · Forberedelse og DIAS')
 
     def show_home(*, record=True):
         nonlocal saved_advanced
@@ -346,6 +327,18 @@ def install_integrated_home(window):
         stack.setCurrentWidget(antivirus)
         sync_navigation()
 
+    def show_reporting():
+        show_home(record=True)
+        stack.setCurrentWidget(reporting)
+        reporting.refresh()
+        sync_navigation()
+
+    def show_preservation():
+        show_home(record=True)
+        stack.setCurrentWidget(preservation)
+        preservation.refresh()
+        sync_navigation()
+
     def go_to_work():
         # No implicit job association or relocation of Source/Work.
         show_control()
@@ -357,6 +350,8 @@ def install_integrated_home(window):
     window.v020_show_control_page = show_control
     window.v020_show_ingest_page = show_ingest
     window.v020_show_antivirus_page = show_antivirus
+    window.v020_show_reporting_page = show_reporting
+    window.v020_show_preservation_page = show_preservation
     window.v020_go_to_work = go_to_work
     window.v020_sync_navigation = sync_navigation
     # The fixed toolbar's existing mode button is reused. Switching from

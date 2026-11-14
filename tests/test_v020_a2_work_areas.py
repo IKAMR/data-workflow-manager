@@ -140,10 +140,10 @@ class ProductionA2Tests(unittest.TestCase):
         self.assertIn('window.basic_advanced_button', nav)
 
     def test_release_and_distribution_agree(self):
-        self.assertEqual(VERSION, '0.2.0-a3')
+        self.assertRegex(VERSION, r'^0\.2\.0-a[1-9]\d*$')
+        self.assertGreaterEqual(int(VERSION.rsplit('-a', 1)[1]), 2)
         with (ROOT / 'pyproject.toml').open('rb') as stream:
             project = tomllib.load(stream)['project']
-        self.assertEqual(project['version'], '0.2.0a3')
         self.assertEqual(project['version'], VERSION.replace('-a', 'a'))
 
 

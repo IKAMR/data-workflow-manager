@@ -119,6 +119,8 @@ def isolated_install():
         'ProductionStartPage': FakePage,
         'IngestPage': FakePage,
         'AntivirusPage': FakePage,
+        'ReportingPage': FakePage,
+        'PreservationPage': FakePage,
         'PROFILE_NAMES': {'depot': 'Depot'},
         'PROFILE_KEY': 'ui_work_profile',
         'normalize_profile': lambda x: x,
@@ -159,6 +161,31 @@ class NavigationA3Tests(unittest.TestCase):
         self.assertTrue(w._basic_active)
         self.assertEqual(w._work, ['work'])
         self.assertEqual(w.config.value('qt/v020_last_page'), 'control')
+
+    def test_advanced_layout_survives_reporting_preservation_and_home(self):
+        w = self.window
+        w.v020_show_reporting_page()
+        self.assertFalse(w.dock_jobs.isVisible())
+        self.assertEqual(w.config.value('qt/v020_last_page'), 'home')
+        w.v020_show_preservation_page()
+        w.v020_integrated_home()
+        w.v020_show_control_page()
+        self.assertTrue(w.dock_jobs.isVisible())
+        self.assertFalse(w.dock_workflow.isVisible())
+        self.assertTrue(w._toolbar.isVisible())
+        self.assertTrue(w.menuBar().isVisible())
+        self.assertTrue(w.statusBar().isVisible())
+
+    def test_report_and_preservation_refresh_when_opened(self):
+        w = self.window
+        w.v020_show_reporting_page()
+        report = w._central.currentWidget()
+        self.assertEqual(report.refresh_calls, 1)
+        w.v020_show_preservation_page()
+        candidate = w._central.currentWidget()
+        self.assertEqual(candidate.refresh_calls, 1)
+        w.v020_show_reporting_page()
+        self.assertEqual(report.refresh_calls, 2)
 
     def test_mode_button_switches_back_to_control_from_ingest(self):
         w = self.window
