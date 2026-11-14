@@ -15,9 +15,12 @@ Planpunkter oppsummert fra arbeidsdialogene «N5 WF Man 24» (november 2026) og 
 
 ## Rapport, prosess og bevaring
 
+**Avklart a16:** Produksjonslinjen er mottak → validering → kvalitetssikring/arkiveiers innholdskontroll → dokumentert aksept, retur eller avvisning → bevaring med eksisterende DIAS-pakkemodul → forvaltning. Beslutningsrapporten skal inngå i det relevante bevaringsgrunnlaget. Det etableres ingen ny AIP-pakkemotor. Original SIP bevares eller utelates etter depotets eksplisitte valg, ikke modellens egen anbefaling. Journalføring hos arkiveier og depot er to parters dokumentasjon av samme utveksling. OAIS/KDRS/DIAS/Arkade er fortsatt sentrale referanser.
+
+
 - [ ] Kvalitetssikringsrapport for arkivskaper: innhold, proveniens, periodisering, dokumentkoblinger, avklaringer, bevis og formell aksept.
 - [ ] Depotfaglig beslutningsflyt, revisjonshistorikk, godkjennings-/ferdigstillingsrapport, journalføring og sporbarhet til akseptert evidens.
-- [ ] AIP-produksjon *etter* vurdering, med definert profil og kuratert evidens; preflight, manifest, integritetskontroll, eventuelle PREMIS-hendelser og sikker verifikasjon.
+- [ ] Videreutvikle eksisterende DIAS AIP-pakkemodul (ikke erstatte), med synlig/valgfri destinasjon, valgfri original SIP, arkivversjoner, manuelle tillegg og kuratert evidens; preflight, manifest, integritetskontroll og relevant PREMIS. Kontroller info.xml-feltverdier mot eksisterende Arkade 5-praksis.
 - [ ] Rapport- og statistikkgrunnlag på tvers av uttrekk, system/leverandør, arkivskaper/-eier, år, volum, kvalitet og format; statistikk skal bare bygge på sammenlignbare tall med datadekning.
 
 ## Jobb, arbeidsflate og Windows

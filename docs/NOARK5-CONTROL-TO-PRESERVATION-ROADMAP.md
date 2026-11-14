@@ -1,6 +1,6 @@
 # DWM: Fra Noark 5-mottak til kontrollert bevaring
 
-Status: styrende utviklingsplan, oppdatert for v0.1.15-a4. Dette er **ikke** en erklæring om at de planlagte funksjonene finnes. Se også `NOARK5-CANONICAL-A4.md`.
+Status: styrende utviklingsplan, faglig presisert i v0.1.15-a16 (tidligere grunnlag a4). Dette er **ikke** en erklæring om at de planlagte funksjonene finnes. Se også `NOARK5-CANONICAL-A4.md`.
 
 ## Mål
 
@@ -44,3 +44,22 @@ Denne sekvensen avløser ikke eksisterende backlog. Store arbeidsoppgaver kan kr
 - `.n5jobs` er valgfri ved enkel kontroll, men må kunne brukes identisk i Enkel og Avansert modus. Gamle Work-områder skal identifiseres etter sikker Source-match. Frakoblede diskbokstaver skal ikke føre til feil jobbvalg.
 - Windows: bruk `Path.samefile()` der faktisk filidentitet skal testes; støtt aliaser, 8.3-kortnavn, ulike bokstavstørrelser og flyttbare diskbokstaver. `Path.resolve()` alene bekrefter ikke filidentitet.
 - Endringer skal regresjonstestes, særlig PySide6-levetid, fil- og mappevalg, fler-skjerm vindusgeometri, tidligere resultatdata, full `test.bat` og praktisk Windows-kjøring.
+
+
+## Faglige føringer presisert 14. november 2026 (a16)
+
+**Eksisterende løsning først:** DWM har allerede fungerende DIAS-pakkemodul, prøvd tidlig i DWM og brukt i SIARD Workflow Manager. `noark5_workflow/operations/dias_package.py`, `dias_mets.py`, `app/dias_info_v0113_a2.py` og DIAS-dialogene skal undersøkes og videreutvikles, ikke erstattes av ny AIP-motor. `info.xml`-feltverdiene, indre/yttre METS og kompatibilitet med Arkade 5 er sentrale. Se `DIAS-METADATA-MAPPING.md`. a15-evidenskandidaten i Work er **ikke** en DIAS AIP.
+
+**Produksjonslinjens faglige hendelser:** Mottak/innlevering → validering → kvalitetssikring og arkiveiers kontroll av innhold/proveniens → dokumentert godkjenning, korrigeringskrav eller avvisning → eksisterende DIAS AIP-produksjon og bevaring → etterfølgende forvaltning. Teknisk test-OK er aldri en faglig aksept. Godkjenning/avvisning er en faktisk beslutning uansett hva steget senere betegnes i GUI.
+
+**Godkjennings-/beslutningsrapporten er sentral bevaringsdokumentasjon:** Den skal kunne gjenfinnes fra bevart materiale og forklare hva uttrekket er, faktisk innhold/avgrensning, tilstand ved mottak, kontroller, arkiveiers uttalelser, dokumenterte avvik, begrunnelser, ansvarlig, dato og beslutning. Den er mer enn en teknisk testrapport eller en journalføringskvittering. a14-rapporten er ennå et utkast med uavklarte forhold.
+
+**SIP/AIP/AIC:** Noark 5 kommer normalt som DIAS SIP (`.tar` eller utpakket). DIAS AIP produseres med den **eksisterende** pakkemodulen. AIC kan organisere flere AIP-er; første AIP håndteres i den etablerte modellen, ikke gjennom en alternativ modell innført i a16. Brukeren/depotet avgjør konkret hva som bevares av original SIP, uendret uttrekk, arkivversjoner og tilleggsdokumentasjon. DWM skal ikke innføre normative krav om å bevare eller utelate SIP. Originaler skal ikke endres; forskjeller og relasjoner dokumenteres.
+
+**Innhold og bruk er ulike dimensjoner:** Skill mellom metadata, testgrunnlag, intern/ekstern rapportering, originaluttrekk, arkivversjon, manualer, eksternt produserte filer og andre manuelle tillegg. Det må være mulig å legge inn filer og mapper fra verktøy utenfor DWM; eksisterende DIAS `extra_files` støtter allerede tillegg under sine definerte målmapper. Hvilket materiale som inngår i AIP velges og dokumenteres. Etterfølgende innsyn, analyse, statistikk og CRM-katalog er ikke alternative AIP-varianter og skal ikke diktere AIP-innhold.
+
+**Journalføring:** Arkiveier og depot dokumenterer på hver sin side kommunikasjon og dokumentutveksling i samme leveranseforløp; det er ikke to konkurrerende produksjonsutganger. Depot kan i tillegg ha dypere teknisk bevaringsinformasjon og egne katalog-/CRM-data. En fil kan være relevant flere steder uten at alle arbeidslogger skal bevares i AIP.
+
+**Brukergrensesnitt:** Enkel modus kan foreslå AIP-mål, men faktisk plassering skal vises og kunne velges. a16-koblingskontrollen viser evidenskandidatens status uten å produsere AIP. Den er ikke en ny pakkefunksjon.
+
+**Kilder og teori:** OAIS som begreps- og prosessreferanse, DIAS/Nasjonalarkivets pakkespesifikasjoner, KDRS Produksjonslinje og Arkade 5-praksis er fortsatt sentrale dokumentasjons- og kvalitetssikringsreferanser. Referansene forankrer arbeidet, men brukes ikke til å overstyre depotets etablerte praksis eller fungerende moduler.
