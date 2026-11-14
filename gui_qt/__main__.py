@@ -1,4 +1,4 @@
-"""Qt desktop entry point with v0.2.0-a1 startup navigation."""
+"""Qt desktop entry point with v0.2.0-a2 production-line navigation."""
 from __future__ import annotations
 
 import sys
@@ -15,8 +15,10 @@ def main() -> int:
     from gui_qt.basic_main_v0113_a2 import DwmMainWindow
     from gui_qt.canonical_results_v0115_a3 import install_canonical_results_menu
     from gui_qt.start_shell_v020_a1 import install_setup_tab, install_start_navigation
-    from app.workbench_api_v0111_a2 import DwmWorkbenchAPI
+    from gui_qt.production_home_v020_a2 import ProductionStartPage, install_integrated_home
+    from app.workbench_api_v020_a2 import DwmWorkbenchAPI
     from gui_qt.appearance_v0110_a3 import apply_appearance
+    from gui_qt.combobox_popup_v020_a2 import install_dropdown_positioning
 
     application = QApplication(sys.argv)
     application.setOrganizationName('IKAMR')
@@ -26,7 +28,10 @@ def main() -> int:
     install_setup_tab()
     window = DwmMainWindow(api)
     install_canonical_results_menu(window)
+    window.v020_start_page_factory = ProductionStartPage
     install_start_navigation(window)
+    install_integrated_home(window)
+    install_dropdown_positioning(application, window)
     window.show()
     if len(sys.argv) > 1:
         try:

@@ -168,7 +168,14 @@ class CanonicalA1Tests(unittest.TestCase):
         root = Path(__file__).resolve().parents[1]
         import tomllib
         from version import VERSION
-        self.assertEqual(VERSION, '0.2.0-a1')
+        # The canonical model's milestone remains present in later releases.
+        import re
+        match = re.fullmatch(r'(\d+)\.(\d+)\.(\d+)(?:-a(\d+))?', VERSION)
+        self.assertIsNotNone(match)
+        release = tuple(int(match.group(index)) for index in (1, 2, 3))
+        self.assertGreaterEqual(release, (0, 2, 0))
+        if release == (0, 2, 0) and match.group(4) is not None:
+            self.assertGreaterEqual(int(match.group(4)), 1)
         with (root / 'pyproject.toml').open('rb') as handle:
             self.assertEqual(tomllib.load(handle)['project']['version'], VERSION.replace('-a', 'a'))
 

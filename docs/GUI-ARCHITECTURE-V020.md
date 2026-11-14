@@ -25,10 +25,57 @@ Oppstartsmodus er et gjensidig utelukkende radiovalg: **Sist brukte modus**, **A
 - Eksisterende DIAS AIP-pakkemodul, `info.xml`-verdier, original SIP og depotets bevaringspraksis endres ikke. Ingen ny pakkemodell innføres.
 - Ingen eksisterende jobb eller data slettes eller flyttes av GUI-profilvalg.
 
+## v0.2.0-a2 – startsidens faktiske arbeidsområder
+
+- Arbeidsområdene vises i fast produksjonsrekkefølge, filtrert av samme arbeidsprofil som a1. Tilgjengelighet på boksene beskriver **integrasjon i GUI**, ikke kontrollstatus, antivirusstatus, faglig godkjenning eller bevaring av arkivuttrekk.
+- **Kontroll:** tilbake til aktiv Enkel/Avansert modus og samme jobb.
+- **Til arbeidsområde:** åpner eksisterende Work-steg i Enkel modus uten å opprette mapper automatisk.
+- **Rapportering:** velger mellom eksisterende resultatvisninger og rapport-/samlerapport-dialog.
+- **Ingest:** krever bekreftelse før separat oppstart av eksisterende, eldre GUI. Ingen mottaksjobb startes automatisk.
+- **Bevaring:** to eksplisitte alternativer: eksisterende DIAS-koblings-/evidenskontroll i Qt, eller separat eksisterende GUI for DIAS AIP-pakking. Evidenskandidat og ferdig AIP forblir ulike begreper.
+- **Antiviruskontroll**, **Mot intern CRM** og **Innsyn:** ikke integrert, inaktive bokser. Ingen fiktiv skann, CRM-overføring eller innsynspublisering.
+- Aktiv jobb-ID vises kun som informasjonskontekst. Bytte av arbeidsprofil flytter ikke jobb, Source, Work, AIP eller resultater.
+
+## v0.2.0-a2 – korrigering etter Windows-test
+
+- Startsiden vises som en **integrert sentralvisning i samme QMainWindow** som Kontroll. Det åpnes ikke lenger et separat Startside-popupvindu. Bytte mellom Startside og Kontroll endrer ikke aktiv jobb eller runner.
+- Arbeidsprofilene **Kontroll**, **Depot – produksjonslinje** og **Egendefinert** lagres gjennom en egen validert utvidelse av eksisterende Setup-API. Nøklene `ui_work_profile`, `ui_startup_mode` og `ui_visible_sections` kan lagres uten feilen «Ukjente Setup-innstillinger»; ordinære Setup-nøkler beholder de eksisterende kontrollene.
+- Profilbytte på Startsiden oppdaterer kortlisten umiddelbart. Depotprofilen viser åtte kort i avtalt rekkefølge. Kontrollprofilen viser ett kort. Ikke integrerte områder utfører ingen jobb.
+- Den faste topplinjen blir stående, og Avansert-modus sine paneler skjules bare midlertidig mens Startsiden vises. Tidligere paneltilstand gjenopprettes før lagring av vindusoppsett ved avslutning.
+- Eksisterende kontroll-, rapport-, Work- og DIAS-rutiner er beholdt. Full GUI-test på Windows må gjennomføres før commit.
+
 ## Videre trinn
 
-1. Koble øvrige bokser til **eksisterende** funksjoner, særlig Mottak/Ingest og DIAS AIP; kartlegg implementert dekning før navigasjon aktiveres.
+1. Lag integrerte Qt-arbeidsflater for mottak/Ingest og videre antivirus/karantenekontroll; behold sikkerhets- og bevaringskontrakter.
 2. Felles jobb-/mottakskontekst og trinnvis gjenopptakelse på tvers av GUI-modus.
 3. Videreutvikle rapportering, beslutningsspor og kobling mot bevaring uten å konstruere nye OAIS-/DIAS-pakketyper.
 
 Historisk mottaksfunksjonskontrakt: `docs/plans/N5-WF-MAN-19-A19-INGEST.md`, særlig `docs/plans/N5-WF-MAN-19-A19-FIX5-FLATT-MOTTAK.md` (flat E-mottaksmappe, separat uttrekksmappe). DIAS: `docs/DIAS-METADATA-MAPPING.md`, `docs/SHARED-ROADMAP.md` og `docs/NOARK5-CONTROL-TO-PRESERVATION-ROADMAP.md`.
+
+## v0.2.0-a2 – oppstartsside og arbeidsområdenes modenhet
+
+- Under **Setup → Oppstart og profil** finnes to uavhengige oppstartsvalg:
+  **Oppstartsmodus for Kontroll** (Sist brukte, Alltid Enkel, Alltid Avansert)
+  og **Oppstartsside** (Følg arbeidsprofil, Sist brukte side, Alltid Startside,
+  Alltid Kontroll). «Følg arbeidsprofil» viderefører eksisterende standard:
+  Kontrollprofil åpner Kontroll; Depot/Egendefinert åpner Startside.
+- «Sist brukte side» lagres separat i `QSettings` som
+  `qt/v020_last_page`. Å lukke DWM fra Startsiden må ikke overskrive valget
+  med Kontroll når skjulte Avansert-paneler gjenopprettes før vindustilstanden
+  lagres. Fast oppstartsside og fast Enkel/Avansert er uavhengige valg.
+- **Modenhet 0/1/2 for arbeidsområder** følger DWM sin eksisterende
+  `app.operation_metadata`-skala fra SIARD-prinsippet:
+  0 = Alpha, 1 = Beta, 2 = Stabil. Setup-filteret viser minimum 0 (alle),
+  minimum 1 (Beta+Stabil) eller minimum 2 (kun stabile). Standard **0**
+  bevarer a2-visningen med åtte bokser. Feilkonfigurert lagret terskel
+  normaliseres restriktivt til 2.
+- Klassifisering av **GUI-integrasjonen** ved a2: Ingest=0, Antivirus=0,
+  Til arbeidsområde=2, Kontroll=2, Rapportering=1, Bevaring=1,
+  Mot intern CRM=0, Innsyn=0. Dette er **ikke** modenhetsvurdering av
+  de underliggende kontrolloperasjonene, og er ikke depotets godkjenningsstatus.
+- Arbeidsprofil filtrerer først hvilke funksjoner brukeren har valgt å se;
+  modenhetsfilteret filtrerer deretter visningen. Det endrer aldri en jobb,
+  autorisasjon, utføring, resultat, original SIP, Work eller DIAS AIP.
+- Det eksisterende **«Vis operasjoner»**-valget (`operation_visibility`) beholdes
+  uavhengig av det nye **«Synlige arbeidsområder etter modenhet»**-valget
+  (`ui_area_visibility`).

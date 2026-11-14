@@ -7,14 +7,17 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox, QComboBox, QDialog, QFrame, QGridLayout, QGroupBox, QHBoxLayout,
-    QLabel, QMessageBox, QPushButton, QRadioButton, QVBoxLayout, QWidget,
+    QLabel, QMessageBox, QPushButton, QRadioButton, QScrollArea, QVBoxLayout, QWidget,
 )
 
 PROFILE_KEY = 'ui_work_profile'
 STARTUP_KEY = 'ui_startup_mode'
 FEATURES_KEY = 'ui_visible_sections'
+PAGE_KEY = 'ui_startup_page'
+AREA_VISIBILITY_KEY = 'ui_area_visibility'
 PROFILES = ('control', 'depot', 'custom')
 STARTUP_MODES = ('last', 'basic', 'advanced')
+START_PAGES = ('profile', 'last', 'home', 'control')
 PROFILE_NAMES = {
     'control': 'Kontroll',
     'depot': 'Depot – produksjonslinje',
@@ -38,6 +41,22 @@ def normalize_profile(value):
 
 def normalize_startup(value):
     return value if value in STARTUP_MODES else 'basic'
+
+
+def normalize_startpage(value):
+    return value if value in START_PAGES else 'profile'
+
+
+def startup_page_target(settings, last_page):
+    """Choose Startside or Kontroll; independent of Enkel/Avansert startup mode."""
+    choice = normalize_startpage(settings.get(PAGE_KEY, 'profile'))
+    if choice == 'last':
+        if last_page in ('home', 'control'):
+            return last_page
+        choice = 'profile'
+    if choice == 'profile':
+        return 'control' if normalize_profile(settings.get(PROFILE_KEY, 'control')) == 'control' else 'home'
+    return choice
 
 
 def normalize_sections(items):
@@ -74,7 +93,16 @@ class StartupSetupPage(QWidget):
 
     def __init__(self, settings, parent=None):
         super().__init__(parent)
-        layout = QVBoxLayout(self)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(4, 4, 4, 4)
+        scroll = QScrollArea(self)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setWidgetResizable(True)
+        outer.addWidget(scroll)
+        body = QWidget(scroll)
+        scroll.setWidget(body)
+        layout = QVBoxLayout(body)
+        layout.setSpacing(12)
         profile_group = QGroupBox('Arbeidsprofil')
         profile_layout = QVBoxLayout(profile_group)
         self.profile = QComboBox()
@@ -83,15 +111,24 @@ class StartupSetupPage(QWidget):
         self.profile.addItem('Egendefinert', 'custom')
         self.profile.setCurrentIndex(max(0, self.profile.findData(normalize_profile(settings.get(PROFILE_KEY)))))
         profile_layout.addWidget(self.profile)
+        # ui_visible_sections belongs only to Egendefinert.  Fixed profiles
+        # display their actual sections without overwriting the saved custom
+        # selection when the user changes profiles before clicking Lagre.
+        self._custom_sections = normalize_sections(settings.get(FEATURES_KEY, ['control']))
+        self._shown_profile = None
         self.checks = {}
         grid = QGridLayout()
         for i, (key, title, _) in enumerate(SECTIONS):
             check = QCheckBox(title)
-            check.setChecked(key in normalize_sections(settings.get(FEATURES_KEY, ['control'])))
             grid.addWidget(check, i // 2, i % 2)
             self.checks[key] = check
         profile_layout.addLayout(grid)
-        layout.addWidget(profile_group)
+        profile_note = QLabel(
+            'Kontroll og Depot viser faste, låste valg. Velg Egendefinert for '
+            'å endre hvilke arbeidsområder som vises på Startsiden.', profile_group
+        )
+        profile_note.setWordWrap(True)
+        profile_layout.addWidget(profile_note)
         mode_group = QGroupBox('Oppstartsmodus for Kontroll')
         mode_layout = QVBoxLayout(mode_group)
         self.modes = {}
@@ -103,7 +140,44 @@ class StartupSetupPage(QWidget):
             mode_layout.addWidget(button)
             self.modes[key] = button
         layout.addWidget(mode_group)
-        hint = QLabel('Modus kan alltid byttes manuelt. Fast oppstartsmodus gjelder først ved neste oppstart.\nEksisterende jobber, DIAS og Work endres ikke.')
+        page_group = QGroupBox('Oppstartsside')
+        page_layout = QVBoxLayout(page_group)
+        self.pages = {}
+        page_options = (
+            ('profile', 'Følg arbeidsprofil (standard)'),
+            ('last', 'Sist brukte side (Startside eller Kontroll)'),
+            ('home', 'Alltid Startside'),
+            ('control', 'Alltid Kontroll'),
+        )
+        page_current = normalize_startpage(settings.get(PAGE_KEY, 'profile'))
+        for key, label in page_options:
+            button = QRadioButton(label, page_group)
+            button.setChecked(key == page_current)
+            page_layout.addWidget(button)
+            self.pages[key] = button
+        layout.addWidget(page_group)
+        # Startup choices appear first; profile checkboxes follow below.
+        layout.addWidget(profile_group)
+
+        maturity_group = QGroupBox('Synlige arbeidsområder etter modenhet')
+        maturity_layout = QVBoxLayout(maturity_group)
+        from app.ui_start_preferences_v020_a2 import WORK_AREA_VISIBILITY_LABELS
+        from app.ui_work_areas_v020_a2 import normalize_area_visibility
+        self.area_visibility = QComboBox(maturity_group)
+        for level, label in WORK_AREA_VISIBILITY_LABELS.items():
+            self.area_visibility.addItem(label, level)
+        selected = normalize_area_visibility(settings.get(AREA_VISIBILITY_KEY))
+        self.area_visibility.setCurrentIndex(self.area_visibility.findData(selected))
+        maturity_layout.addWidget(self.area_visibility)
+        maturity_note = QLabel(
+            'Gjelder funksjonsboksene på Startsiden. Modenhet 0=Alpha, 1=Beta, 2=Stabil. '
+            'Eksisterende «Vis operasjoner» under Arbeidsflyt endres ikke.', maturity_group
+        )
+        maturity_note.setWordWrap(True)
+        maturity_layout.addWidget(maturity_note)
+        layout.addWidget(maturity_group)
+
+        hint = QLabel('Modus og side kan alltid byttes manuelt. Faste valg gjelder fra neste oppstart.\nEksisterende jobber, DIAS og Work endres ikke.')
         hint.setWordWrap(True)
         layout.addWidget(hint)
         layout.addStretch()
@@ -111,16 +185,65 @@ class StartupSetupPage(QWidget):
         self._sync()
 
     def _sync(self):
-        enabled = self.profile.currentData() == 'custom'
-        for control in self.checks.values():
-            control.setEnabled(enabled)
+        """Show effective selections for the chosen profile, not custom data."""
+        # The old profile is still visible in the checkboxes when Qt emits
+        # currentIndexChanged.  Capture any unsaved custom edits first.
+        if self._shown_profile == 'custom':
+            self._custom_sections = [
+                key for key, control in self.checks.items() if control.isChecked()
+            ]
+        profile = normalize_profile(self.profile.currentData())
+        selected = set(visible_sections({
+            PROFILE_KEY: profile, FEATURES_KEY: self._custom_sections,
+        }))
+        for key, control in self.checks.items():
+            control.setChecked(key in selected)
+            control.setEnabled(profile == 'custom')
+        self._shown_profile = profile
 
     def updates(self):
+        # Saving a fixed profile must not replace the remembered custom areas
+        # with the fixed profile's displayed checkmarks.
+        custom_sections = ([
+            key for key, control in self.checks.items() if control.isChecked()
+        ] if self.profile.currentData() == 'custom' else list(self._custom_sections))
         return {
             PROFILE_KEY: self.profile.currentData(),
             STARTUP_KEY: next(key for key, control in self.modes.items() if control.isChecked()),
-            FEATURES_KEY: [key for key, control in self.checks.items() if control.isChecked()],
+            PAGE_KEY: next(key for key, control in self.pages.items() if control.isChecked()),
+            AREA_VISIBILITY_KEY: self.area_visibility.currentData(),
+            FEATURES_KEY: custom_sections,
         }
+
+
+
+def preferred_setup_height(current_height, content_height, chrome_height, screen_height):
+    """Grow Setup to fit the selected tab, never beyond the usable screen.
+
+    The tab's existing QScrollArea handles the remainder on short screens.
+    All dimensions are Qt logical pixels (respect Windows display scaling).
+    """
+    ceiling = max(320, int(screen_height) - 40)
+    requested = max(int(current_height), int(content_height) + int(chrome_height) + 28)
+    return max(1, min(requested, ceiling))
+
+
+def open_startup_setup(window):
+    """Open shared Setup with the startup/profile tab selected for this shortcut.
+
+    The ordinary Setup action keeps its existing default tab.  The marker is
+    temporary, so cancelling Setup or an exception cannot affect later opens.
+    """
+    marker = '_v020_setup_target'
+    previous = getattr(window, marker, None)
+    setattr(window, marker, 'startup')
+    try:
+        return window._open_setup()
+    finally:
+        if previous is None:
+            delattr(window, marker)
+        else:
+            setattr(window, marker, previous)
 
 
 def install_setup_tab():
@@ -138,9 +261,76 @@ def install_setup_tab():
             super().__init__(api, parent)
             self.startup_page = StartupSetupPage(self.settings, self)
             self.tabs.insertTab(0, self.startup_page, 'Oppstart og profil')
+            if getattr(parent, '_v020_setup_target', None) == 'startup':
+                self.tabs.setCurrentWidget(self.startup_page)
+            # Earlier Setup uses a fixed 880x640 window.  Expand to the height
+            # of the selected tab when the screen permits; keep scrollbars on
+            # shorter screens.  Recalculate when switching any Setup tab.
+            self.tabs.currentChanged.connect(self._v020_fit_active_setup_tab)
+            self._v020_fit_active_setup_tab()
             # Every Setup entry point (including the advanced menu) updates the
             # global navigation after a successful save, not on Cancel.
             self.accepted.connect(self._refresh_navigation)
+
+        def showEvent(self, event):
+            super().showEvent(event)
+            # Account for final platform font metrics and DPI after first show.
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(0, self._v020_fit_active_setup_tab)
+
+        def _v020_fit_active_setup_tab(self, _index=None):
+            if self.isMaximized() or self.isFullScreen():
+                return  # Do not override a user-maximized Setup window.
+            from PySide6.QtWidgets import QApplication
+            self.layout().activate()
+            page = self.tabs.currentWidget()
+            if page is None:
+                return
+            scroller = page.findChild(QScrollArea)
+            if scroller is None or scroller.widget() is None:
+                return
+            content = scroller.widget()
+            if content.layout() is not None:
+                content.layout().activate()
+            page_content_height = content.sizeHint().height()
+            # Measure all non-tab controls rather than guessing a constant
+            # title/button height: this supports varying fonts and DPI.
+            outer = self.layout()
+            margins = outer.contentsMargins()
+            chrome = margins.top() + margins.bottom()
+            chrome += max(0, outer.count() - 1) * outer.spacing()
+            for i in range(outer.count()):
+                item = outer.itemAt(i)
+                if item.widget() is self.tabs:
+                    chrome += self.tabs.tabBar().sizeHint().height() + 14
+                else:
+                    chrome += item.sizeHint().height()
+            screen = (self.parentWidget().screen() if self.parentWidget() is not None
+                      else self.screen())
+            if screen is None:
+                screen = QApplication.primaryScreen()
+            if screen is None:
+                return
+            bounds = screen.availableGeometry()
+            frame_extra = max(0, self.frameGeometry().height() - self.height())
+            usable = max(320, bounds.height() - frame_extra)
+            target_height = preferred_setup_height(
+                self.height(), page_content_height, chrome, usable
+            )
+            # The original dialog has a 490px minimum.  Respect smaller displays
+            # by relaxing that minimum only if they cannot fit it.
+            if target_height < self.minimumHeight():
+                self.setMinimumHeight(target_height)
+            if target_height != self.height():
+                self.resize(self.width(), target_height)
+            # Expanding after a tab switch must not place Save/Cancel offscreen.
+            # The caller's existing window placement still controls the default.
+            if self.isVisible():
+                left = max(bounds.left(), min(self.x(), bounds.right() - self.width() + 1))
+                top = max(bounds.top(), min(self.y(), bounds.bottom() -
+                                           self.frameGeometry().height() + 1))
+                if (left, top) != (self.x(), self.y()):
+                    self.move(left, top)
 
         def _refresh_navigation(self):
             parent = self.parentWidget()
@@ -242,7 +432,7 @@ class StartPage(QDialog):
         self.refresh()
 
     def _open_setup(self):
-        self.window._open_setup()
+        open_startup_setup(self.window)
         self.window.v020_sync_navigation()
         current = normalize_profile(self.window.api.settings.get(PROFILE_KEY))
         self.profile_choice.blockSignals(True)
@@ -263,7 +453,14 @@ def install_start_navigation(window):
     from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QSizePolicy, QToolBar, QWidget
 
     def home():
-        page = StartPage(window)
+        # a2 uses the same QMainWindow and swaps its central view.  Keep the
+        # a1 popup only as a backwards-compatible fallback for older clients.
+        integrated = getattr(window, 'v020_integrated_home', None)
+        if integrated is not None:
+            integrated()
+            return
+        factory = getattr(window, 'v020_start_page_factory', StartPage)
+        page = factory(window)
         try:
             page.exec()
         finally:
@@ -367,5 +564,9 @@ def install_start_navigation(window):
     else:
         window._enter_basic()
     sync_navigation()
-    if normalize_profile(window.api.settings.get(PROFILE_KEY)) != 'control':
+    # v0.2.0-a2: selection of the initial Startside/Kontroll page is handled
+    # by install_integrated_home, after the QStackedWidget has been installed.
+    # Retain a1 standalone fallback for clients without the a2 page factory.
+    if (not hasattr(window, 'v020_start_page_factory') and
+            normalize_profile(window.api.settings.get(PROFILE_KEY)) != 'control'):
         QTimer.singleShot(0, home)

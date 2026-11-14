@@ -33,7 +33,19 @@ class BasicWiringTests(unittest.TestCase):
         self.assertIn('window = DwmMainWindow(api)', entry)
         self.assertIn('class DwmMainWindow(_AdvancedMainWindow):', basic)
         self.assertIn('from .main_window import DOCK_NAMES, DwmMainWindow as _AdvancedMainWindow', basic)
-        self.assertIn('from app.workbench_api_v0111_a2 import DwmWorkbenchAPI', entry)
+        # v0.2.0-a2 adds UI preferences by subclassing the established API.
+        # Accept the direct historical import OR the new subclass, but never
+        # accept an unrelated implementation that bypasses the old API.
+        if 'from app.workbench_api_v020_a2 import DwmWorkbenchAPI' in entry:
+            api_extension = (ROOT / 'app' / 'workbench_api_v020_a2.py').read_text('utf-8')
+            ast.parse(api_extension)
+            self.assertIn(
+                'from app.workbench_api_v0111_a2 import DwmWorkbenchAPI as _PreviousWorkbenchAPI',
+                api_extension,
+            )
+            self.assertIn('class DwmWorkbenchAPI(_PreviousWorkbenchAPI):', api_extension)
+        else:
+            self.assertIn('from app.workbench_api_v0111_a2 import DwmWorkbenchAPI', entry)
 
     def test_simple_front_end_has_only_source_work_start_and_result_actions(self):
         source = QT.read_text('utf-8')

@@ -1,6 +1,8 @@
 """Headless protection for Basic control presets and selected assessment bases."""
 from __future__ import annotations
 
+import ast
+
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -144,7 +146,19 @@ class PackageContracts(unittest.TestCase):
     def test_startup_and_main_window_reuse_existing_engines(self):
         entry = (ROOT / 'gui_qt/__main__.py').read_text('utf-8')
         gui = (ROOT / 'gui_qt/basic_main_v0111_a1.py').read_text('utf-8')
-        self.assertIn('from app.workbench_api_v0111_a2 import DwmWorkbenchAPI', entry)
+        # v0.2.0-a2 adds UI preferences by subclassing the established API.
+        # Accept the direct historical import OR the new subclass, but never
+        # accept an unrelated implementation that bypasses the old API.
+        if 'from app.workbench_api_v020_a2 import DwmWorkbenchAPI' in entry:
+            api_extension = (ROOT / 'app' / 'workbench_api_v020_a2.py').read_text('utf-8')
+            ast.parse(api_extension)
+            self.assertIn(
+                'from app.workbench_api_v0111_a2 import DwmWorkbenchAPI as _PreviousWorkbenchAPI',
+                api_extension,
+            )
+            self.assertIn('class DwmWorkbenchAPI(_PreviousWorkbenchAPI):', api_extension)
+        else:
+            self.assertIn('from app.workbench_api_v0111_a2 import DwmWorkbenchAPI', entry)
         self.assertIn('self._run_selected()', gui)
         self.assertIn('self._a12_open_selected_report', gui)
         self.assertIn('select_or_create_basic_job(self.api, plan)', gui)

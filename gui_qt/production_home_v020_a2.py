@@ -1,0 +1,359 @@
+"""v0.2.0-a2: depot production navigation integrated in the main Qt window.
+
+Home is a QWidget in the original QMainWindow, NOT a modal popup. Existing
+Noark 5 jobs, runner, result windows and DIAS implementation are reused.
+"""
+from __future__ import annotations
+
+from PySide6.QtCore import QEvent, QObject, Qt, QTimer
+from PySide6.QtWidgets import (
+    QComboBox, QFrame, QGridLayout, QHBoxLayout, QLabel, QMessageBox,
+    QPushButton, QScrollArea, QStackedWidget, QVBoxLayout, QWidget,
+)
+
+from app.ui_work_areas_v020_a2 import cards_for, destination, normalize_area_visibility
+from gui_qt.start_shell_v020_a1 import (
+    PROFILE_KEY, PROFILE_NAMES, SECTIONS, AREA_VISIBILITY_KEY,
+    normalize_profile, startup_page_target, visible_sections, open_startup_setup,
+)
+from version import VERSION
+
+
+class ProductionStartPage(QWidget):
+    """One production landing page; no independent window or duplicated jobs."""
+
+    def __init__(self, window):
+        super().__init__(window)
+        self.window = window
+        self.setObjectName('v020_home_page')
+        self.setStyleSheet(
+            'QFrame#startCard { border: 1px solid palette(mid); '
+            'border-radius: 14px; padding: 7px; } '
+            'QPushButton#cardButton { text-align: left; padding: 10px; '
+            'border-radius: 9px; }'
+        )
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(8, 5, 8, 5)
+        scroll = QScrollArea(self)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setWidgetResizable(True)
+        outer.addWidget(scroll)
+        content = QWidget(scroll)
+        scroll.setWidget(content)
+        layout = QVBoxLayout(content)
+        layout.setContentsMargins(18, 16, 18, 16)
+        layout.setSpacing(14)
+
+        header = QHBoxLayout()
+        heading = QLabel('Hva vil du gjøre?', content)
+        heading.setStyleSheet('font-size: 22px; font-weight: 600;')
+        header.addWidget(heading)
+        header.addStretch()
+        setup = QPushButton('Oppstart og profil…', content)
+        setup.clicked.connect(self._open_setup)
+        header.addWidget(setup)
+        layout.addLayout(header)
+
+        profile_row = QHBoxLayout()
+        profile_row.addWidget(QLabel('Arbeidsprofil:', content))
+        self.profile_choice = QComboBox(content)
+        for profile, label in PROFILE_NAMES.items():
+            self.profile_choice.addItem(label, profile)
+        self.profile_choice.currentIndexChanged.connect(self._change_profile)
+        profile_row.addWidget(self.profile_choice, 1)
+        layout.addLayout(profile_row)
+
+        self.subtitle = QLabel(content)
+        self.subtitle.setWordWrap(True)
+        layout.addWidget(self.subtitle)
+        self.context_label = QLabel(content)
+        self.context_label.setObjectName('v020_a2_context')
+        self.context_label.setWordWrap(True)
+        layout.addWidget(self.context_label)
+
+        self.cards = QGridLayout()
+        self.cards.setSpacing(12)
+        layout.addLayout(self.cards)
+        self.status_explanation = QLabel(
+            'Status gjelder GUI-integrasjon, ikke om arkivuttrekket er kontrollert, '
+            'godkjent eller bevart.', content,
+        )
+        self.status_explanation.setObjectName('v020_a2_status_explanation')
+        self.status_explanation.setWordWrap(True)
+        layout.addWidget(self.status_explanation)
+        layout.addStretch(1)
+        self.refresh()
+
+    def refresh(self):
+        settings = self.window.api.settings
+        profile = normalize_profile(settings.get(PROFILE_KEY, 'control'))
+        self.profile_choice.blockSignals(True)
+        self.profile_choice.setCurrentIndex(self.profile_choice.findData(profile))
+        self.profile_choice.blockSignals(False)
+        while self.cards.count():
+            item = self.cards.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        threshold = normalize_area_visibility(settings.get(AREA_VISIBILITY_KEY))
+        cards = cards_for(visible_sections(settings), SECTIONS, threshold)
+        self.subtitle.setText(
+            PROFILE_NAMES[profile] + ' · ' + str(len(cards)) +
+            (' arbeidsområde' if len(cards) == 1 else ' arbeidsområder')
+        )
+        active = getattr(self.window, '_active_id', None)
+        self.context_label.setText(
+            ('Aktiv jobb: ' + str(active)) if active else
+            'Ingen aktiv jobb valgt. Valg på Startsiden oppretter ikke jobber.'
+        )
+        for index, (key, title, capability) in enumerate(cards):
+            frame = QFrame(self)
+            frame.setObjectName('startCard')
+            inner = QVBoxLayout(frame)
+            header = QHBoxLayout()
+            action = QPushButton(f'{index + 1}. {title}' +
+                                 ('  →' if capability.route else ''), frame)
+            action.setObjectName('cardButton')
+            action.setMinimumHeight(44)
+            action.setEnabled(capability.route is not None)
+            if capability.route is not None:
+                action.clicked.connect(
+                    lambda _checked=False, section=key: self._open_section(section)
+                )
+            else:
+                action.setToolTip('Dette arbeidsområdet er ikke integrert ennå.')
+            header.addWidget(action, 1)
+            status = QLabel(capability.state_label + ' · ' + capability.maturity_label, frame)
+            status.setObjectName('v020_a2_status_' + key)
+            status.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            header.addWidget(status)
+            inner.addLayout(header)
+            detail = QLabel(capability.detail, frame)
+            detail.setObjectName('v020_a2_detail_' + key)
+            detail.setWordWrap(True)
+            inner.addWidget(detail)
+            self.cards.addWidget(frame, index // 2, index % 2)
+        self.cards.setColumnStretch(0, 1)
+        self.cards.setColumnStretch(1, 1)
+        self.status_explanation.setText(
+            'Modenhetsfilter: ' + str(threshold) + ' (0=alle, 1=Beta+Stabil, 2=kun Stabil). '
+            'Status gjelder GUI-integrasjon, ikke om uttrekket er kontrollert, godkjent eller bevart.'
+        )
+        if not cards:
+            empty = QLabel(
+                'Ingen arbeidsområder vises for denne profilen og modenhetsgrensen. '
+                'Endre «Synlige arbeidsområder» i Oppstart og profil.', self
+            )
+            empty.setWordWrap(True)
+            self.cards.addWidget(empty, 0, 0, 1, 2)
+
+    def _change_profile(self, _index=None):
+        key = self.profile_choice.currentData()
+        if key == normalize_profile(self.window.api.settings.get(PROFILE_KEY)):
+            return
+        try:
+            self.window.api.save_setup({PROFILE_KEY: key})
+        except Exception as exc:
+            QMessageBox.warning(self, 'Kunne ikke lagre arbeidsprofil', str(exc))
+            self.refresh()
+            return
+        self.window.v020_sync_navigation()
+        self.refresh()
+
+    def _open_setup(self):
+        open_startup_setup(self.window)
+        self.window.v020_sync_navigation()
+        self.refresh()
+
+    def accept(self):
+        """Compatibility with the a2 navigation contract: show Control in-place."""
+        self.window.v020_show_control_page()
+
+    def _close_and_run(self, callback):
+        """Return to the workbench before opening an existing Qt dialog."""
+        self.accept()
+        QTimer.singleShot(0, callback)
+
+    def _open_section(self, key):
+        route = destination(key)
+        if route is None:
+            return
+        if route == 'control':
+            self.accept()
+        elif route == 'basic_work':
+            self._close_and_run(self._open_existing_work_step)
+        elif route == 'report':
+            self._report_actions()
+        elif route == 'preservation':
+            self._preservation_actions()
+        elif route == 'legacy_ingest':
+            self._legacy_launch('Ingest / mottak')
+
+    def _open_existing_work_step(self):
+        window = self.window
+        if hasattr(window, 'v020_show_control_page'):
+            window.v020_show_control_page()
+        window._enter_basic()
+        window._a2_set_step('work')
+        window.v020_sync_navigation()
+
+    def _report_actions(self):
+        dialog = QMessageBox(self)
+        dialog.setWindowTitle('Rapportering')
+        dialog.setText('Velg en eksisterende rapportfunksjon.')
+        results = dialog.addButton('Resultatvisninger', QMessageBox.ButtonRole.ActionRole)
+        report = dialog.addButton('Lag rapport / samlerapport', QMessageBox.ButtonRole.ActionRole)
+        dialog.addButton('Avbryt', QMessageBox.ButtonRole.RejectRole)
+        dialog.exec()
+        chosen = dialog.clickedButton()
+        if chosen is results:
+            self._close_and_run(self.window._a12_open_result_center)
+        elif chosen is report:
+            self._close_and_run(self.window._a12_open_selected_report)
+
+    def _preservation_actions(self):
+        dialog = QMessageBox(self)
+        dialog.setWindowTitle('Bevaring')
+        dialog.setText(
+            'DIAS AIP-pakking er ikke flyttet til Qt. Velg mellom kontroll av '
+            'kobling/evidens eller eksisterende pakking i eldre GUI. '
+            'Ingen AIP opprettes ved å åpne dette valget.'
+        )
+        inspect = dialog.addButton('DIAS-kobling / evidens (Qt)', QMessageBox.ButtonRole.ActionRole)
+        legacy = dialog.addButton('DIAS AIP (eldre GUI)', QMessageBox.ButtonRole.ActionRole)
+        dialog.addButton('Avbryt', QMessageBox.ButtonRole.RejectRole)
+        dialog.exec()
+        chosen = dialog.clickedButton()
+        if chosen is inspect:
+            action = getattr(self.window, '_a15_canonical_action', None)
+            if action is None:
+                QMessageBox.warning(self, 'Bevaring', 'Kanoniske resultatdata er ikke tilgjengelig.')
+                return
+            self._close_and_run(action.trigger)
+        elif chosen is legacy:
+            self._legacy_launch('DIAS AIP-pakking')
+
+    def _legacy_launch(self, purpose):
+        if getattr(self.window, '_worker', None) is not None or self.window.api.running:
+            QMessageBox.warning(self, purpose, 'Avslutt pågående kjøring før du åpner eldre GUI.')
+            return
+        choice = QMessageBox.question(
+            self, purpose,
+            purpose + ' er foreløpig tilgjengelig i DWM sitt eldre GUI, '
+            'som åpnes separat.\n\n'
+            'Start eldre GUI? Velg aktuell funksjon der. '
+            'Ingen mottak, kontroll eller pakking startes automatisk.',
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if choice == QMessageBox.StandardButton.Yes:
+            self._close_and_run(self.window._open_legacy)
+
+
+def install_integrated_home(window):
+    """Place Startside beside the workbench in ONE QMainWindow.
+
+    A stacked central widget preserves the exact existing widget, job state,
+    controller and mode switches. No new application/runner is created.
+    """
+    from gui_qt.main_window import DOCK_NAMES
+
+    original = window.takeCentralWidget()
+    if original is None:
+        raise RuntimeError('Hovedvinduet har ikke noen sentral kontrollflate.')
+    stack = QStackedWidget(window)
+    stack.setObjectName('v020_main_stack')
+    stack.addWidget(original)
+    home = ProductionStartPage(window)
+    stack.addWidget(home)
+    window.setCentralWidget(stack)
+    saved_advanced = None
+    original_sync = window.v020_sync_navigation
+
+    def sync_navigation(*_args):
+        original_sync()
+        if stack.currentWidget() is home:
+            window.v020_section_label.setText('Startside · ' +
+                PROFILE_NAMES[normalize_profile(window.api.settings.get(PROFILE_KEY))])
+
+    def show_home(*, record=True):
+        nonlocal saved_advanced
+        if record:
+            window.config.setValue('qt/v020_last_page', 'home')
+        if stack.currentWidget() is home:
+            home.refresh()
+            sync_navigation()
+            return
+        if not window._basic_active:
+            saved_advanced = {
+                'docks': {name: getattr(window, 'dock_' + name).isVisible()
+                          for name in DOCK_NAMES},
+                'toolbar': window._toolbar.isVisible(),
+                'menu': window.menuBar().isVisible(),
+                'status': window.statusBar().isVisible(),
+            }
+            for name in DOCK_NAMES:
+                getattr(window, 'dock_' + name).hide()
+            window._toolbar.hide()
+            window.menuBar().hide()
+            window.statusBar().hide()
+        stack.setCurrentWidget(home)
+        home.refresh()
+        sync_navigation()
+
+    def show_control(*, record=True):
+        nonlocal saved_advanced
+        if record:
+            window.config.setValue('qt/v020_last_page', 'control')
+        if stack.currentWidget() is original:
+            sync_navigation()
+            return
+        stack.setCurrentWidget(original)
+        if saved_advanced is not None and not window._basic_active:
+            for name, visible in saved_advanced['docks'].items():
+                getattr(window, 'dock_' + name).setVisible(visible)
+            window._toolbar.setVisible(saved_advanced['toolbar'])
+            window.menuBar().setVisible(saved_advanced['menu'])
+            window.statusBar().setVisible(saved_advanced['status'])
+        saved_advanced = None
+        sync_navigation()
+
+    window.v020_integrated_home = show_home
+    window.v020_show_control_page = show_control
+    window.v020_sync_navigation = sync_navigation
+    # The fixed toolbar's existing mode button is reused. Switching from
+    # Startside must reveal Control before changing Basic/Advanced state.
+    previous_switch = window.v020_mode_button
+    previous_switch.clicked.disconnect()
+
+    def switch_mode():
+        show_control()
+        if window._basic_active:
+            window._leave_basic()
+        else:
+            window._enter_basic()
+        sync_navigation()
+
+    previous_switch.clicked.connect(switch_mode)
+
+    class RestoreControlBeforeClose(QObject):
+        """Do not persist hidden advanced docks when closing from Startside."""
+
+        def eventFilter(self, obj, event):
+            if obj is window and event.type() == QEvent.Type.Close:
+                show_control(record=False)
+            return super().eventFilter(obj, event)
+
+    # Keep the filter alive for the entire native window lifetime.
+    window._v020_close_guard = RestoreControlBeforeClose(window)
+    window.installEventFilter(window._v020_close_guard)
+    initial_page = startup_page_target(
+        window.api.settings,
+        str(window.config.value('qt/v020_last_page', '')),
+    )
+    if initial_page == 'home':
+        # Delay until window.show(): isVisible() is false for child docks,
+        # menu and toolbar while QMainWindow itself is still hidden. Taking
+        # that snapshot now would erase the user's Advanced layout on return.
+        QTimer.singleShot(0, lambda: show_home(record=False))
+    # No separate QDialog.exec() is used for the start navigation.
+    return home
