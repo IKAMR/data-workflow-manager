@@ -7,11 +7,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QObject, QThread, Signal
+from PySide6.QtCore import Qt, QObject, QThread, Signal, QSettings
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QTreeWidget, QTreeWidgetItem,
-    QHeaderView, QPushButton, QMessageBox, QPlainTextEdit, QFileDialog,
+    QHeaderView, QPushButton, QMessageBox, QPlainTextEdit, QFileDialog, QSplitter,
 )
 
 from noark5_workflow.analysis.canonical_work_adapter import (
@@ -22,6 +22,7 @@ from noark5_workflow.analysis.canonical_results import build_canonical_results
 from app.canonical_selection_v0115_a3 import ALLOWED, selected_sources
 from noark5_workflow.analysis.canonical_context_v0115_a4 import build_context
 from noark5_workflow.analysis.canonical_external_v0115_a5 import discover_external_candidates
+from noark5_workflow.analysis.canonical_control_plan_v0115_a6 import coverage_report
 
 
 class _Task(QObject):
@@ -36,6 +37,8 @@ class _Task(QObject):
         try:
             if self.selection is None:
                 result = discover_work_sources(self.work)
+            elif '__a6_coverage' in self.selection:
+                result = {'a6_coverage': coverage_report(self.work)}
             elif '__a5_discover_external' in self.selection:
                 result = {'a5_candidates': discover_external_candidates(self.work)}
             elif '__a4_context' in self.selection:
@@ -59,6 +62,7 @@ class CanonicalResultsDialog(QDialog):
         self.setMinimumSize(660, 440)
         self._thread = None
         self._task = None
+        self._settings = QSettings("IKAMR", "DWM-Qt")
         layout = QVBoxLayout(self)
         heading = QLabel('Resultatkilder i valgt Work')
         layout.addWidget(heading)
@@ -73,18 +77,35 @@ class CanonicalResultsDialog(QDialog):
         self.tree.header().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.tree.header().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         self.tree.header().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
-        layout.addWidget(self.tree, 2)
+        splitter = QSplitter(Qt.Orientation.Vertical, self)
+        splitter.setChildrenCollapsible(False)
+        splitter.addWidget(self.tree)
         note = QLabel('Kilder velges manuelt. Eldre og ikke-stottede kilder tas ikke med. '
                       'Dette er en indeks over evidens, ikke en depotgodkjenning.')
         note.setWordWrap(True)
-        layout.addWidget(note)
+        note.setObjectName("canonicalSourceNote")
         self.report = QPlainTextEdit(self)
         self.report.setReadOnly(True)
         self.report.setPlaceholderText('Resultatdekning vises etter lagring.')
-        layout.addWidget(self.report, 1)
+        splitter.addWidget(self.report)
+        splitter.setStretchFactor(0, 1)
+        splitter.setStretchFactor(1, 1)
+        saved = self._settings.value("qt/a6/canonical_splitter_sizes")
+        if isinstance(saved, list) and len(saved) == 2:
+            try:
+                splitter.setSizes([max(100, int(x)) for x in saved])
+            except (TypeError, ValueError):
+                splitter.setSizes([300, 220])
+        else:
+            splitter.setSizes([300, 220])
+        self.splitter = splitter
+        layout.addWidget(splitter, 1)
+        layout.addWidget(note)
         buttons = QHBoxLayout()
         self.refresh_button = QPushButton('Finn resultatkilder')
         self.refresh_button.clicked.connect(self.refresh)
+        self.coverage_button = QPushButton('Kontrolldekning')
+        self.coverage_button.clicked.connect(lambda: self._start({'__a6_coverage': True}))
         self.external_discover_button = QPushButton('Finn ekstern evidens')
         self.external_discover_button.clicked.connect(lambda: self._start({'__a5_discover_external': True}))
         self.build_button = QPushButton('Opprett resultatindeks...')
@@ -95,6 +116,7 @@ class CanonicalResultsDialog(QDialog):
         self.close_button.clicked.connect(self.reject)
         buttons.addWidget(self.refresh_button)
         buttons.addWidget(self.external_discover_button)
+        buttons.addWidget(self.coverage_button)
         buttons.addWidget(self.build_button)
         buttons.addWidget(self.context_button)
         buttons.addStretch(1)
@@ -108,6 +130,7 @@ class CanonicalResultsDialog(QDialog):
         self.refresh_button.setEnabled(not busy)
         self.build_button.setEnabled(not busy)
         self.external_discover_button.setEnabled(not busy)
+        self.coverage_button.setEnabled(not busy)
         self.context_button.setEnabled(not busy)
         self.close_button.setEnabled(not busy)
         self.tree.setEnabled(not busy)
@@ -116,7 +139,7 @@ class CanonicalResultsDialog(QDialog):
         if self._busy:
             return
         self._set_busy(True)
-        self.report.setPlainText('Leser Work...' if selection is None else 'Oppretter resultatindeks...')
+        self.report.setPlainText('Leser Work...')
         thread = QThread(self)
         task = _Task(self.work, selection)
         task.moveToThread(thread)
@@ -140,7 +163,19 @@ class CanonicalResultsDialog(QDialog):
             self.report.setPlainText('FEIL: ' + error)
             QMessageBox.warning(self, 'Kanoniske resultatdata', error)
             return
-        if 'a5_candidates' in result:
+        if 'a6_coverage' in result:
+            report = result['a6_coverage']
+            summary = report['summary']
+            lines = [f"Kontrollområder med registrert evidens: {summary['categories_with_registered_evidence']}/{summary['categories']}",
+                     'Dette er registrert kjøring, IKKE godkjent kontrolldekning.',
+                     f"Faglig kontekstindeks: {report['context_status']}",
+                     'Påkrevd kontrollprofil: IKKE valgt/verifisert', '']
+            for control in report['controls']:
+                lines.append(f"{control['title']}: {control['presence']} ({control['observation_count']} observasjoner)")
+            lines.append('Kontrollplanen må senere knyttes til versjonert Noark-/leveranseprofil.')
+            self.report.setPlainText('\n'.join(lines))
+            self._expand_report()
+        elif 'a5_candidates' in result:
             rows = result['a5_candidates']
             lines = [f'Eksterne evidenskandidater funnet: {len(rows)}',
                      'Ingen filer er valgt eller analysert. Velg dem eksplisitt ved kobling:']
@@ -148,6 +183,7 @@ class CanonicalResultsDialog(QDialog):
             if len(rows) >= 150:
                 lines.append('Listen er avgrenset til 150 filer.')
             self.report.setPlainText('\n'.join(lines))
+            self._expand_report()
         elif 'a4_context' in result:
             totals = result['a4_context']
             self.report.setPlainText(
@@ -186,6 +222,13 @@ class CanonicalResultsDialog(QDialog):
                              f"mangler {row['unavailable']}, ukjent {row['unknown']})")
             lines.append('Lagret: noark5_evidence/canonical-results.json')
             self.report.setPlainText('\n'.join(lines))
+
+    def _expand_report(self):
+        """Give freshly discovered results room without hiding source choices."""
+        sizes = self.splitter.sizes()
+        total = sum(sizes)
+        if total > 250:
+            self.splitter.setSizes([max(140, total * 2 // 5), max(110, total * 3 // 5)])
 
     def refresh(self):
         self._start(None)
@@ -246,9 +289,12 @@ class CanonicalResultsDialog(QDialog):
 
     def reject(self):
         if not self._busy:
+            self._settings.setValue("qt/a6/canonical_splitter_sizes", self.splitter.sizes())
             super().reject()
 
     def closeEvent(self, event):
+        if not self._busy:
+            self._settings.setValue("qt/a6/canonical_splitter_sizes", self.splitter.sizes())
         if self._busy:
             event.ignore()
         else:
