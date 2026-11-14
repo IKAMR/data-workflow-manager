@@ -17,6 +17,7 @@ from app.production_progress_v020_a5 import (
 )
 from app.production_review_v020_a4 import ProductionEvidence
 from version import VERSION
+from tests.version_assertions import assert_release_at_least
 
 ROOT = Path(__file__).resolve().parents[1]
 HOME = ROOT / 'gui_qt' / 'production_home_v020_a2.py'
@@ -328,7 +329,7 @@ class GUIContractTests(unittest.TestCase):
         self.assertNotIn('os.replace(',src)
 
     def test_release_version_matches_distribution(self):
-        self.assertRegex(VERSION, r'^0\.2\.0-a[0-9]+$')
+        assert_release_at_least(self, f'VERSION = "{VERSION}"', "0.2.0", 5)
         with (ROOT/'pyproject.toml').open('rb') as f:
             self.assertEqual(tomllib.load(f)['project']['version'], VERSION.replace('-',''))
 

@@ -10,6 +10,7 @@ import unittest
 from app.depot_review_display_v020_a6 import readable_depot_review
 from app.result_tabs_v020_a6 import GROUP_DEFINITIONS, grouped_result_titles
 from version import VERSION
+from tests.version_assertions import assert_release_at_least
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -149,9 +150,9 @@ class PresentationContractTests(unittest.TestCase):
         self.assertIn('history_row.addWidget(self.refresh_button)',row)
 
     def test_version_distribution(self):
-        self.assertEqual(VERSION,'0.2.0-a6')
+        assert_release_at_least(self, f'VERSION = "{VERSION}"', "0.2.0", 6)
         with (ROOT/'pyproject.toml').open('rb') as file:
-            self.assertEqual(tomllib.load(file)['project']['version'],'0.2.0a6')
+            self.assertEqual(tomllib.load(file)['project']['version'],VERSION.replace('-a','a'))
 
 
 if __name__ == '__main__':

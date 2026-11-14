@@ -13,6 +13,7 @@ from app.production_review_v020_a4 import (
     _candidate_status, inspect_production_evidence,
 )
 from version import VERSION
+from tests.version_assertions import assert_release_at_least
 
 ROOT = Path(__file__).resolve().parents[1]
 GUI = ROOT / 'gui_qt' / 'reporting_preservation_v020_a4.py'
@@ -181,8 +182,7 @@ class QtContractA4Tests(unittest.TestCase):
         self.assertNotIn('start_dias_package(', gui)
 
     def test_a4_is_consistent_between_version_and_distribution(self):
-        self.assertRegex(VERSION, r'^0\.2\.0-a\d+$')
-        self.assertGreaterEqual(int(VERSION.rsplit('-a', 1)[1]), 4)
+        assert_release_at_least(self, f'VERSION = "{VERSION}"', "0.2.0", 4)
         with (ROOT / 'pyproject.toml').open('rb') as handle:
             dist = tomllib.load(handle)['project']['version']
         self.assertEqual(dist, VERSION.replace('-a', 'a'))

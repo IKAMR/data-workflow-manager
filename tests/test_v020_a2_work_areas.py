@@ -9,6 +9,7 @@ import unittest
 
 from app.ui_work_areas_v020_a2 import AREA_BY_KEY, WORK_AREAS, cards_for, destination
 from version import VERSION
+from tests.version_assertions import assert_release_at_least
 
 ROOT = Path(__file__).resolve().parents[1]
 HOME = ROOT / 'gui_qt' / 'production_home_v020_a2.py'
@@ -140,8 +141,7 @@ class ProductionA2Tests(unittest.TestCase):
         self.assertIn('window.basic_advanced_button', nav)
 
     def test_release_and_distribution_agree(self):
-        self.assertRegex(VERSION, r'^0\.2\.0-a[1-9]\d*$')
-        self.assertGreaterEqual(int(VERSION.rsplit('-a', 1)[1]), 2)
+        assert_release_at_least(self, f'VERSION = "{VERSION}"', "0.2.0", 2)
         with (ROOT / 'pyproject.toml').open('rb') as stream:
             project = tomllib.load(stream)['project']
         self.assertEqual(project['version'], VERSION.replace('-a', 'a'))
