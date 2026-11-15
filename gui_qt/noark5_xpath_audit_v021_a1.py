@@ -28,6 +28,9 @@ from app.noark5_requirement_review_v021_a8 import (
 from app.noark5_requirement_registry_v021_a9 import (
     REPORT_TYPE as A9_REGISTRY_REPORT_TYPE, filter_register_rows,
 )
+from app.noark5_requirement_coverage_v021_a10 import (
+    REPORT_TYPE as A10_COVERAGE_REPORT_TYPE, filter_coverage_rows,
+)
 from app.noark5_xpath_version_qa_v021_a3 import build_version_audit, filter_version_rows
 
 from app.noark5_xpath_audit_v021_a1 import (
@@ -89,6 +92,9 @@ class XPathCoverageDialog(QDialog):
         self._a9_report = None
         self._a9_entries = []
         self._a9_issue_entries = []
+        self._a10_report = None
+        self._a10_entries = []
+        self._a10_control_entries = []
 
         outer = QVBoxLayout(self)
         intro = QLabel(
@@ -430,7 +436,7 @@ class XPathCoverageDialog(QDialog):
         a9_controls.addWidget(QLabel('Kilde:',a9_page))
         self.a9_origin = QComboBox(a9_page)
         for label,key in (('Alle',''),('XLSX v3.1','xlsx_requirement_row'),
-                          ('DOCX v4/v5','docx_numbered_table_row')):
+                          ('DOCX v4/v5','docx_word_numbered_table_paragraph')):
             self.a9_origin.addItem(label,key)
         a9_controls.addWidget(self.a9_origin)
         a9_controls.addStretch(1)
@@ -473,6 +479,79 @@ class XPathCoverageDialog(QDialog):
         self.a9_inner.addTab(a9_issues,'Kildeavvik og manuell QA')
         a9_layout.addWidget(self.a9_inner,1)
         self.a8_subtabs.addTab(a9_page,'Kravregister DOCX a9')
+
+        # a10: traceable static *candidates*, never attested Noark conformance.
+        a10_page = QWidget(self.a8_subtabs)
+        a10_layout = QVBoxLayout(a10_page)
+        a10_layout.setContentsMargins(5, 5, 5, 5)
+        a10_note = QLabel(
+            'Sporing fra a9-krav til faktiske DWM-katalogtester og XSD-kjøringspunkter. '
+            'Teknisk teksttreff er IKKE dokumentert implementering eller Noark-samsvar.',
+            a10_page)
+        a10_note.setWordWrap(True)
+        a10_layout.addWidget(a10_note)
+        a10_controls = QHBoxLayout()
+        self.a10_load = QPushButton('Åpne a10 dekningsmatrise (.json)...', a10_page)
+        a10_controls.addWidget(self.a10_load)
+        a10_controls.addWidget(QLabel('Kilde-QA:', a10_page))
+        self.a10_source_qa = QComboBox(a10_page)
+        for label, key in (('Alle', ''), ('FEIL', 'FEIL'),
+                           ('WARNING', 'WARNING'), ('NOTE', 'NOTE')):
+            self.a10_source_qa.addItem(label, key)
+        a10_controls.addWidget(self.a10_source_qa)
+        a10_controls.addWidget(QLabel('Kobling:', a10_page))
+        self.a10_evidence = QComboBox(a10_page)
+        for label, key in (('Alle', ''),
+                           ('Teknisk kandidat', 'TEKNISKE_KANDIDATER'),
+                           ('Uten koblingsbevis', 'INGEN_DOKUMENTERT_KOBLING')):
+            self.a10_evidence.addItem(label, key)
+        a10_controls.addWidget(self.a10_evidence)
+        a10_controls.addWidget(QLabel('Dekning:', a10_page))
+        self.a10_coverage = QComboBox(a10_page)
+        for label, key in (('Alle', ''), ('Ikke verifisert', 'IKKE_VERIFISERT'),
+                           ('Verifisert implementert', 'IMPLEMENTERT_VERIFISERT'),
+                           ('Mangler – vurdert', 'MANGLER_VURDERT'),
+                           ('Ikke relevant – vurdert', 'IKKE_RELEVANT_VURDERT')):
+            self.a10_coverage.addItem(label, key)
+        a10_controls.addWidget(self.a10_coverage)
+        a10_controls.addStretch(1)
+        a10_layout.addLayout(a10_controls)
+        self.a10_summary = QLabel(a10_page)
+        self.a10_summary.setWordWrap(True)
+        a10_layout.addWidget(self.a10_summary)
+        self.a10_inner = QTabWidget(a10_page)
+        a10_req = QWidget(self.a10_inner)
+        a10_req_layout = QVBoxLayout(a10_req)
+        a10_req_split = QSplitter(Qt.Orientation.Horizontal, a10_req)
+        self.a10_table = QTreeWidget(a10_req_split)
+        self.a10_table.setRootIsDecorated(False)
+        self.a10_table.setUniformRowHeights(True)
+        self.a10_table.setHeaderLabels((
+            'Kilde-QA', 'Noark', 'Krav', 'Dekning', 'Kobling', 'Kandidater', 'Kravtekst'))
+        for col, width in enumerate((80, 60, 95, 145, 170, 90, 390)):
+            self.a10_table.setColumnWidth(col, width)
+        self.a10_detail = QPlainTextEdit(a10_req_split)
+        self.a10_detail.setReadOnly(True)
+        a10_req_split.setSizes((890, 370))
+        a10_req_layout.addWidget(a10_req_split)
+        self.a10_inner.addTab(a10_req, 'Krav mot DWM-kontroller')
+        a10_inv = QWidget(self.a10_inner)
+        a10_inv_layout = QVBoxLayout(a10_inv)
+        a10_inv_split = QSplitter(Qt.Orientation.Horizontal, a10_inv)
+        self.a10_control_table = QTreeWidget(a10_inv_split)
+        self.a10_control_table.setRootIsDecorated(False)
+        self.a10_control_table.setUniformRowHeights(True)
+        self.a10_control_table.setHeaderLabels((
+            'Kontroll-ID', 'Type', 'Versjoner', 'Kravkandidater', 'Navn'))
+        for col, width in enumerate((250, 180, 130, 100, 370)):
+            self.a10_control_table.setColumnWidth(col, width)
+        self.a10_control_detail = QPlainTextEdit(a10_inv_split)
+        self.a10_control_detail.setReadOnly(True)
+        a10_inv_split.setSizes((800, 400))
+        a10_inv_layout.addWidget(a10_inv_split)
+        self.a10_inner.addTab(a10_inv, 'DWM-kontrollinventar')
+        a10_layout.addWidget(self.a10_inner, 1)
+        self.a8_subtabs.addTab(a10_page, 'Krav–kontroll a10')
         a8_layout.addWidget(self.a8_subtabs,1)
         self.results_tabs.addTab(a8_page,'Krav- og KDRS-review a8')
         outer.addWidget(self.results_tabs, 1)
@@ -517,6 +596,12 @@ class XPathCoverageDialog(QDialog):
         self.a9_origin.currentIndexChanged.connect(self._render_a9)
         self.a9_table.itemSelectionChanged.connect(self._a9_selection_changed)
         self.a9_issue_table.itemSelectionChanged.connect(self._a9_issue_selection_changed)
+        self.a10_load.clicked.connect(self._choose_a10_report)
+        self.a10_source_qa.currentIndexChanged.connect(self._render_a10)
+        self.a10_evidence.currentIndexChanged.connect(self._render_a10)
+        self.a10_coverage.currentIndexChanged.connect(self._render_a10)
+        self.a10_table.itemSelectionChanged.connect(self._a10_selection_changed)
+        self.a10_control_table.itemSelectionChanged.connect(self._a10_control_selection_changed)
         self.coverage_status.currentIndexChanged.connect(self._render_coverage)
         self.coverage_table.itemSelectionChanged.connect(self._coverage_selection_changed)
         self.open_result.clicked.connect(self._open_result)
@@ -613,6 +698,7 @@ class XPathCoverageDialog(QDialog):
         self._render_coverage()
         self._render_a8()
         self._render_a9()
+        self._render_a10()
 
     def _render_metadata(self):
         """Browse ALL registered M-fields / requirements, including without XPath."""
@@ -1127,6 +1213,113 @@ class XPathCoverageDialog(QDialog):
             return
         self.a9_issue_detail.setPlainText('NOARK 5 - KILDEAVVIK / MANUELL QA a9\n\n'
               +_preview_json(self._a9_issue_entries[index],limit=140_000))
+
+    def _choose_a10_report(self):
+        filename, _selected = QFileDialog.getOpenFileName(
+            self, 'Velg a10 krav–kontroll-matrise', '', 'JSON (*.json)')
+        if not filename:
+            return
+        try:
+            path = Path(filename)
+            if not path.is_file() or path.stat().st_size > 80_000_000:
+                raise ValueError('a10-rapporten mangler eller er for stor.')
+            loaded = json.loads(path.read_text(encoding='utf-8-sig'))
+            if not isinstance(loaded, dict) or loaded.get('report_type') != A10_COVERAGE_REPORT_TYPE:
+                raise ValueError('Ikke en gjenkjennelig a10 dekningsmatrise.')
+            if (loaded.get('normative_requirements_approved') is not False
+                    or loaded.get('dwm_implementation_coverage_verified') is not False
+                    or loaded.get('saxon_lxml_semantic_parity_verified') is not False):
+                raise ValueError('a10-matrisen har ukjent godkjenningsstatus.')
+            if (set(loaded.get('versions', {})) != set(VERSIONS)
+                    or not isinstance(loaded.get('coverage_matrix'), list)
+                    or not isinstance(loaded.get('control_inventory'), list)):
+                raise ValueError('a10 mangler versjoner, kravrader eller kontroller.')
+        except (OSError, UnicodeError, ValueError, TypeError) as exc:
+            QMessageBox.warning(self, 'Noark 5 a10 dekningsmatrise', str(exc))
+            return
+        self._a10_report = loaded
+        self._render_a10()
+
+    def _render_a10(self, *_unused):
+        self.a10_table.blockSignals(True)
+        self.a10_control_table.blockSignals(True)
+        try:
+            self.a10_table.clear()
+            self.a10_control_table.clear()
+            self._a10_entries = []
+            self._a10_control_entries = []
+            if not self._a10_report:
+                self.a10_summary.setText(
+                    'Ingen a10-rapport lastet. Generer først rapporten fra a9.2 og DWM-kildekoden.')
+                self.a10_detail.clear()
+                self.a10_control_detail.clear()
+                return
+            version = str(self.version.currentData() or '')
+            rows = filter_coverage_rows(
+                self._a10_report, version=version,
+                source_qa=str(self.a10_source_qa.currentData() or ''),
+                evidence=str(self.a10_evidence.currentData() or ''),
+                coverage=str(self.a10_coverage.currentData() or ''),
+                query=self.search.text())
+            self._a10_entries = rows
+            for i, r in enumerate(rows):
+                item = QTreeWidgetItem((str(r.get('source_qa_severity') or ''),
+                    str(r.get('noark_version') or ''), str(r.get('number') or ''),
+                    str(r.get('coverage_state') or ''),
+                    str(r.get('evidence_state') or ''),
+                    str(r.get('technical_candidate_count') or 0),
+                    str(r.get('requirement_text') or '')[:320].replace('\n', ' ')))
+                item.setData(0, Qt.ItemDataRole.UserRole, i)
+                self.a10_table.addTopLevelItem(item)
+            if self.a10_table.topLevelItemCount():
+                self.a10_table.setCurrentItem(self.a10_table.topLevelItem(0))
+            search = self.search.text().casefold().strip()
+            controls = [c for c in self._a10_report['control_inventory']
+                if (not version or version in c.get('noark_versions_declared', []))
+                and (not search or search in ' '.join(str(c.get(k) or '')
+                    for k in ('control_id', 'name', 'source_xml', 'control_type')).casefold())]
+            self._a10_control_entries = controls
+            for i, c in enumerate(controls):
+                item = QTreeWidgetItem((str(c.get('control_id') or ''),
+                     str(c.get('control_type') or ''),
+                     ', '.join(c.get('noark_versions_declared') or []),
+                     str(c.get('a9_clause_candidate_count') or 0),
+                     str(c.get('name') or '')))
+                item.setData(0, Qt.ItemDataRole.UserRole, i)
+                self.a10_control_table.addTopLevelItem(item)
+            if self.a10_control_table.topLevelItemCount():
+                self.a10_control_table.setCurrentItem(self.a10_control_table.topLevelItem(0))
+            self.a10_summary.setText(
+                f'{len(rows)} kravkandidater og {len(controls)} DWM-kontroller vist. '
+                f"Kildecommit: {self._a10_report.get('source_checkout_commit_current') or 'ukjent'}. "
+                'Alle implementasjons-/normative kravstatuser er IKKE VERIFISERT.')
+        finally:
+            self.a10_table.blockSignals(False)
+            self.a10_control_table.blockSignals(False)
+        self._a10_selection_changed()
+        self._a10_control_selection_changed()
+
+    def _a10_selection_changed(self):
+        selected = self.a10_table.currentItem()
+        index = selected.data(0, Qt.ItemDataRole.UserRole) if selected else None
+        if not isinstance(index, int) or not 0 <= index < len(self._a10_entries):
+            self.a10_detail.clear()
+            return
+        self.a10_detail.setPlainText(
+            'KILDEKRAV OG TEKNISKE KOBLINGSKANDIDATER – a10\n'
+            'Ingen bekreftelse av faktisk implementering eller normativ dekning.\n\n'
+            + _preview_json(self._a10_entries[index], limit=140_000))
+
+    def _a10_control_selection_changed(self):
+        selected = self.a10_control_table.currentItem()
+        index = selected.data(0, Qt.ItemDataRole.UserRole) if selected else None
+        if not isinstance(index, int) or not 0 <= index < len(self._a10_control_entries):
+            self.a10_control_detail.clear()
+            return
+        self.a10_control_detail.setPlainText(
+            'FAKTISK DWM-KONTROLLDEFINISJON – a10\n'
+            'Definert kode/katalog er ikke utført test eller bekreftet normativ oppfyllelse.\n\n'
+            + _preview_json(self._a10_control_entries[index], limit=140_000))
 
     def _choose_schema(self):
         folder = QFileDialog.getExistingDirectory(

@@ -148,3 +148,13 @@ som gjør at en hel kilde ble utelatt fra kravkartleggingen.
 Faglig avgrensning: a9 er kildetranskripsjon og QA, **ikke** full normativ
 kravdekning, godkjente statiske XML-kontroller, KDRS/Saxon-paritet,
 resultatsamsvar eller depotgodkjenning.
+
+## Krav–kontroll-kandidater – v0.2.1-a10
+
+`app.noark5_requirement_coverage_v021_a10` sammenholder den lokale, uverifiserte
+kravregistreringen fra a9.2 med faktisk DWM-kode/katalog og registrerer bare
+**mulige tekniske koblinger**, aldri automatisk godkjent kravimplementasjon.
+Arbeidsbeskrivelse, fem rapportfiler, eksakt PowerShell-kommando og GUI-plassering
+står i [NOARK5-KRAV-KONTROLL-MATRISE-V021-A10.md](NOARK5-KRAV-KONTROLL-MATRISE-V021-A10.md).
+Kilde-QA og Saxon/lxml-paritet forblir egne vurderinger; intet normativt
+kildegrunnlag endres av a10.

@@ -337,8 +337,8 @@ class A9RequirementRegistry(TestCase):
                      'a9_issue_table','filter_register_rows','_choose_a8_report'):
             self.assertIn(item,gui)
         from version import VERSION
-        self.assertEqual(VERSION,'0.2.1-a9')
-        self.assertIn('version = "0.2.1a9"',
+        self.assertRegex(VERSION,r'^0\.2\.1-a(?:9|[1-9][0-9]+)$')
+        self.assertIn(f'version = "{VERSION.replace("-", "")}"',
                       (root/'pyproject.toml').read_text(encoding='utf-8'))
 
 
