@@ -2,6 +2,49 @@
 
 Dette dokumentet samler konkrete åpne punkter og beslutninger som skal følges opp i videre utvikling.
 
+## Prioritert Noark 5-kvalitetssikring og godkjenning (uke 16.–20. november 2026)
+
+**Hovedprioritet:** Fullføre pågående v0.2.1-arbeid med Noark 5 v3.1/4.0/5.0,
+KDRS Query Standard/U1/U2, XSD-/XPath-verifikasjon og faktisk Saxon/lxml-
+sammenligning før arbeidet med rapportene ferdigstilles. Ikke fremstille
+teksttreff, XSD-validitet eller intern DWM-regresjon som normativ godkjenning.
+
+1. **KDRS-paritet (aktiv):** Sammenlign identisk kildeuttrekk og dokumenterte
+   KDRS/Saxon-resultater med DWM/lxml. Kartlegg Standard, U1 og U2 og spor
+   avvik, ikke-sammenlignbare felt, historiske regelvarianter og filhash.
+   a11.1 er foreløpig sammenligningsmotor; faktisk Saxon-kjøring og komplett
+   resultatkartlegging er ikke verifisert.
+2. **Kvalitetssikringsrapport (prioritert):** Bruk en frosset, identifisert
+   resultatversjon til å dokumentere uttrekkets identitet, proveniens,
+   datadekning, tekniske og faglige kontroller, avvik, begrunnede merknader,
+   spørsmål til arkivskaper og svar/bekreftelser. Uavklarte eller ikke kjørte
+   kontroller må fremgå; rapporten er ikke automatisk depotgodkjenning.
+3. **Godkjennings-/ferdigstillingsrapport (prioritert):** Depotets beslutning
+   bygger på kvalitetssikringsrapporten, kontrollplan, arkivskapers uttalelser,
+   restavvik og eksplisitt faglig vurdering. Registrer beslutningsmyndighet,
+   godkjent/ikke godkjent/med forbehold, forutsetninger, dato, journalreferanse
+   og videre bevaringsløp. Ingen teknisk PASS gir automatisk aksept.
+4. **Felles rapportgrunnlag:** Gjenbruk kanonisk resultat-/evidensmodell og
+   eksisterende rapporttjeneste; ingen parallelle rapportdatabaser, ingen
+   omskriving av Source eller tidligere Work-rapporter.
+
+**Utsatt ToDo – skal ikke utvide aktivt a11-scope:**
+
+- **Arkade 5 sine Noark 5-tester:** Den kildekodeverifiserte katalogen over
+  54 tester er dokumentert i `docs/ARKADE5-NOARK5-TESTS.md`. Gjennomgå
+  import, faktisk kjøring, feil-/advarselsresultater, manglende dekning og
+  sporbar kobling til DWM-kontroller og rapporter. Bevar forskjellen mellom
+  Arkade-test, KDRS-jobb og normativ Noark-krav-ID.
+- **Flertrådet/multiprosessor-kjøring:** Planlegg ressursstyrt parallellitet
+  både per uttrekk, per operasjon og eventuelt per test; vurder CPU-bundet
+  XPath/XML, I/O og eksterne prosesser separat. Krav om deterministiske
+  resultater, kontrollert samtidighet, beskyttet Source, avbrytelse uten
+  ødelagt kjøring, og isolering av resultatfiler/logg. Benchmark og test
+  før standardoppsett endres. Ingen implementasjon i a11.
+
+Se `docs/NOARK5-CONTROL-TO-PRESERVATION-ROADMAP.md` for prosesskjeden
+kontroll -> kvalitetssikring -> godkjenning -> bevaring.
+
 ## Operasjonssynlighet og modenhet
 
 - Modenhet defineres per operasjon som `alpha`, `beta` eller `stable`.

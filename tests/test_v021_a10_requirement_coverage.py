@@ -265,8 +265,8 @@ class A10Coverage(TestCase):
                        'self.a10_table', 'self.a10_evidence', 'self.a10_control_table'):
             self.assertIn(needle,gui)
         from version import VERSION
-        self.assertEqual(VERSION,'0.2.1-a10')
-        self.assertIn('version = "0.2.1a10"',
+        self.assertRegex(VERSION, r'^0\.2\.1-a[0-9]+$')
+        self.assertIn('version = "' + VERSION.replace('-a', 'a') + '"',
                       (root/'pyproject.toml').read_text(encoding='utf-8'))
 
     def test_summary_transparency(self):
