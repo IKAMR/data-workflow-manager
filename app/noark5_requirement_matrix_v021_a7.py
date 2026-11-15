@@ -15,7 +15,7 @@ import io
 import json
 from pathlib import Path
 import re
-from typing import Any
+from typing import Any, Callable
 from zipfile import ZipFile, BadZipFile
 
 from app.noark5_spec_xsd_trace_v021_a6 import build_trace, VERSIONS, XSD_NAMES
@@ -97,7 +97,8 @@ def _schema_identity(source: Path, dwm: Path, manifest: dict[str, dict]) -> tupl
     return rows, issues
 
 
-def _document_index(source: Path, manifest: dict[str, dict], *, scan_text: bool) -> tuple[dict, dict, list]:
+def _document_index(source: Path, manifest: dict[str, dict], *, scan_text: bool,
+                    progress: Callable[[int,int,str,str],None] | None = None) -> tuple[dict, dict, list]:
     """Index source mentions by exact file/paragraph/page, never invent requirements.
 
     PDF page numbers are from the PDF text layer. DOCX paragraph numbers and
@@ -109,8 +110,12 @@ def _document_index(source: Path, manifest: dict[str, dict], *, scan_text: bool)
     per_document_mid: Counter = Counter()
     inventory: dict[str, list[dict]] = {v: [] for v in VERSIONS}
     issues: list[dict] = []
+    total_expected = sum(1 for rel in manifest
+        if any(rel.startswith(f'noark5/v{v}/spesifikasjoner/') for v in VERSIONS)
+        and Path(rel).suffix.lower() in ('.pdf', '.docx', '.xlsx'))
+    current_document = 0
     for version in VERSIONS:
-        prefix = f'noark5/v{version}/spesifikasjoner/'
+        prefix = f'noark5/v{version}/spesifikasjoner/' 
         expected = [(rel, entry) for rel, entry in manifest.items()
                     if rel.startswith(prefix) and Path(rel).suffix.lower() in ('.pdf', '.docx', '.xlsx')]
         def review_order(item):
@@ -123,6 +128,9 @@ def _document_index(source: Path, manifest: dict[str, dict], *, scan_text: bool)
             return weight, name
         expected.sort(key=review_order)
         for rel, manifest_entry in expected:
+            current_document += 1
+            if progress is not None:
+                progress(current_document,total_expected,version,rel)
             root = (source / 'docs/kilder/noark').resolve()
             path = (root / rel).resolve()
             if not path.is_relative_to(root):
@@ -278,7 +286,8 @@ def _diffs(version_map: dict[str, list[dict]]) -> list[dict]:
 
 
 def build_matrix(source_root: Path | str, dwm_root: Path | str, *,
-                 source_commit: str | None = None, scan_documents: bool = True) -> dict[str, Any]:
+                 source_commit: str | None = None, scan_documents: bool = True,
+                 progress: Callable[[int,int,str,str],None] | None = None) -> dict[str, Any]:
     source, dwm = Path(source_root).resolve(), Path(dwm_root).resolve()
     if source == dwm or source in dwm.parents or dwm in source.parents:
         raise ValueError('Kilde- og DWM-repositorium må være adskilt')
@@ -291,7 +300,7 @@ def build_matrix(source_root: Path | str, dwm_root: Path | str, *,
     elif not trace['source_commit_matches_registry']:
         issues.append({'severity': 'WARNING', 'kind': 'source_revision_differs_from_pinned',
                        'version': None, 'source': 'IKAMR/digital-archive-workflow'})
-    snippets, numbered, files, doc_issues = _document_index(source, manifest, scan_text=scan_documents)
+    snippets, numbered, files, doc_issues = _document_index(source, manifest, scan_text=scan_documents, progress=progress)
     issues.extend(doc_issues)
     value_sets = _value_set_index(dwm)
     explicit_checks = _catalogue_connections(dwm)
@@ -550,11 +559,16 @@ def main(argv: list[str] | None = None) -> int:
                         help='Separat QA/Work-mappe utenfor begge Git-repositorier')
     parser.add_argument('--skip-document-text', action='store_true',
                         help='Bare XSD og registre; ikke les PDF/DOCX/XLSX-tekst')
+    parser.add_argument('--quiet', action='store_true',
+                        help='Skjul framdrift ved lesing av spesifikasjonsdokumenter')
     args = parser.parse_args(argv)
     try:
+        progress = None if args.quiet else lambda i,total,v,rel: print(
+            f'Leser kildedokument {i}/{total} | Noark {v} | {Path(rel).name}',flush=True)
         report = build_matrix(args.source_root,args.dwm_root,
                               source_commit=args.source_commit,
-                              scan_documents=not args.skip_document_text)
+                              scan_documents=not args.skip_document_text,
+                              progress=progress)
         files = write_reports(report,args.source_root,args.dwm_root,args.output_dir)
     except (OSError, ValueError, FileExistsError) as exc:
         parser.error(str(exc))

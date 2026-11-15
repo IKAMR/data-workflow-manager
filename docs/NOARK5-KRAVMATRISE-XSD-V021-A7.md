@@ -69,15 +69,9 @@ For rask teknisk kildesjekk uten å forsøke tekstuttrekk:
 py -m app.noark5_requirement_matrix_v021_a7 --source-root "C:\git\IKAMR\digital-archive-workflow" --output-dir "C:\temp\noark5-a7-qa-uten-dokumenttekst" --skip-document-text
 ```
 
-PDF-tekstuttrekk er en **installert del av a7**: `install.bat` henter `pypdf`
-fra `requirements-core.txt` for CLI og for Python-miljøet til GUI. Bruk
-`install.bat all` (eller `install.bat cli` hvis bare CLI er ønsket) fra DWM-roten,
-også når a7 legges over en tidligere installasjon. Ingen manuell `pip install`
-er nødvendig. `PyMuPDF` er valgfritt og brukes automatisk hvis det allerede
-finnes i det aktuelle Python-miljøet; det er ikke en obligatorisk
-avhengighet på grunn av AGPL-/kommersielle lisensvilkår.
-`DOCX` og `XLSX` leses med deres XML-format. En DOCX-paragraf kan
-**ikke** likestilles med en trykt side i PDF. Originalene er urørt.
+PDF-tekstuttrekk krever `pymupdf` eller `pypdf`; ellers blir filene merket
+**ikke lest**. `DOCX` og `XLSX` leses med deres XML-format. En DOCX-paragraf
+kan **ikke** likestilles med en trykt side i PDF. Originalene er urørt.
 
 ## 3. Betydningen av FEIL / WARNING / NOTE
 
@@ -118,3 +112,11 @@ historiske KDRS Standard/U1/U2-resultater på samme uttrekk.
 
 Ingen nye normative sannheter eller akseptregler kan innføres i DWM før
 kildekontroll og eventuelt beslutning med repoets eier. DWM-rådata endres aldri.
+
+## Videreføring i a8
+
+Etter a7 er kilde- og metadatamatrisen videreført til et *reviewbart*
+kravkandidatregister, teknisk KDRS-dispatchkontroll og valgfri validering av
+fire Noark XML-filer pluss `arkivuttrekk.xml` med eget ADDML-skjema.
+Se `docs/NOARK5-KRAVREGISTER-OG-KDRS-QA-V021-A8.md`.
+Ingen automatiske kildekandidater er her opphøyd til normativt godkjente krav.

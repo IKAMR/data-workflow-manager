@@ -137,3 +137,14 @@ DOCX-/XLSX-/PDF-kilder. Fullstendige originale PDF-/DOCX-/XLSX-kilder i
 normativ komplett-dekningspåstand er mulig. Ingen M300-korrigering eller
 egendefinerte-verdi-godkjenninger er gjennomført. Se
 `docs/NOARK5-KRAVMATRISE-XSD-V021-A7.md` for kjøring, filter og avgrensning.
+
+## Teknisk videreføring, v0.2.1-a8 (under lokal QA)
+
+A7-kildelesing på den lokale samlingen ga 25/26 lesbare spesifikasjonsdokumenter;
+den uleste filen var objektsortert metadatakatalog i DOCX for v5.0. A8 legger
+nå til kildebundne XLSX-kravrader for v3.1, mulige PDF-kravlinjer for v4.0/v5.0,
+separat review av KDRS Standard/U1/U2-kjøringsarter og valgfri teknisk validering
+av opptil fem avleverings-XML-er. Dette er fortsatt **ikke normativt komplett**;
+behovet for manuell kilde- og semantikk-QA gjelder uendret. XSD-kilder og
+opprinnelige verdisett endres ikke. Se
+`docs/NOARK5-KRAVREGISTER-OG-KDRS-QA-V021-A8.md`.

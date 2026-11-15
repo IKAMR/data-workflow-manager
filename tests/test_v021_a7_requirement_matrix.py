@@ -352,8 +352,11 @@ class TestA7Matrix(unittest.TestCase):
     def test_version_guards(self):
         root=Path(__file__).resolve().parents[1]
         version=(root/'version.py').read_text(encoding='utf-8')
-        self.assertIn('0.2.1-a7',version)
-        self.assertIn('version = "0.2.1a7"',(root/'pyproject.toml').read_text(encoding='utf-8'))
+        from version import VERSION
+        self.assertRegex(VERSION, r'^0\.2\.1(?:-a(?:[7-9]|[1-9][0-9]+))?$')
+        self.assertEqual(version.count(VERSION),1)
+        self.assertIn(f'version = "{VERSION.replace("-","")}"',
+                      (root/'pyproject.toml').read_text(encoding='utf-8'))
 
 
 if __name__=='__main__':

@@ -22,6 +22,9 @@ from app.noark_semantic_values_v021_a6 import load_registry
 from app.noark5_requirement_matrix_v021_a7 import (
     REPORT_TYPE as A7_MATRIX_REPORT_TYPE, filter_matrix_rows,
 )
+from app.noark5_requirement_review_v021_a8 import (
+    REPORT_TYPE as A8_REVIEW_REPORT_TYPE, filter_review_rows,
+)
 from app.noark5_xpath_version_qa_v021_a3 import build_version_audit, filter_version_rows
 
 from app.noark5_xpath_audit_v021_a1 import (
@@ -77,6 +80,9 @@ class XPathCoverageDialog(QDialog):
         self._semantic_entries = []
         self._coverage_report = None
         self._coverage_entries = []
+        self._a8_report = None
+        self._a8_entries = []
+        self._a8_kdrs_entries = []
 
         outer = QVBoxLayout(self)
         intro = QLabel(
@@ -325,6 +331,80 @@ class XPathCoverageDialog(QDialog):
         coverage_splitter.setSizes((790, 400))
         coverage_layout.addWidget(coverage_splitter, 1)
         self.results_tabs.addTab(coverage_page, 'Kravmatrise og XSD')
+
+        # a8: separate, explicit review file; no automatic scan of arbitrary
+        # local directories and no mutation of the normative requirements JSON.
+        a8_page = QWidget(self.results_tabs)
+        a8_layout = QVBoxLayout(a8_page)
+        a8_layout.setContentsMargins(5, 5, 5, 5)
+        a8_note = QLabel(
+            'Krav- og KDRS-review fra lokal originalkilde: XLSX-rader, PDF-linjekandidater, '
+            'leksikale referanser og eksplisitte DWM-krav holdes atskilt. '
+            'FEIL/WARNING/NOTE er kilde-QA, aldri automatisk Noark-samsvar.',a8_page)
+        a8_note.setWordWrap(True)
+        a8_layout.addWidget(a8_note)
+        a8_controls = QHBoxLayout()
+        self.a8_load = QPushButton('Åpne a8 kravreview (.json)...',a8_page)
+        a8_controls.addWidget(self.a8_load)
+        a8_controls.addWidget(QLabel('QA:',a8_page))
+        self.a8_status = QComboBox(a8_page)
+        for label,status in (('Alle',''),('FEIL','FEIL'),('WARNING','WARNING'),('NOTE','NOTE')):
+            self.a8_status.addItem(label,status)
+        a8_controls.addWidget(self.a8_status)
+        a8_controls.addWidget(QLabel('Kilde:',a8_page))
+        self.a8_origin = QComboBox(a8_page)
+        for label,key in (
+            ('Alle kilder',''),('Kravrad XLSX','xlsx_numbered_row'),
+            ('PDF-kandidat','pdf_numbered_line_candidate'),
+            ('Ubekreftet talltreff','a7_lexical_number_only'),
+            ('Registrert DWM-krav','existing_dwm_partial_requirements_registry')):
+            self.a8_origin.addItem(label,key)
+        a8_controls.addWidget(self.a8_origin)
+        a8_controls.addStretch(1)
+        a8_layout.addLayout(a8_controls)
+        self.a8_summary = QLabel(a8_page)
+        self.a8_summary.setWordWrap(True)
+        a8_layout.addWidget(self.a8_summary)
+        self.a8_subtabs = QTabWidget(a8_page)
+        a8_requirements = QWidget(self.a8_subtabs)
+        ar_layout = QVBoxLayout(a8_requirements)
+        ar_split = QSplitter(Qt.Orientation.Horizontal,a8_requirements)
+        self.a8_table = QTreeWidget(ar_split)
+        self.a8_table.setRootIsDecorated(False)
+        self.a8_table.setUniformRowHeights(True)
+        self.a8_table.setHeaderLabels(('QA','Noark','ID','Kildekategori','Kravtekst','XPaths'))
+        self.a8_table.setColumnWidth(0,90)
+        self.a8_table.setColumnWidth(1,66)
+        self.a8_table.setColumnWidth(2,150)
+        self.a8_table.setColumnWidth(3,220)
+        self.a8_table.setColumnWidth(4,320)
+        self.a8_detail = QPlainTextEdit(ar_split)
+        self.a8_detail.setReadOnly(True)
+        ar_split.setSizes((800,400))
+        ar_layout.addWidget(ar_split)
+        self.a8_subtabs.addTab(a8_requirements,'Krav og kildekandidater')
+        a8_kdrs = QWidget(self.a8_subtabs)
+        ak_layout = QVBoxLayout(a8_kdrs)
+        ak_note = QLabel('Teknisk sjekk av 60 KDRS/DWM-jobber og spesialbehandlernes dispatch. '
+                         'Saxon/lxml-resultatlikhet er ikke attestert.',a8_kdrs)
+        ak_note.setWordWrap(True)
+        ak_layout.addWidget(ak_note)
+        ak_split = QSplitter(Qt.Orientation.Horizontal,a8_kdrs)
+        self.a8_kdrs_table = QTreeWidget(ak_split)
+        self.a8_kdrs_table.setRootIsDecorated(False)
+        self.a8_kdrs_table.setUniformRowHeights(True)
+        self.a8_kdrs_table.setHeaderLabels(('QA','KDRS-ID','DWM-test','Kjøringsart','Teknisk dispatch'))
+        self.a8_kdrs_table.setColumnWidth(0,90)
+        self.a8_kdrs_table.setColumnWidth(1,100)
+        self.a8_kdrs_table.setColumnWidth(2,180)
+        self.a8_kdrs_table.setColumnWidth(3,220)
+        self.a8_kdrs_detail = QPlainTextEdit(ak_split)
+        self.a8_kdrs_detail.setReadOnly(True)
+        ak_split.setSizes((700,480))
+        ak_layout.addWidget(ak_split)
+        self.a8_subtabs.addTab(a8_kdrs,'KDRS Standard/U1/U2 - teknisk QA')
+        a8_layout.addWidget(self.a8_subtabs,1)
+        self.results_tabs.addTab(a8_page,'Krav- og KDRS-review a8')
         outer.addWidget(self.results_tabs, 1)
 
         bottom = QHBoxLayout()
@@ -357,6 +437,11 @@ class XPathCoverageDialog(QDialog):
         self.metadata_table.itemSelectionChanged.connect(self._metadata_selection_changed)
         self.semantic_table.itemSelectionChanged.connect(self._semantic_selection_changed)
         self.coverage_load.clicked.connect(self._choose_coverage_report)
+        self.a8_load.clicked.connect(self._choose_a8_report)
+        self.a8_status.currentIndexChanged.connect(self._render_a8)
+        self.a8_origin.currentIndexChanged.connect(self._render_a8)
+        self.a8_table.itemSelectionChanged.connect(self._a8_selection_changed)
+        self.a8_kdrs_table.itemSelectionChanged.connect(self._a8_kdrs_selection_changed)
         self.coverage_status.currentIndexChanged.connect(self._render_coverage)
         self.coverage_table.itemSelectionChanged.connect(self._coverage_selection_changed)
         self.open_result.clicked.connect(self._open_result)
@@ -451,6 +536,7 @@ class XPathCoverageDialog(QDialog):
         self._render_metadata()
         self._render_semantics()
         self._render_coverage()
+        self._render_a8()
 
     def _render_metadata(self):
         """Browse ALL registered M-fields / requirements, including without XPath."""
@@ -763,6 +849,112 @@ class XPathCoverageDialog(QDialog):
             QMessageBox.warning(self, 'Testresultat', 'Filen er ikke tilgjengelig eller ligger utenfor Work.')
             return
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
+
+    def _choose_a8_report(self):
+        filename, _selected = QFileDialog.getOpenFileName(
+            self,'Velg lokal Noark 5 a8 QA-rapport','','JSON (*.json)')
+        if not filename:
+            return
+        try:
+            path=Path(filename)
+            if not path.is_file() or path.stat().st_size > 24_000_000:
+                raise ValueError('Rapportfilen mangler eller overstiger 24 MB.')
+            loaded=json.loads(path.read_text(encoding='utf-8-sig'))
+            if not isinstance(loaded,dict) or loaded.get('report_type')!=A8_REVIEW_REPORT_TYPE:
+                raise ValueError('Ikke en gjenkjennelig a8 QA-rapport.')
+            if loaded.get('normative_requirements_approved') is not False:
+                raise ValueError('Rapportens normative status er uavklart.')
+            if set(loaded.get('versions',{})) != set(VERSIONS):
+                raise ValueError('Rapporten mangler en Noark-versjon.')
+            if not isinstance(loaded.get('candidate_rows'),list):
+                raise ValueError('Rapporten mangler kravkandidater.')
+        except (OSError,UnicodeError,ValueError,TypeError) as exc:
+            QMessageBox.warning(self,'Krav-/KDRS-review',str(exc))
+            return
+        self._a8_report=loaded
+        self._render_a8()
+
+    def _render_a8(self,*_unused):
+        self.a8_table.blockSignals(True)
+        self.a8_kdrs_table.blockSignals(True)
+        try:
+            self.a8_table.clear()
+            self.a8_kdrs_table.clear()
+            self._a8_entries=[]
+            self._a8_kdrs_entries=[]
+            if not self._a8_report:
+                self.a8_summary.setText('Ingen a8-rapport lastet. Generer den fra a7-matrisen '
+                                        'og den lokale Noark-kildesamlingen.')
+                self.a8_detail.clear()
+                self.a8_kdrs_detail.clear()
+                return
+            version=str(self.version.currentData() or '')
+            status=str(self.a8_status.currentData() or '')
+            origin=str(self.a8_origin.currentData() or '')
+            query=self.search.text()
+            rows=filter_review_rows(self._a8_report,version=version,
+                                    severity=status,origin=origin,query=query)
+            self._a8_entries=rows
+            for i,row in enumerate(rows):
+                number=row.get('number') or row.get('registered_id') or ''
+                item=QTreeWidgetItem((str(row.get('qa_severity') or ''),
+                    str(row.get('noark_version') or ''),str(number),
+                    str(row.get('origin') or ''),str(row.get('text') or '')[:240],
+                    str(len(row.get('xpath_lexical_candidates') or []))))
+                item.setData(0,Qt.ItemDataRole.UserRole,i)
+                for col in range(item.columnCount()):
+                    item.setToolTip(col,item.text(col))
+                self.a8_table.addTopLevelItem(item)
+            if self.a8_table.topLevelItemCount():
+                self.a8_table.setCurrentItem(self.a8_table.topLevelItem(0))
+            audit=self._a8_report.get('kdrs_audit') or {}
+            kdrs=[r for r in audit.get('tests',[])
+                  if not status or r.get('qa_severity')==status]
+            if query.strip():
+                q=query.casefold().strip()
+                kdrs=[r for r in kdrs if q in ' '.join(str(r.get(f) or '')
+                      for f in ('test_id','legacy_id','execution_kind','source_xml')).casefold()]
+            self._a8_kdrs_entries=kdrs
+            for i,row in enumerate(kdrs):
+                item=QTreeWidgetItem((str(row.get('qa_severity') or ''),
+                    str(row.get('legacy_id') or ''),str(row.get('test_id') or ''),
+                    str(row.get('execution_kind') or ''),
+                    str(row.get('dispatch_verdict') or '')))
+                item.setData(0,Qt.ItemDataRole.UserRole,i)
+                self.a8_kdrs_table.addTopLevelItem(item)
+            if self.a8_kdrs_table.topLevelItemCount():
+                self.a8_kdrs_table.setCurrentItem(self.a8_kdrs_table.topLevelItem(0))
+            self.a8_summary.setText(
+                f'{len(rows)} krav-/tallkandidater og {len(kdrs)} tekniske KDRS-rader vist. '
+                f"Kildecommit: {self._a8_report.get('source_checkout_commit') or 'ukjent'}. "
+                'Rapporten verifiserer ikke normativ oppfyllelse eller KDRS/Saxon-paritet.')
+        finally:
+            self.a8_table.blockSignals(False)
+            self.a8_kdrs_table.blockSignals(False)
+        self._a8_selection_changed()
+        self._a8_kdrs_selection_changed()
+
+    def _a8_selection_changed(self):
+        selected=self.a8_table.currentItem()
+        index=selected.data(0,Qt.ItemDataRole.UserRole) if selected else None
+        if not isinstance(index,int) or not 0 <= index < len(self._a8_entries):
+            self.a8_detail.clear()
+            return
+        self.a8_detail.setPlainText(
+            'KILDE-KANDIDAT / FAGLIG QA - a8\n'
+            'Ikke et automatisk godkjent Noark 5-krav.\n\n'+
+            _preview_json(self._a8_entries[index],limit=100_000))
+
+    def _a8_kdrs_selection_changed(self):
+        selected=self.a8_kdrs_table.currentItem()
+        index=selected.data(0,Qt.ItemDataRole.UserRole) if selected else None
+        if not isinstance(index,int) or not 0 <= index < len(self._a8_kdrs_entries):
+            self.a8_kdrs_detail.clear()
+            return
+        self.a8_kdrs_detail.setPlainText(
+            'KDRS STANDARD / U1 / U2 - DISPATCH OG KILDEKOBLING - a8\n'
+            'Teknisk dispatch er ikke bevis på Saxon/lxml-resultatlikhet.\n\n'+
+            _preview_json(self._a8_kdrs_entries[index],limit=100_000))
 
     def _choose_schema(self):
         folder = QFileDialog.getExistingDirectory(

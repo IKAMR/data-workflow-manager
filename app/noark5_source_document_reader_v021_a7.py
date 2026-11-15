@@ -108,3 +108,49 @@ def read_source_document(path: Path) -> tuple[list[tuple[str, str]], str]:
         return [], 'unsupported_format'
     except (OSError, ValueError, KeyError, ET.ParseError) as exc:
         return [], f'parse_error:{type(exc).__name__}'
+
+
+def diagnose_docx(path: Path) -> dict:
+    """Diagnose a textless DOCX without OCR, Office automation or source edits.
+
+    Word documents can contain drawings, embedded objects or altChunk stories
+    outside w:t paragraphs. Such content is NOT treated as successfully read.
+    Only bounded package metadata is inspected; no guessed normative clauses.
+    """
+    path = Path(path)
+    try:
+        if path.stat().st_size > 15_000_000:
+            return {'status': 'docx_too_large_for_diagnostic', 'text_readable': False}
+        with ZipFile(path) as archive:
+            members=archive.namelist()
+            total_uncompressed=sum(info.file_size for info in archive.infolist())
+            if total_uncompressed > 80_000_000 or len(members) > 20_000:
+                return {'status':'docx_package_size_limit', 'text_readable':False}
+            core=[name for name in members if name=='word/document.xml']
+            if not core:
+                return {'status':'docx_document_xml_missing','text_readable':False,
+                        'members':len(members)}
+            root=ET.fromstring(archive.read('word/document.xml'))
+            w=f'{{{WORD_NS}}}'
+            text_nodes=[n.text for n in root.iter(w+'t') if n.text and n.text.strip()]
+            drawings=sum(1 for n in root.iter() if n.tag.split('}')[-1] in
+                         ('drawing','pict','object'))
+            embedded=sum(name.startswith(('word/media/','word/embeddings/','word/afchunk'))
+                         for name in members)
+            altchunks=sum(n.tag == w+'altChunk' for n in root.iter())
+            story=[name for name in members if re.fullmatch(
+                r'word/(?:document|footnotes|endnotes|header\d+|footer\d+)\.xml',name)]
+            return {
+                'status': 'text_found' if text_nodes else 'no_word_text_nodes',
+                'text_readable': bool(text_nodes),
+                'word_text_nodes':len(text_nodes),
+                'word_drawings_or_objects':drawings,
+                'word_altchunk_nodes':altchunks,
+                'embedded_or_media_parts':embedded,
+                'story_parts':story,
+                'zip_members':len(members),
+                'not_ocr_or_rendered_equivalence':True,
+            }
+    except (OSError,ValueError,KeyError,ET.ParseError) as exc:
+        return {'status':'docx_diagnostic_error:'+type(exc).__name__,
+                'text_readable':False}
