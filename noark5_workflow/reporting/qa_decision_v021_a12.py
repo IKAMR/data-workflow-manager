@@ -550,8 +550,15 @@ def _report_body(s: dict, *, depot: bool) -> str:
 def render_reports(snapshot: dict) -> dict[str, str]:
     i = snapshot["work_identity"]
     meta = "Uttrekk: " + str(i["extraction_label"]) + " · DWM jobb " + str(i["job_id"])
-    qa = _html("Kvalitetssikringsrapport til arkivskaper",meta,_report_body(snapshot,depot=False))
-    de = _html("Depotets godkjennings- og ferdigstillingsrapport",meta,_report_body(snapshot,depot=True))
+    qa_body = _report_body(snapshot, depot=False)
+    depot_body = _report_body(snapshot, depot=True)
+    if "a13_review_summary" in snapshot:
+        # a13 adds only expressly selected professional notes, never approval.
+        from .qa_review_v021_a13 import review_html
+        qa_body += review_html(snapshot, for_depot=False)
+        depot_body += review_html(snapshot, for_depot=True)
+    qa = _html("Kvalitetssikringsrapport til arkivskaper", meta, qa_body)
+    de = _html("Depotets godkjennings- og ferdigstillingsrapport", meta, depot_body)
     index = _html("Noark 5 – kvalitetssikring og depotvurdering",meta,
                   "<h2>Rapporter</h2><p><a href='01-kvalitetssikring-arkivskaper.html'>1. Kvalitetssikringsrapport til arkivskaper</a></p>"
                   "<p><a href='02-depot-godkjenning-ferdigstilling.html'>2. Depotets godkjennings- og ferdigstillingsrapport</a></p>"
@@ -573,12 +580,26 @@ def _csv_cell(value: Any) -> Any:
 def _csv(snapshot: dict) -> bytes:
     buf = StringIO(newline="")
     writer = csv.writer(buf,delimiter=";",lineterminator="\r\n")
-    writer.writerow(["Kilde","ID/kategori","Nivå","Krever vurdering","Melding","Arkivdel/kontekst","Kildereferanse","XML-fil","Linjer"])
+    reviewed = "a13_review_summary" in snapshot
+    columns = ["Kilde","ID/kategori","Nivå","Krever vurdering","Melding","Arkivdel/kontekst","Kildereferanse","XML-fil","Linjer"]
+    if reviewed:
+        from .qa_review_v021_a13 import finding_key
+        # Unselected notes are not exported. The two recipient selections are
+        # explicit and separate; a comment does not change the source status.
+        selected = {x["finding_key"]: x for x in snapshot.get("a13_review_rows") or []}
+        columns += ["Faglig status", "Valgt til KS", "Valgt til depot", "Valgt faglig kommentar"]
+    writer.writerow(columns)
     for finding in snapshot["findings"]:
-        writer.writerow([_csv_cell(x) for x in [finding["source"],finding["test_id"],finding["severity"],
-                         "Ja" if finding.get("requires_review") else "Nei",
-                         finding["message"],finding["context"],finding["source_ref"],
-                         finding["file"],", ".join(str(x) for x in finding["lines"])]])
+        cells = [finding["source"],finding["test_id"],finding["severity"],
+                 "Ja" if finding.get("requires_review") else "Nei",
+                 finding["message"],finding["context"],finding["source_ref"],
+                 finding["file"],", ".join(str(x) for x in finding["lines"])]
+        if reviewed:
+            entry = selected.get(finding_key(finding))
+            cells += ([entry["status"], "Ja" if entry["include_in_ks"] else "Nei",
+                       "Ja" if entry["include_in_depot"] else "Nei", entry["comment"]]
+                      if entry else ["", "", "", ""])
+        writer.writerow([_csv_cell(x) for x in cells])
     return ("\ufeff"+buf.getvalue()).encode("utf-8")
 
 

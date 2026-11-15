@@ -28,6 +28,30 @@ teksttreff, XSD-validitet eller intern DWM-regresjon som normativ godkjenning.
    eksisterende rapporttjeneste; ingen parallelle rapportdatabaser, ingen
    omskriving av Source eller tidligere Work-rapporter.
 
+## Videre: gjenbrukbare avvikstilfeller og forslag til håndtering (etter a13)
+
+- Registrer etter hvert **de vanligste, bekreftede avvikstilfellene** som egne,
+  gjenbrukbare kasus. Hvert kasus skal angi relevant Noark-versjon, kravgrunnlag,
+  test-ID og kontrollkilde, faktisk observert forhold, avvikstype og eksempler.
+- Tilby tydelig **forklaring av hvorfor funnet er et avvik**, forslag til
+  avvikstekst for kvalitetssikringsrapporten og mulige dokumenterte oppfølginger
+  for depotet. Forslag skal kunne velges, redigeres eller forkastes av fagpersonen;
+  ikke automatisk konklusjon, endring av uttrekk eller depotgodkjenning.
+- Skill mellom en **gyldig metadata-/statusverdi** og et **avvik fra kravene til
+  uttrekk/avlevering**. Behold originalt testutfall og uforandret kildeevidens.
+- **Bekreftet eksempel N5.22 (1525_004):** Arkade 5 rapporterer korrekt `ERROR`
+  for 20 journalposter med status `Journalført`. M053 omfatter `Journalført`
+  som gyldig journalstatus, men ved uttrekk/avlevering skal journalpostene ha
+  status `Arkivert` eller `Utgår`. At arkivdelen er aktiv gjør ikke funnet til
+  en falsk positiv. Eventuell behandling/tilbakemelding til arkivskaper er en
+  egen faglig prosess, ikke en omklassifisering av Arkades test.
+- **Ikke implementer regel-/tekstbiblioteket i a13.** Ta arkitektur og
+  prioritering opp med prosjektansvarlig før nye automatiske regler innføres.
+- GUI-idé til senere: Vurdere om `Faglig vurdering` bør vise
+  `Periodevurdering` og `Depotvurdering` som tydelige knapper fremfor bare
+  nedtrekksmeny. Tilpass vindusstørrelse ved åpning eller tilby `Auto størrelse`.
+  Ikke prioriter dette foran kvalitetssikring og rapportering.
+
 **Utsatt ToDo – skal ikke utvide aktivt a11-scope:**
 
 - **Arkade 5 sine Noark 5-tester:** Den kildekodeverifiserte katalogen over
