@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 
 from app.noark5_xpath_regression_v021_a2 import source_crosswalk
 from app.noark5_xpath_metadata_qa_v021_a4 import build_metadata_qa, filter_metadata_rows
+from app.noark_semantic_values_v021_a6 import load_registry
 from app.noark5_xpath_version_qa_v021_a3 import build_version_audit, filter_version_rows
 
 from app.noark5_xpath_audit_v021_a1 import (
@@ -69,6 +70,8 @@ class XPathCoverageDialog(QDialog):
         self._source_audit = source_crosswalk(self._rows)["tests"]
         self._version_audit = build_version_audit(rows=self._rows, schema_root=self._schema_root)
         self._metadata_audit = build_metadata_qa(rows=self._rows)
+        self._semantic_registry = load_registry()
+        self._semantic_entries = []
 
         outer = QVBoxLayout(self)
         intro = QLabel(
@@ -233,6 +236,42 @@ class XPathCoverageDialog(QDialog):
         self.metadata_splitter.setSizes((650, 520))
         metadata_layout.addWidget(self.metadata_splitter, 1)
         self.results_tabs.addTab(metadata_page, 'Metadata og krav')
+
+        # a6: one stable meaning-ID for multiple raw text variants. This tab
+        # shows the versioned *registry*, never pretends that a semantic alias
+        # makes the observed raw value pass the original XSD.
+        semantic_page = QWidget(self.results_tabs)
+        semantic_layout = QVBoxLayout(semantic_page)
+        semantic_layout.setContentsMargins(5, 5, 5, 5)
+        meaning_note = QLabel(
+            'Menings-ID-er og kildeliteraler fra våre Noark 5-XSD-er. '
+            'Varianter/QA-kandidater vises uten å endre råverdier. '
+            'Dette er ikke XSD-validering eller normativ godkjenning.', semantic_page)
+        meaning_note.setWordWrap(True)
+        semantic_layout.addWidget(meaning_note)
+        self.semantic_summary = QLabel(semantic_page)
+        self.semantic_summary.setWordWrap(True)
+        semantic_layout.addWidget(self.semantic_summary)
+        semantic_splitter = QSplitter(Qt.Orientation.Horizontal, semantic_page)
+        semantic_splitter.setChildrenCollapsible(False)
+        self.semantic_table = QTreeWidget(semantic_splitter)
+        self.semantic_table.setRootIsDecorated(False)
+        self.semantic_table.setUniformRowHeights(True)
+        self.semantic_table.setHeaderLabels((
+            'Metadata', 'Menings-ID', 'Referanseverdi', 'XSD for valgt versjon', 'Varianter'))
+        semantic_header = self.semantic_table.header()
+        semantic_header.setStretchLastSection(False)
+        for col, width in ((0, 90), (1, 145), (2, 310), (3, 200), (4, 90)):
+            semantic_header.setSectionResizeMode(col, QHeaderView.ResizeMode.Interactive)
+            self.semantic_table.setColumnWidth(col, width)
+        semantic_splitter.addWidget(self.semantic_table)
+        self.semantic_detail = QPlainTextEdit(semantic_splitter)
+        self.semantic_detail.setReadOnly(True)
+        self.semantic_detail.setLineWrapMode(QPlainTextEdit.LineWrapMode.WidgetWidth)
+        semantic_splitter.addWidget(self.semantic_detail)
+        semantic_splitter.setSizes((720, 430))
+        semantic_layout.addWidget(semantic_splitter, 1)
+        self.results_tabs.addTab(semantic_page, 'Verdier og menings-ID')
         outer.addWidget(self.results_tabs, 1)
 
         bottom = QHBoxLayout()
@@ -263,6 +302,7 @@ class XPathCoverageDialog(QDialog):
         self.search.textChanged.connect(self._filter)
         self.table.itemSelectionChanged.connect(self._selection_changed)
         self.metadata_table.itemSelectionChanged.connect(self._metadata_selection_changed)
+        self.semantic_table.itemSelectionChanged.connect(self._semantic_selection_changed)
         self.open_result.clicked.connect(self._open_result)
         self._refresh_schema_summary()
         self._refresh_source()
@@ -353,6 +393,7 @@ class XPathCoverageDialog(QDialog):
               'Status og kildebevis vises per valgt Noark-versjon.')
         self._selection_changed()
         self._render_metadata()
+        self._render_semantics()
 
     def _render_metadata(self):
         """Browse ALL registered M-fields / requirements, including without XPath."""
@@ -418,6 +459,79 @@ class XPathCoverageDialog(QDialog):
             'METADATA / NORMATIVT KRAV - KILDEKOBLING (a4)\n'
             'Kun katalog- og kildereferanser, ikke kontrollutfall.\n\n'
             + _preview_json(entry, limit=75_000))
+
+    def _render_semantics(self):
+        """Show entire version-aware meaning catalogue, not Work's raw data."""
+        version = str(self.version.currentData() or '')
+        query = self.search.text().strip().casefold()
+        aliases_by_id = {}
+        for alias in self._semantic_registry.get('aliases', []):
+            aliases_by_id.setdefault(alias['concept_id'], []).append(alias)
+        rows = []
+        for concept in self._semantic_registry['concepts']:
+            aliases = aliases_by_id.get(concept['concept_id'], [])
+            search_text = ' '.join([
+                concept['metadata_id'], concept['concept_id'], concept['preferred_label'],
+                self._semantic_registry['historical_xsd_type_names_3_1_4_0'].get(concept['metadata_id'], ''),
+                *(a['raw_value'] for a in aliases),
+            ]).casefold()
+            if query and query not in search_text:
+                continue
+            literals = concept['exact_xsd_literals']
+            if version == '5.0':
+                status = 'Ingen fast enumeration i XSD-type'
+            elif version:
+                status = 'Eksakt XSD-literal' if literals.get(version) else 'Ikke opplistet i denne XSD'
+            else:
+                present = [v for v in ('3.1', '4.0') if literals.get(v)]
+                status = 'XSD v' + ', '.join(present) if present else 'Bare QA-lokal'
+            rows.append({'concept': concept, 'aliases': aliases, 'xsd_status': status})
+        previous = self.semantic_table.currentItem()
+        previous_id = previous.data(0, Qt.ItemDataRole.UserRole) if previous else None
+        self._semantic_entries = rows
+        self.semantic_table.blockSignals(True)
+        try:
+            self.semantic_table.clear()
+            selection = None
+            for index, row in enumerate(rows):
+                concept = row['concept']
+                item = QTreeWidgetItem((
+                    concept['metadata_id'], concept['concept_id'],
+                    concept['preferred_label'], row['xsd_status'], str(len(row['aliases']))))
+                item.setData(0, Qt.ItemDataRole.UserRole, concept['concept_id'])
+                item.setData(0, int(Qt.ItemDataRole.UserRole) + 1, index)
+                for col in range(item.columnCount()):
+                    item.setToolTip(col, item.text(col))
+                self.semantic_table.addTopLevelItem(item)
+                if concept['concept_id'] == previous_id:
+                    selection = item
+            if selection is None and self.semantic_table.topLevelItemCount():
+                selection = self.semantic_table.topLevelItem(0)
+            if selection is not None:
+                self.semantic_table.setCurrentItem(selection)
+        finally:
+            self.semantic_table.blockSignals(False)
+        candidates = sum(1 for row in rows for a in row['aliases']
+                         if a['status'] == 'proposal_requires_qa')
+        self.semantic_summary.setText(
+            f'{len(rows)} stabile menings-ID-er vist | {candidates} aliasforslag krever QA. '
+            'Råverditellinger hentes fra faktisk kontrollresultat, ikke dette registeret. '
+            'Et menings-ID-treff gir aldri automatisk XSD-godkjenning.')
+        self._semantic_selection_changed()
+
+    def _semantic_selection_changed(self):
+        selected = self.semantic_table.currentItem()
+        if selected is None:
+            self.semantic_detail.clear()
+            return
+        index = selected.data(0, int(Qt.ItemDataRole.UserRole) + 1)
+        if not isinstance(index, int) or not (0 <= index < len(self._semantic_entries)):
+            self.semantic_detail.clear()
+            return
+        self.semantic_detail.setPlainText(
+            'MENING / SPRÅKLIG VARIANT – KILDE OG QA (a6)\n'
+            'Betydningskobling er IKKE XML/XSD-validitet eller normativ godkjenning.\n\n'
+            + _preview_json(self._semantic_entries[index], limit=75_000))
 
     def _version_qa_label(self, test_id):
         item = self._version_audit['tests'].get(test_id, {}).get('by_version', {})

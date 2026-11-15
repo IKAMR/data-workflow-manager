@@ -1,0 +1,1247 @@
+{
+  "schema_version": 1,
+  "registry_id": "dwm-noark5-meaning-ids-v021-a6",
+  "status": "xsd_literal_verified_semantics_for_aliases_only_when_explicitly_confirmed",
+  "source_repository": "IKAMR/digital-archive-workflow",
+  "source_commit": "82bd59f23aafdc2386e317e5492941862c2bab9a",
+  "source_xsd_metadatakatalog_sha256": {
+    "3.1": "b6e63b9e655fda6e7af84264b6185c89b5025afaa158dd0355530707dc00614f",
+    "4.0": "e4964a10297be2f22a079534207fbc399a00d9c208708f0f7cf002838b49c2c0",
+    "5.0": "c7c0a7e7996f60b4c28eacd0e34e6af0d6ca2cfb76f58080221e163fb972a305"
+  },
+  "policy": {
+    "semantic_ids_stable_append_only": true,
+    "raw_values_never_modified": true,
+    "xsd_literal_validation_separate": true,
+    "specification_qa_required_for_custom_values": true,
+    "owner_example_not_normative_conformance": true,
+    "xsd_5_0_no_fixed_enumerations_for_these_types": true,
+    "same_semantics_not_same_xsd_validity": true
+  },
+  "historical_xsd_type_names_3_1_4_0": {
+    "M050": "arkivstatus",
+    "M051": "arkivdelstatus",
+    "M052": "saksstatus",
+    "M053": "journalstatus",
+    "M054": "dokumentstatus",
+    "M056": "presedensstatus",
+    "M082": "journalposttype",
+    "M087": "korrespondanseparttype",
+    "M089": "slettingstype",
+    "M217": "tilknyttetRegistreringSom",
+    "M300": "dokumentmedium",
+    "M450": "kassasjonsvedtak",
+    "M503": "skjermingDokument",
+    "M506": "gradering",
+    "M508": "elektroniskSignaturVerifisert",
+    "M619": "avskrivningsmaate",
+    "M700": "variantformat"
+  },
+  "xsd_enumerations_by_version": {
+    "3.1": {
+      "M050": [
+        "Opprettet",
+        "Avsluttet"
+      ],
+      "M051": [
+        "Aktiv periode",
+        "Overlappingsperiode",
+        "Avsluttet periode",
+        "Uaktuelle mapper"
+      ],
+      "M052": [
+        "Under behandling",
+        "Avsluttet",
+        "Utgår"
+      ],
+      "M053": [
+        "Journalført",
+        "Ferdigstilt fra saksbehandler",
+        "Godkjent av leder",
+        "Ekspedert",
+        "Arkivert",
+        "Utgår"
+      ],
+      "M054": [
+        "Dokumentet er under redigering",
+        "Dokumentet er ferdigstilt"
+      ],
+      "M056": [
+        "Gjeldende",
+        "Foreldet"
+      ],
+      "M082": [
+        "Inngående dokument",
+        "Utgående dokument",
+        "Organinternt dokument for oppfølging",
+        "Organinternt dokument uten oppfølging",
+        "Saksframlegg"
+      ],
+      "M087": [
+        "Avsender",
+        "Mottaker",
+        "Kopimottaker",
+        "Gruppemottaker",
+        "Intern avsender",
+        "Intern mottaker"
+      ],
+      "M089": [
+        "Sletting av produksjonsformat",
+        "Sletting av tidligere versjon",
+        "Sletting av variant med sladdet informasjon",
+        "Sletting av hele innholdet i arkivdelen"
+      ],
+      "M217": [
+        "Hoveddokument",
+        "Vedlegg"
+      ],
+      "M300": [
+        "Fysisk medium",
+        "Elektronisk arkiv",
+        "Blandet fysisk og elektronisk arkiv"
+      ],
+      "M450": [
+        "Bevares",
+        "Kasseres",
+        "Vurderes senere"
+      ],
+      "M503": [
+        "Skjerming av hele dokumentet",
+        "Skjerming av deler av dokumentet"
+      ],
+      "M506": [
+        "Strengt hemmelig (sikkerhetsgrad)",
+        "Hemmelig (sikkerhetsgrad)",
+        "Konfidensielt (sikkerhetsgrad)",
+        "Begrenset (sikkerhetsgrad)",
+        "Fortrolig (beskyttelsesgrad)",
+        "Strengt fortrolig (beskyttelsesgrad)"
+      ],
+      "M508": [
+        "Signatur påført, ikke verifisert",
+        "Signatur påført og verifisert"
+      ],
+      "M619": [
+        "Besvart med brev",
+        "Besvart med e-post",
+        "Besvart på telefon",
+        "Tatt til etterretning",
+        "Tatt til orientering"
+      ],
+      "M700": [
+        "Produksjonsformat",
+        "Arkivformat",
+        "Dokument hvor deler av innholdet er skjermet"
+      ]
+    },
+    "4.0": {
+      "M050": [
+        "Opprettet",
+        "Avsluttet"
+      ],
+      "M051": [
+        "Aktiv periode",
+        "Overlappingsperiode",
+        "Avsluttet periode",
+        "Uaktuelle mapper"
+      ],
+      "M052": [
+        "Under behandling",
+        "Avsluttet",
+        "Utgår"
+      ],
+      "M053": [
+        "Journalført",
+        "Ferdigstilt fra saksbehandler",
+        "Godkjent av leder",
+        "Ekspedert",
+        "Arkivert",
+        "Utgår"
+      ],
+      "M054": [
+        "Dokumentet er under redigering",
+        "Dokumentet er ferdigstilt"
+      ],
+      "M056": [
+        "Gjeldende",
+        "Foreldet"
+      ],
+      "M082": [
+        "Inngående dokument",
+        "Utgående dokument",
+        "Organinternt dokument for oppfølging",
+        "Organinternt dokument uten oppfølging",
+        "Saksframlegg"
+      ],
+      "M087": [
+        "Avsender",
+        "Mottaker",
+        "Kopimottaker",
+        "Gruppemottaker",
+        "Intern avsender",
+        "Intern mottaker",
+        "Intern kopimottaker",
+        "Medavsender"
+      ],
+      "M089": [
+        "Sletting av produksjonsformat",
+        "Sletting av tidligere versjon",
+        "Sletting av variant med sladdet informasjon",
+        "Sletting av hele innholdet i arkivdelen"
+      ],
+      "M217": [
+        "Hoveddokument",
+        "Vedlegg"
+      ],
+      "M300": [
+        "Fysisk medium",
+        "Elektronisk arkiv",
+        "Blandet fysisk og elektronisk arkiv"
+      ],
+      "M450": [
+        "Bevares",
+        "Kasseres",
+        "Vurderes senere"
+      ],
+      "M503": [
+        "Skjerming av hele dokumentet",
+        "Skjerming av deler av dokumentet"
+      ],
+      "M506": [
+        "Strengt hemmelig (sikkerhetsgrad)",
+        "Hemmelig (sikkerhetsgrad)",
+        "Konfidensielt (sikkerhetsgrad)",
+        "Begrenset (sikkerhetsgrad)",
+        "Fortrolig (beskyttelsesgrad)",
+        "Strengt fortrolig (beskyttelsesgrad)"
+      ],
+      "M508": [
+        "Signatur påført, ikke verifisert",
+        "Signatur påført og verifisert"
+      ],
+      "M619": [
+        "Besvart med brev",
+        "Besvart med e-post",
+        "Besvart på telefon",
+        "Tatt til etterretning",
+        "Tatt til orientering",
+        "Besvart med notat",
+        "Saken ble avsluttet"
+      ],
+      "M700": [
+        "Produksjonsformat",
+        "Arkivformat",
+        "Dokument hvor deler av innholdet er skjermet"
+      ]
+    },
+    "5.0": {}
+  },
+  "v5_min_length_1_verified_for": [
+    "M300",
+    "M619"
+  ],
+  "concepts": [
+    {
+      "concept_id": "N5.M050.001",
+      "metadata_id": "M050",
+      "preferred_label": "Opprettet",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Opprettet"
+        ],
+        "4.0": [
+          "Opprettet"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M050.002",
+      "metadata_id": "M050",
+      "preferred_label": "Avsluttet",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Avsluttet"
+        ],
+        "4.0": [
+          "Avsluttet"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M051.001",
+      "metadata_id": "M051",
+      "preferred_label": "Aktiv periode",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Aktiv periode"
+        ],
+        "4.0": [
+          "Aktiv periode"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M051.002",
+      "metadata_id": "M051",
+      "preferred_label": "Overlappingsperiode",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Overlappingsperiode"
+        ],
+        "4.0": [
+          "Overlappingsperiode"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M051.003",
+      "metadata_id": "M051",
+      "preferred_label": "Avsluttet periode",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Avsluttet periode"
+        ],
+        "4.0": [
+          "Avsluttet periode"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M051.004",
+      "metadata_id": "M051",
+      "preferred_label": "Uaktuelle mapper",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Uaktuelle mapper"
+        ],
+        "4.0": [
+          "Uaktuelle mapper"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M052.001",
+      "metadata_id": "M052",
+      "preferred_label": "Under behandling",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Under behandling"
+        ],
+        "4.0": [
+          "Under behandling"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M052.002",
+      "metadata_id": "M052",
+      "preferred_label": "Avsluttet",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Avsluttet"
+        ],
+        "4.0": [
+          "Avsluttet"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M052.003",
+      "metadata_id": "M052",
+      "preferred_label": "Utgår",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Utgår"
+        ],
+        "4.0": [
+          "Utgår"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M053.001",
+      "metadata_id": "M053",
+      "preferred_label": "Journalført",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Journalført"
+        ],
+        "4.0": [
+          "Journalført"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M053.002",
+      "metadata_id": "M053",
+      "preferred_label": "Ferdigstilt fra saksbehandler",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Ferdigstilt fra saksbehandler"
+        ],
+        "4.0": [
+          "Ferdigstilt fra saksbehandler"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M053.003",
+      "metadata_id": "M053",
+      "preferred_label": "Godkjent av leder",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Godkjent av leder"
+        ],
+        "4.0": [
+          "Godkjent av leder"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M053.004",
+      "metadata_id": "M053",
+      "preferred_label": "Ekspedert",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Ekspedert"
+        ],
+        "4.0": [
+          "Ekspedert"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M053.005",
+      "metadata_id": "M053",
+      "preferred_label": "Arkivert",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Arkivert"
+        ],
+        "4.0": [
+          "Arkivert"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M053.006",
+      "metadata_id": "M053",
+      "preferred_label": "Utgår",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Utgår"
+        ],
+        "4.0": [
+          "Utgår"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M054.001",
+      "metadata_id": "M054",
+      "preferred_label": "Dokumentet er under redigering",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Dokumentet er under redigering"
+        ],
+        "4.0": [
+          "Dokumentet er under redigering"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M054.002",
+      "metadata_id": "M054",
+      "preferred_label": "Dokumentet er ferdigstilt",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Dokumentet er ferdigstilt"
+        ],
+        "4.0": [
+          "Dokumentet er ferdigstilt"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M056.001",
+      "metadata_id": "M056",
+      "preferred_label": "Gjeldende",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Gjeldende"
+        ],
+        "4.0": [
+          "Gjeldende"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M056.002",
+      "metadata_id": "M056",
+      "preferred_label": "Foreldet",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Foreldet"
+        ],
+        "4.0": [
+          "Foreldet"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M082.001",
+      "metadata_id": "M082",
+      "preferred_label": "Inngående dokument",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Inngående dokument"
+        ],
+        "4.0": [
+          "Inngående dokument"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M082.002",
+      "metadata_id": "M082",
+      "preferred_label": "Utgående dokument",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Utgående dokument"
+        ],
+        "4.0": [
+          "Utgående dokument"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M082.003",
+      "metadata_id": "M082",
+      "preferred_label": "Organinternt dokument for oppfølging",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Organinternt dokument for oppfølging"
+        ],
+        "4.0": [
+          "Organinternt dokument for oppfølging"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M082.004",
+      "metadata_id": "M082",
+      "preferred_label": "Organinternt dokument uten oppfølging",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Organinternt dokument uten oppfølging"
+        ],
+        "4.0": [
+          "Organinternt dokument uten oppfølging"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M082.005",
+      "metadata_id": "M082",
+      "preferred_label": "Saksframlegg",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Saksframlegg"
+        ],
+        "4.0": [
+          "Saksframlegg"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M087.001",
+      "metadata_id": "M087",
+      "preferred_label": "Avsender",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Avsender"
+        ],
+        "4.0": [
+          "Avsender"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M087.002",
+      "metadata_id": "M087",
+      "preferred_label": "Mottaker",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Mottaker"
+        ],
+        "4.0": [
+          "Mottaker"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M087.003",
+      "metadata_id": "M087",
+      "preferred_label": "Kopimottaker",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Kopimottaker"
+        ],
+        "4.0": [
+          "Kopimottaker"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M087.004",
+      "metadata_id": "M087",
+      "preferred_label": "Gruppemottaker",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Gruppemottaker"
+        ],
+        "4.0": [
+          "Gruppemottaker"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M087.005",
+      "metadata_id": "M087",
+      "preferred_label": "Intern avsender",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Intern avsender"
+        ],
+        "4.0": [
+          "Intern avsender"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M087.006",
+      "metadata_id": "M087",
+      "preferred_label": "Intern mottaker",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Intern mottaker"
+        ],
+        "4.0": [
+          "Intern mottaker"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M087.007",
+      "metadata_id": "M087",
+      "preferred_label": "Intern kopimottaker",
+      "exact_xsd_literals": {
+        "3.1": [],
+        "4.0": [
+          "Intern kopimottaker"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M087.008",
+      "metadata_id": "M087",
+      "preferred_label": "Medavsender",
+      "exact_xsd_literals": {
+        "3.1": [],
+        "4.0": [
+          "Medavsender"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M089.001",
+      "metadata_id": "M089",
+      "preferred_label": "Sletting av produksjonsformat",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Sletting av produksjonsformat"
+        ],
+        "4.0": [
+          "Sletting av produksjonsformat"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M089.002",
+      "metadata_id": "M089",
+      "preferred_label": "Sletting av tidligere versjon",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Sletting av tidligere versjon"
+        ],
+        "4.0": [
+          "Sletting av tidligere versjon"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M089.003",
+      "metadata_id": "M089",
+      "preferred_label": "Sletting av variant med sladdet informasjon",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Sletting av variant med sladdet informasjon"
+        ],
+        "4.0": [
+          "Sletting av variant med sladdet informasjon"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M089.004",
+      "metadata_id": "M089",
+      "preferred_label": "Sletting av hele innholdet i arkivdelen",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Sletting av hele innholdet i arkivdelen"
+        ],
+        "4.0": [
+          "Sletting av hele innholdet i arkivdelen"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M217.001",
+      "metadata_id": "M217",
+      "preferred_label": "Hoveddokument",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Hoveddokument"
+        ],
+        "4.0": [
+          "Hoveddokument"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M217.002",
+      "metadata_id": "M217",
+      "preferred_label": "Vedlegg",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Vedlegg"
+        ],
+        "4.0": [
+          "Vedlegg"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M300.001",
+      "metadata_id": "M300",
+      "preferred_label": "Fysisk medium",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Fysisk medium"
+        ],
+        "4.0": [
+          "Fysisk medium"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M300.002",
+      "metadata_id": "M300",
+      "preferred_label": "Elektronisk arkiv",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Elektronisk arkiv"
+        ],
+        "4.0": [
+          "Elektronisk arkiv"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M300.003",
+      "metadata_id": "M300",
+      "preferred_label": "Blandet fysisk og elektronisk arkiv",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Blandet fysisk og elektronisk arkiv"
+        ],
+        "4.0": [
+          "Blandet fysisk og elektronisk arkiv"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M450.001",
+      "metadata_id": "M450",
+      "preferred_label": "Bevares",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Bevares"
+        ],
+        "4.0": [
+          "Bevares"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M450.002",
+      "metadata_id": "M450",
+      "preferred_label": "Kasseres",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Kasseres"
+        ],
+        "4.0": [
+          "Kasseres"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M450.003",
+      "metadata_id": "M450",
+      "preferred_label": "Vurderes senere",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Vurderes senere"
+        ],
+        "4.0": [
+          "Vurderes senere"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M503.001",
+      "metadata_id": "M503",
+      "preferred_label": "Skjerming av hele dokumentet",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Skjerming av hele dokumentet"
+        ],
+        "4.0": [
+          "Skjerming av hele dokumentet"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M503.002",
+      "metadata_id": "M503",
+      "preferred_label": "Skjerming av deler av dokumentet",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Skjerming av deler av dokumentet"
+        ],
+        "4.0": [
+          "Skjerming av deler av dokumentet"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M506.001",
+      "metadata_id": "M506",
+      "preferred_label": "Strengt hemmelig (sikkerhetsgrad)",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Strengt hemmelig (sikkerhetsgrad)"
+        ],
+        "4.0": [
+          "Strengt hemmelig (sikkerhetsgrad)"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M506.002",
+      "metadata_id": "M506",
+      "preferred_label": "Hemmelig (sikkerhetsgrad)",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Hemmelig (sikkerhetsgrad)"
+        ],
+        "4.0": [
+          "Hemmelig (sikkerhetsgrad)"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M506.003",
+      "metadata_id": "M506",
+      "preferred_label": "Konfidensielt (sikkerhetsgrad)",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Konfidensielt (sikkerhetsgrad)"
+        ],
+        "4.0": [
+          "Konfidensielt (sikkerhetsgrad)"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M506.004",
+      "metadata_id": "M506",
+      "preferred_label": "Begrenset (sikkerhetsgrad)",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Begrenset (sikkerhetsgrad)"
+        ],
+        "4.0": [
+          "Begrenset (sikkerhetsgrad)"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M506.005",
+      "metadata_id": "M506",
+      "preferred_label": "Fortrolig (beskyttelsesgrad)",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Fortrolig (beskyttelsesgrad)"
+        ],
+        "4.0": [
+          "Fortrolig (beskyttelsesgrad)"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M506.006",
+      "metadata_id": "M506",
+      "preferred_label": "Strengt fortrolig (beskyttelsesgrad)",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Strengt fortrolig (beskyttelsesgrad)"
+        ],
+        "4.0": [
+          "Strengt fortrolig (beskyttelsesgrad)"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M508.001",
+      "metadata_id": "M508",
+      "preferred_label": "Signatur påført, ikke verifisert",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Signatur påført, ikke verifisert"
+        ],
+        "4.0": [
+          "Signatur påført, ikke verifisert"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M508.002",
+      "metadata_id": "M508",
+      "preferred_label": "Signatur påført og verifisert",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Signatur påført og verifisert"
+        ],
+        "4.0": [
+          "Signatur påført og verifisert"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M619.001",
+      "metadata_id": "M619",
+      "preferred_label": "Besvart med brev",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Besvart med brev"
+        ],
+        "4.0": [
+          "Besvart med brev"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M619.002",
+      "metadata_id": "M619",
+      "preferred_label": "Besvart med e-post",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Besvart med e-post"
+        ],
+        "4.0": [
+          "Besvart med e-post"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M619.003",
+      "metadata_id": "M619",
+      "preferred_label": "Besvart på telefon",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Besvart på telefon"
+        ],
+        "4.0": [
+          "Besvart på telefon"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M619.004",
+      "metadata_id": "M619",
+      "preferred_label": "Tatt til etterretning",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Tatt til etterretning"
+        ],
+        "4.0": [
+          "Tatt til etterretning"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M619.005",
+      "metadata_id": "M619",
+      "preferred_label": "Tatt til orientering",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Tatt til orientering"
+        ],
+        "4.0": [
+          "Tatt til orientering"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M619.006",
+      "metadata_id": "M619",
+      "preferred_label": "Besvart med notat",
+      "exact_xsd_literals": {
+        "3.1": [],
+        "4.0": [
+          "Besvart med notat"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M619.007",
+      "metadata_id": "M619",
+      "preferred_label": "Saken ble avsluttet",
+      "exact_xsd_literals": {
+        "3.1": [],
+        "4.0": [
+          "Saken ble avsluttet"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M700.001",
+      "metadata_id": "M700",
+      "preferred_label": "Produksjonsformat",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Produksjonsformat"
+        ],
+        "4.0": [
+          "Produksjonsformat"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M700.002",
+      "metadata_id": "M700",
+      "preferred_label": "Arkivformat",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Arkivformat"
+        ],
+        "4.0": [
+          "Arkivformat"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    },
+    {
+      "concept_id": "N5.M700.003",
+      "metadata_id": "M700",
+      "preferred_label": "Dokument hvor deler av innholdet er skjermet",
+      "exact_xsd_literals": {
+        "3.1": [
+          "Dokument hvor deler av innholdet er skjermet"
+        ],
+        "4.0": [
+          "Dokument hvor deler av innholdet er skjermet"
+        ]
+      },
+      "concept_scope": "semantic_label_not_normative_approval",
+      "source_type": "xsd_enumeration_literal"
+    }
+  ],
+  "aliases": [
+    {
+      "metadata_id": "M619",
+      "raw_value": "Besvart i telefon",
+      "concept_id": "N5.M619.003",
+      "status": "owner_confirmed_semantic_example",
+      "variant_type": "preposition",
+      "provenance": "IKAMR owner explicit example in DWM conversation 2026-11-15; NOT standard/XSD approval"
+    },
+    {
+      "metadata_id": "M619",
+      "raw_value": "Besvart i Telefon",
+      "concept_id": "N5.M619.003",
+      "status": "proposal_requires_qa",
+      "variant_type": "case_and_preposition",
+      "provenance": "Unverified observed/example spelling; no semantic or normative acceptance"
+    },
+    {
+      "metadata_id": "M619",
+      "raw_value": "Svart på telefon",
+      "concept_id": "N5.M619.003",
+      "status": "proposal_requires_qa",
+      "variant_type": "lexical",
+      "provenance": "Candidate wording; no semantic or normative acceptance"
+    },
+    {
+      "metadata_id": "M619",
+      "raw_value": "Svara på telefon",
+      "concept_id": "N5.M619.003",
+      "status": "proposal_requires_qa",
+      "variant_type": "possible_language_form",
+      "provenance": "Candidate wording; no semantic or normative acceptance"
+    },
+    {
+      "metadata_id": "M300",
+      "raw_value": "Elektronkskarkiv",
+      "concept_id": "N5.M300.002",
+      "status": "proposal_requires_qa",
+      "variant_type": "suspected_vendor_typo",
+      "provenance": "User-described variant; no automatic equivalence or XSD acceptance"
+    },
+    {
+      "metadata_id": "M300",
+      "raw_value": "Fysisk arkiv",
+      "concept_id": "N5.M300.001",
+      "status": "proposal_requires_qa",
+      "variant_type": "dwm_registry_xsd_conflict",
+      "provenance": "DWM standard values v3.1/4.0 Fysisk arkiv vs XSD Fysisk medium; requires PDF/DOCX QA"
+    }
+  ]
+}

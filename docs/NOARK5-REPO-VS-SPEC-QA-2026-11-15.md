@@ -104,3 +104,20 @@ Se `docs/NOARK5-XSD-VARIANTER-VERDIER-OG-DIAGNOSTISK-QA-V021-A5.md` for
 versjonsspesifikke XSD-enumerationer (M300/M619), identifikasjon av CRLF/LF-varianter,
 diagnostisk før/etter-validering og QA-kandidater for observerte ordformer.
 Ingen normative regler er automatisk endret.
+
+
+## 9. Videreføring a6: stabile menings-ID-er og 15-XSD-sporing
+
+DWM a5 er committet og pushet som `38bf26fabe8a585e038d97e3c5fdd41bd5ef15ab`.
+I a6 er de 17 enumererte historiske metadataverdilistene per versjon
+kartlagt som tekniske XSD-literalverdier i et eget semantisk register med
+64 stabile ID-er. M619-eksempelet `Besvart på telefon` / `Besvart i telefon`
+viser samme menings-ID, men forskjellige originale strenger og XSD-status.
+M300-avviket og ikke-bekreftede språkvarianter er fortsatt QA-punkter.
+
+`app/noark5_spec_xsd_trace_v021_a6.py` kan gi detaljert M-ID-kartlegging
+mot alle 15 original-XSD-ene, DWM metadata-/kravregistre, typebruk og
+leksikalske XPath-treff **når kilderepoet er lokalt tilgjengelig**.
+Dette verifiserer **ikke** normativ kravordlyd i PDF/DOCX/XLSX, og ingen
+KDRS/Saxon-formelekvivalens er bekreftet. Se
+`docs/NOARK5-SEMANTISK-VERDIREGISTER-V021-A6.md`.
