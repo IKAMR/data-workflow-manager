@@ -297,8 +297,10 @@ class TestRepoIntegration(unittest.TestCase):
 
     def test_versions_match(self):
         from version import VERSION
-        self.assertEqual(VERSION, '0.2.1-a4')
-        self.assertIn('version = "0.2.1a4"', (ROOT / 'pyproject.toml').read_text('utf8'))
+        # Historical a4 test must remain valid for later alphas/releases.
+        self.assertRegex(VERSION, r'^0\.2\.1(?:-a(?:[4-9]|[1-9][0-9]+))?$')
+        self.assertIn(f'version = "{VERSION.replace("-", "")}"',
+                      (ROOT / 'pyproject.toml').read_text('utf8'))
 
     def test_registered_v5_requirements_are_versioned_if_repo_present(self):
         file = ROOT / 'config/noark5/standards/requirements/5.0.json'

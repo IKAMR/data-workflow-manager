@@ -10,8 +10,8 @@
 | --- | --- | --- |
 | Intern autoritativ Noark-samling | [`IKAMR/digital-archive-workflow`](https://github.com/IKAMR/digital-archive-workflow) | `82bd59f23aafdc2386e317e5492941862c2bab9a` |
 | Originale historiske XPath-tester | [`IKAMR/KDRS_Query`](https://github.com/IKAMR/KDRS_Query) | `a68d809ee04c8aceb75976c668bf9746e26d67cb` |
-| DWM, siste commit som er verifisert i GitHub | [`IKAMR/data-workflow-manager`](https://github.com/IKAMR/data-workflow-manager) | `0f6c30a6a1f363f039b246c44040f6ca42175a15` (`v0.2.1-a3`) |
-| Utvidet DWM-grunnlag | Lokale a4-deltaer | `v0.2.1-a4` med testfix, **ikke bekreftet committet** |
+| DWM, siste verifiserte commit ved a5-analysen | [`IKAMR/data-workflow-manager`](https://github.com/IKAMR/data-workflow-manager) | `0a258ee6919b59857b24285f859ccc3637c31c9f` (`v0.2.1-a4`) |
+| Historisk analysegrunnlag for denne rapporten | Før a4-commit | a3 + a4-deltaene; a4 ble siden committet 2026-11-15 |
 
 `docs/NOARK-SOURCE-LIBRARY.md` og rotfilen `AGENTS.md` setter kildepolicyen. En revisjon av et kildedokument krever referanse til riktig versjon, fil og commit. Oppdateringer av intern samling ved avvik mot eksterne kilder skjer **bare etter QA-beslutning med repoets eier**. Ingen kildedokumenter, XSD-er eller normative registre er skrevet om i denne pakken.
 
@@ -90,10 +90,17 @@ PDF krever `pymupdf` eller `pypdf` for tekstuttrekk; uten slik installasjon blir
 
 ## 7. Avgrensning og videre implementering
 
-1. Frys a4 først **dersom `test.bat` er grønn etter a4-testfix**, og ta inn kildepolicy- og QA-dokumentasjonen i samme commit, eventuelt som egen dokumentasjonscommit etter a4 etter brukers valg.
+1. **a4 er committet og pushet** (`0a258ee6919b59857b24285f859ccc3637c31c9f`). Videre QA bygges på denne faste baselinen. Full lokal Windows-test for senere versjoner må fortsatt kjøres ved hver ny delta.
 2. Utarbeid full normativ v3.1/4.0/5.0 kravmatrise fra hovedspesifikasjonene og vedleggene, med kravklassifisering (`uttrekksverifiserbart` vs. funksjonskrav), kildeside og signatur. Bruk XSD som teknisk delbelegg og bevar verdi- og datatypeforskjeller.
 3. Utvid versjonsspesifikk XML/XSD-validering for de fem XML-typene og knytt funn til originalfil, linje, element og arkivenhet.
 4. Gjennomfør semantisk differensialtest for hver KDRS Standard/U1/U2-definisjon mot DWM med identisk testuttrekk; før avvik til QA.
 5. Koble normativ matrise og eksterne tester til hovedfunn i DWM uten å likestille metrikkstatus `ok` med normativ godkjenning.
 
 **Konklusjon:** Kildene til alle tre Noark 5-versjonene finnes i vårt repo, og XSD-integriteten samt historiske testkilder er kontrollert. DWM har derimot **ikke komplett kildeverifisert normativ dekning**. Full fagnormativ gjennomgang av hvert avsnitt i binære kildedokumenter krever at dokumentene faktisk tekst-/visuelt åpnes, gjennomgås og kobles til test- og kravregistrene. Dette er ikke påstått ferdigstilt i denne rapporten.
+
+## 8. Videreføring etter a4: XSD-varianter og faglige verdier
+
+Se `docs/NOARK5-XSD-VARIANTER-VERDIER-OG-DIAGNOSTISK-QA-V021-A5.md` for
+versjonsspesifikke XSD-enumerationer (M300/M619), identifikasjon av CRLF/LF-varianter,
+diagnostisk før/etter-validering og QA-kandidater for observerte ordformer.
+Ingen normative regler er automatisk endret.
