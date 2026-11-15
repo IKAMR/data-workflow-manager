@@ -91,3 +91,60 @@ DWM sitt nåværende standardverdiregister ligger i
 `config/noark5/standards/noark5_standard_values.json` og er **et eget, delvis maskinlest kontrollgrunnlag**, ikke en fullstendig kopi av spesifikasjonene i kildebiblioteket. Se [NOARK5-STANDARD-VALUES.md](NOARK5-STANDARD-VALUES.md).
 
 Ingen automatisk nedlasting, kopiering eller synkronisering av Noark-kildene er implementert med denne dokumentasjonsendringen.
+
+## Kildebasert DOCX/XLSX-kravregister – v0.2.1-a9
+
+`app.noark5_requirement_registry_v021_a9` lager et **ikke-godkjent kravregister for
+faglig QA** på grunnlag av kilderepoet. Dette erstatter ikke normative dokumenter.
+De 12 avledede Word-kopiene lagt til i kildecommit
+`8d28e312e1` finnes på GitHub. Ved enhver ny kjøring lagres faktisk
+kilderevisjon og SHA-256 for hver DOCX. `SOURCE-MANIFEST.json` beskriver
+foreløpig original-PDF-ene, men ikke alle avledede DOCX-kopiene. Deres
+manifeststatus vises derfor som `not_registered_derived_working_copy`; dette er
+ikke automatisk et manglende kildekrav.
+
+Kjør først a8 og behold dens `noark5-a8-requirements.json`, deretter fra DWM-repoet:
+
+```bat
+py -m app.noark5_requirement_registry_v021_a9 --a8-report "C:\temp\noark5-a8-qa\noark5-a8-requirements.json" --source-root "C:\git\IKAMR\digital-archive-workflow" --output-dir "C:\temp\noark5-a9-qa"
+```
+
+`--output-dir` må være ny eller inneholde ingen av rapportene. Programmet
+oppretter fem filer:
+
+- `noark5-a9-requirements.json`: hele registrerte kildeordlyden med
+  versjon, kravnummer, kravtype, merknads-/betingelsesfelt, Word/XML-radanker,
+  kilde-SHA og individuelle QA-behov. Ingen normative krav er godkjent.
+- `noark5-a9-requirements.csv`: filtrerbare kildekandidater til gjennomgang.
+- `noark5-a9-source-inventory.json`: kildeversjon, PDF-identitet mot manifest,
+  DOCX-hash, dokumentlesbarhet, OOXML-variant og tabell-/teksttelling.
+- `noark5-a9-unresolved.csv`: **FEIL/WARNING/NOTE** for manglende dokumenter,
+  ulik ordlyd, kildeidentitet, duplikater, ikke fullførte krysskontroller osv.
+- `noark5-a9-summary.md`: samlede resultater og begrensninger.
+
+v3.1 bruker den originale, SHA-kontrollerte XLSX-kravtabellen som **primær kilde**,
+og sammenholder kravnummerrader og ordlyd med den konverterte DOCX-hovedstandarden.
+Krav som bare står i ett av dokumentene eller som har vesentlig avvikende
+tekst, flagges for manuell kontroll. v4.0 og v5.0 bruker DOCX-tabellceller
+fra hovedstandardene. Begge OOXML-varianter støttes: Strict og Transitional.
+Nummererte fritekstavsnitt som ikke kan knyttes til kravtabell, skilles ut
+som separate uverifiserte kandidater i JSON-filen. Ingen avvik glattes over
+eller fører automatisk til nye regler.
+
+For **alle** versjoner brukes de øvrige DOCX-vedleggene i en kildeinventar-
+kontroll, med lesbarhet og tabelltelling; vedleggene utvides ikke til
+normative funksjonskrav uten særskilt QA. DOCX/XML-ankre er ikke
+originale PDF-sidetall. At PDF-kildens SHA-256 stemmer med manifestet, er
+ikke bevis på at Word-kopien inneholder nøyaktig samme ordlyd og tabellstruktur.
+Dette krever visuell/manuell gjennomgang; uleselige eller tvetydige dokumenter
+skal meldes fra til kilderepoets eier. Verken originale PDF-er, DOCX-er,
+XSD-er, XPath-tester eller kilde-manifest blir endret av analysekommandoen.
+
+I Qt: `Resultatvisninger → XPath` og fanen `Krav- og KDRS-review a8 →
+Kravregister DOCX a9`. Åpne a9-JSON, velg Noark-versjon og filtrer
+FEIL/WARNING/NOTE. Underfanen **Kildeavvik og manuell QA** viser også feil
+som gjør at en hel kilde ble utelatt fra kravkartleggingen.
+
+Faglig avgrensning: a9 er kildetranskripsjon og QA, **ikke** full normativ
+kravdekning, godkjente statiske XML-kontroller, KDRS/Saxon-paritet,
+resultatsamsvar eller depotgodkjenning.

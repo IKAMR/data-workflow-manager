@@ -25,6 +25,9 @@ from app.noark5_requirement_matrix_v021_a7 import (
 from app.noark5_requirement_review_v021_a8 import (
     REPORT_TYPE as A8_REVIEW_REPORT_TYPE, filter_review_rows,
 )
+from app.noark5_requirement_registry_v021_a9 import (
+    REPORT_TYPE as A9_REGISTRY_REPORT_TYPE, filter_register_rows,
+)
 from app.noark5_xpath_version_qa_v021_a3 import build_version_audit, filter_version_rows
 
 from app.noark5_xpath_audit_v021_a1 import (
@@ -83,6 +86,9 @@ class XPathCoverageDialog(QDialog):
         self._a8_report = None
         self._a8_entries = []
         self._a8_kdrs_entries = []
+        self._a9_report = None
+        self._a9_entries = []
+        self._a9_issue_entries = []
 
         outer = QVBoxLayout(self)
         intro = QLabel(
@@ -403,6 +409,70 @@ class XPathCoverageDialog(QDialog):
         ak_split.setSizes((700,480))
         ak_layout.addWidget(ak_split)
         self.a8_subtabs.addTab(a8_kdrs,'KDRS Standard/U1/U2 - teknisk QA')
+        # a9: keep the a8 review intact and add a full-cell DOCX/XLSX QA view.
+        a9_page = QWidget(self.a8_subtabs)
+        a9_layout = QVBoxLayout(a9_page)
+        a9_layout.setContentsMargins(5,5,5,5)
+        a9_note = QLabel(
+            'Kravtekst fra DOCX-tabellceller (v4/v5) og opprinnelig XLSX (v3.1). '
+            'Kilden er ikke ferdig normativt kvalitetssikret. PDF-sidetall er ikke utledet fra Word.',
+            a9_page)
+        a9_note.setWordWrap(True)
+        a9_layout.addWidget(a9_note)
+        a9_controls = QHBoxLayout()
+        self.a9_load = QPushButton('Åpne a9 kravregister (.json)...',a9_page)
+        a9_controls.addWidget(self.a9_load)
+        a9_controls.addWidget(QLabel('QA:',a9_page))
+        self.a9_status = QComboBox(a9_page)
+        for label,status in (('Alle',''),('FEIL','FEIL'),('WARNING','WARNING'),('NOTE','NOTE')):
+            self.a9_status.addItem(label,status)
+        a9_controls.addWidget(self.a9_status)
+        a9_controls.addWidget(QLabel('Kilde:',a9_page))
+        self.a9_origin = QComboBox(a9_page)
+        for label,key in (('Alle',''),('XLSX v3.1','xlsx_requirement_row'),
+                          ('DOCX v4/v5','docx_numbered_table_row')):
+            self.a9_origin.addItem(label,key)
+        a9_controls.addWidget(self.a9_origin)
+        a9_controls.addStretch(1)
+        a9_layout.addLayout(a9_controls)
+        self.a9_summary = QLabel(a9_page)
+        self.a9_summary.setWordWrap(True)
+        a9_layout.addWidget(self.a9_summary)
+        self.a9_inner = QTabWidget(a9_page)
+        a9_requirements = QWidget(self.a9_inner)
+        a9_req_layout = QVBoxLayout(a9_requirements)
+        a9_req_splitter = QSplitter(Qt.Orientation.Horizontal,a9_requirements)
+        self.a9_table = QTreeWidget(a9_req_splitter)
+        self.a9_table.setRootIsDecorated(False)
+        self.a9_table.setUniformRowHeights(True)
+        self.a9_table.setHeaderLabels(('QA','Noark','Krav','Type','Kilde','Hele kravteksten'))
+        self.a9_table.setColumnWidth(0,70)
+        self.a9_table.setColumnWidth(1,60)
+        self.a9_table.setColumnWidth(2,95)
+        self.a9_table.setColumnWidth(3,65)
+        self.a9_table.setColumnWidth(4,160)
+        self.a9_table.setColumnWidth(5,420)
+        self.a9_detail = QPlainTextEdit(a9_req_splitter)
+        self.a9_detail.setReadOnly(True)
+        a9_req_splitter.setSizes((800,450))
+        a9_req_layout.addWidget(a9_req_splitter)
+        self.a9_inner.addTab(a9_requirements,'Kravtekst og betingelser')
+        a9_issues = QWidget(self.a9_inner)
+        a9_issues_layout = QVBoxLayout(a9_issues)
+        a9_issues_split = QSplitter(Qt.Orientation.Horizontal,a9_issues)
+        self.a9_issue_table = QTreeWidget(a9_issues_split)
+        self.a9_issue_table.setRootIsDecorated(False)
+        self.a9_issue_table.setHeaderLabels(('QA','Noark','Funntype','Kilde'))
+        self.a9_issue_table.setColumnWidth(0,70)
+        self.a9_issue_table.setColumnWidth(1,60)
+        self.a9_issue_table.setColumnWidth(2,260)
+        self.a9_issue_detail = QPlainTextEdit(a9_issues_split)
+        self.a9_issue_detail.setReadOnly(True)
+        a9_issues_split.setSizes((700,450))
+        a9_issues_layout.addWidget(a9_issues_split)
+        self.a9_inner.addTab(a9_issues,'Kildeavvik og manuell QA')
+        a9_layout.addWidget(self.a9_inner,1)
+        self.a8_subtabs.addTab(a9_page,'Kravregister DOCX a9')
         a8_layout.addWidget(self.a8_subtabs,1)
         self.results_tabs.addTab(a8_page,'Krav- og KDRS-review a8')
         outer.addWidget(self.results_tabs, 1)
@@ -442,6 +512,11 @@ class XPathCoverageDialog(QDialog):
         self.a8_origin.currentIndexChanged.connect(self._render_a8)
         self.a8_table.itemSelectionChanged.connect(self._a8_selection_changed)
         self.a8_kdrs_table.itemSelectionChanged.connect(self._a8_kdrs_selection_changed)
+        self.a9_load.clicked.connect(self._choose_a9_report)
+        self.a9_status.currentIndexChanged.connect(self._render_a9)
+        self.a9_origin.currentIndexChanged.connect(self._render_a9)
+        self.a9_table.itemSelectionChanged.connect(self._a9_selection_changed)
+        self.a9_issue_table.itemSelectionChanged.connect(self._a9_issue_selection_changed)
         self.coverage_status.currentIndexChanged.connect(self._render_coverage)
         self.coverage_table.itemSelectionChanged.connect(self._coverage_selection_changed)
         self.open_result.clicked.connect(self._open_result)
@@ -537,6 +612,7 @@ class XPathCoverageDialog(QDialog):
         self._render_semantics()
         self._render_coverage()
         self._render_a8()
+        self._render_a9()
 
     def _render_metadata(self):
         """Browse ALL registered M-fields / requirements, including without XPath."""
@@ -955,6 +1031,102 @@ class XPathCoverageDialog(QDialog):
             'KDRS STANDARD / U1 / U2 - DISPATCH OG KILDEKOBLING - a8\n'
             'Teknisk dispatch er ikke bevis på Saxon/lxml-resultatlikhet.\n\n'+
             _preview_json(self._a8_kdrs_entries[index],limit=100_000))
+
+    def _choose_a9_report(self):
+        filename,_selected=QFileDialog.getOpenFileName(
+            self,'Velg lokal Noark 5 a9 kravregisterrapport','','JSON (*.json)')
+        if not filename:
+            return
+        try:
+            path=Path(filename)
+            if not path.is_file() or path.stat().st_size>80_000_000:
+                raise ValueError('Kravregisteret mangler eller er for stort (maks 80 MB).')
+            loaded=json.loads(path.read_text(encoding='utf-8-sig'))
+            if not isinstance(loaded,dict) or loaded.get('report_type')!=A9_REGISTRY_REPORT_TYPE:
+                raise ValueError('Ikke en gjenkjennelig a9-rapport.')
+            if loaded.get('normative_requirements_approved') is not False:
+                raise ValueError('Ukjent normativ status i a9-rapporten.')
+            if set(loaded.get('versions',{})) != set(VERSIONS):
+                raise ValueError('Rapporten mangler en eller flere Noark-versjoner.')
+            if not isinstance(loaded.get('candidate_rows'),list) or not isinstance(loaded.get('qa_issues'),list):
+                raise ValueError('Rapporten mangler kravrader eller QA-funn.')
+        except (OSError,UnicodeError,ValueError,TypeError) as exc:
+            QMessageBox.warning(self,'DOCX-kravregister a9',str(exc))
+            return
+        self._a9_report=loaded
+        self._render_a9()
+
+    def _render_a9(self,*_unused):
+        self.a9_table.blockSignals(True)
+        self.a9_issue_table.blockSignals(True)
+        try:
+            self.a9_table.clear()
+            self.a9_issue_table.clear()
+            self._a9_entries=[]
+            self._a9_issue_entries=[]
+            if not self._a9_report:
+                self.a9_summary.setText('Ingen a9-rapport lastet. Lag den fra den lokale kildebasen.')
+                self.a9_detail.clear()
+                self.a9_issue_detail.clear()
+                return
+            version=str(self.version.currentData() or '')
+            severity=str(self.a9_status.currentData() or '')
+            origin=str(self.a9_origin.currentData() or '')
+            query=self.search.text()
+            rows=filter_register_rows(self._a9_report,version=version,
+                  severity=severity,origin=origin,query=query)
+            self._a9_entries=rows
+            for i,r in enumerate(rows):
+                row=QTreeWidgetItem((str(r.get('qa_severity') or ''),
+                    str(r.get('noark_version') or ''),str(r.get('number') or ''),
+                    str(r.get('requirement_class') or '?'),str(r.get('origin') or ''),
+                    str(r.get('text') or '')[:330].replace('\n',' ')))
+                row.setData(0,Qt.ItemDataRole.UserRole,i)
+                self.a9_table.addTopLevelItem(row)
+            if self.a9_table.topLevelItemCount():
+                self.a9_table.setCurrentItem(self.a9_table.topLevelItem(0))
+            q=query.casefold().strip()
+            issues=[r for r in self._a9_report.get('qa_issues',[]) if
+                (not version or r.get('noark_version') in (version,'')) and
+                (not severity or r.get('severity')==severity) and
+                (not q or q in ' '.join(str(r.get(k) or '') for k in
+                   ('kind','source','location','detail')).casefold())]
+            self._a9_issue_entries=issues
+            for i,r in enumerate(issues):
+                item=QTreeWidgetItem((str(r.get('severity') or ''),
+                    str(r.get('noark_version') or ''),str(r.get('kind') or ''),
+                    str(r.get('source') or '')[:300]))
+                item.setData(0,Qt.ItemDataRole.UserRole,i)
+                self.a9_issue_table.addTopLevelItem(item)
+            if self.a9_issue_table.topLevelItemCount():
+                self.a9_issue_table.setCurrentItem(self.a9_issue_table.topLevelItem(0))
+            self.a9_summary.setText(f'{len(rows)} kravrader og {len(issues)} kilde-QA-funn vist. '
+                f"Kildecommit: {self._a9_report.get('source_checkout_commit_current') or 'ukjent'}. "
+                'Ingen automatisk godkjente normative krav eller XPath-kontroller.')
+        finally:
+            self.a9_table.blockSignals(False)
+            self.a9_issue_table.blockSignals(False)
+        self._a9_selection_changed()
+        self._a9_issue_selection_changed()
+
+    def _a9_selection_changed(self):
+        selected=self.a9_table.currentItem()
+        index=selected.data(0,Qt.ItemDataRole.UserRole) if selected else None
+        if not isinstance(index,int) or not 0<=index<len(self._a9_entries):
+            self.a9_detail.clear()
+            return
+        self.a9_detail.setPlainText('NOARK 5 - KILDEBASERT KRAV / MANUELL QA a9\n'
+              'Komplett Word-tabellcelle er ikke dokumentert fullstendig PDF-ordlyd.\n\n'
+              +_preview_json(self._a9_entries[index],limit=140_000))
+
+    def _a9_issue_selection_changed(self):
+        selected=self.a9_issue_table.currentItem()
+        index=selected.data(0,Qt.ItemDataRole.UserRole) if selected else None
+        if not isinstance(index,int) or not 0<=index<len(self._a9_issue_entries):
+            self.a9_issue_detail.clear()
+            return
+        self.a9_issue_detail.setPlainText('NOARK 5 - KILDEAVVIK / MANUELL QA a9\n\n'
+              +_preview_json(self._a9_issue_entries[index],limit=140_000))
 
     def _choose_schema(self):
         folder = QFileDialog.getExistingDirectory(

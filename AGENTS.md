@@ -24,3 +24,19 @@
    XSD-filer eller 60 XPath-tester «komplett normativ kravdekning».
 7. Respekter Source/Work-grensene, og skriv aldri om depotets originaldata.
    Brukeren håndterer Git commit og push; lever deltaer uten å committe.
+
+## Obligatorisk format for foreslått Git commit-tekst
+
+- Foreslå alltid **én kort, konkret og innholdsrik beskrivende setning på norsk**.
+- **Versjonsnummeret plasseres sist**, med format `vX.Y.Z-aN` for alpha eller
+  `vX.Y.Z` for ferdig release. Ingen tekst eller skilletegn etter versjonsnummeret.
+- **Ingen versjonsprefiks** som `vX.Y.Z-aN:` og ingen `feat:`, `fix:` eller annen
+  kategoriprefiks, med mindre brukeren uttrykkelig ber om en annen form.
+- Beskriv faktiske tekniske/funksjonelle endringer. Unngå tomme innledninger som
+  "Denne versjonen inneholder" eller annet fyllstoff.
+- Før en commit-tekst foreslås skal AI kontrollere at den følger denne regelen.
+  Brukeren utfører fortsatt selve commit og push.
+
+Eksempel:
+
+`Utvidet Noark-kravregister med kildebasert kravkartlegging, KDRS Standard/U1/U2-kontroll, XSD-validering og filtrerbar QA-gjennomgang v0.2.1-a8`

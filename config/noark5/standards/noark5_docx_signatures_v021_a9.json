@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "source_repository": "IKAMR/digital-archive-workflow",
+  "source_commit": "8d28e312e1",
+  "purpose": "Read-only pinned Git blob identity for derived Noark 5 DOCX work copies; NOT normative approval or PDF-text equivalence",
+  "documents": [
+    {"path": "noark5/v3.1/spesifikasjoner/Noark5_v3.1_standarden.docx", "git_blob_sha1": "bc2317e9cdee38a03a58f4ddb6812945af8e01de"},
+    {"path": "noark5/v3.1/spesifikasjoner/Noark5_v3.1_vedl1_metadatakatalog.docx", "git_blob_sha1": "96e148c9cbf0fa020e1979541f71f8323bf8bb85"},
+    {"path": "noark5/v3.1/spesifikasjoner/Noark5_v3.1_vedl2_metadatakatalog_sortert_objekter.docx", "git_blob_sha1": "3134f71e157f52608b40ccc22512136b2b0de708"},
+    {"path": "noark5/v3.1/spesifikasjoner/Noark5_v3.1_vedl3_endringslogg.docx", "git_blob_sha1": "007705b9685877668d66a432f393ca58b6db2011"},
+    {"path": "noark5/v3.1/spesifikasjoner/Noark5_v3.1_vedl4_eksempel_metadata.docx", "git_blob_sha1": "bd8a5320b12d2b995bd30de2d2f2a77da042a533"},
+    {"path": "noark5/v4.0/spesifikasjoner/Noark5v4 Standard for elektronisk arkiv (01.12.2016).docx", "git_blob_sha1": "657706345be77d72b2d8883d4bbc58a9c9b45f68"},
+    {"path": "noark5/v4.0/spesifikasjoner/Noark5v4 vedl1 Metadatakatalog (word).docx", "git_blob_sha1": "2ffd12401554da1def1cd2ab186e951813c5735a"},
+    {"path": "noark5/v4.0/spesifikasjoner/Noark5v4 vedl2 Metadatakatalog gruppert på objekter (word).docx", "git_blob_sha1": "28a11cd1b523e131e416ac52c3dfacf19289b52c"},
+    {"path": "noark5/v4.0/spesifikasjoner/Noark5v4 vedl3 Logging av endringer (word).docx", "git_blob_sha1": "b4db27bb5489c1aa660c86d996da2e9a0e1524d2"},
+    {"path": "noark5/v4.0/spesifikasjoner/Noark5v4 vedl4 Eksempel på virksomhetsspesifikke metadata (word).docx", "git_blob_sha1": "31f7654171a6848529c74354bf8e9d020713eb98"},
+    {"path": "noark5/v4.0/spesifikasjoner/Noark5v4 vedl5 Eksempel på arkivuttrekk_xml (word).docx", "git_blob_sha1": "dbfb352f6fc61142a706419ae59abe30342fb037"},
+    {"path": "noark5/v5.0/spesifikasjoner/Noark 5 v 5.docx", "git_blob_sha1": "53d738b321cf2ec3016da2aaf120da7dd3efb157"},
+    {"path": "noark5/v5.0/spesifikasjoner/Noark 5 v 5 vedl1 Metadatakatalog.docx", "git_blob_sha1": "0a554fd28a6f5facf43615a88ac4e81bbcc4bf02"},
+    {"path": "noark5/v5.0/spesifikasjoner/Noark 5 v 5 vedl2 Metadatakatalog objektsortert.docx", "git_blob_sha1": "d8bf49202c79893a5d014098e4e2d4544bfbd5e8"},
+    {"path": "noark5/v5.0/spesifikasjoner/Noark 5 v 5 vedl3 Logging av endringer.docx", "git_blob_sha1": "adf27ef47357a2201ab9731965c919185a228294"}
+  ]
+}
