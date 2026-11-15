@@ -13,10 +13,11 @@ from PySide6.QtGui import QDesktopServices, QTextCursor, QTextOption
 from PySide6.QtWidgets import (
     QComboBox, QDialog, QFileDialog, QHBoxLayout, QHeaderView, QLabel,
     QLineEdit, QMessageBox, QPlainTextEdit, QPushButton, QSplitter,
-    QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget,
+    QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget, QTabWidget,
 )
 
 from app.noark5_xpath_regression_v021_a2 import source_crosswalk
+from app.noark5_xpath_metadata_qa_v021_a4 import build_metadata_qa, filter_metadata_rows
 from app.noark5_xpath_version_qa_v021_a3 import build_version_audit, filter_version_rows
 
 from app.noark5_xpath_audit_v021_a1 import (
@@ -67,6 +68,7 @@ class XPathCoverageDialog(QDialog):
         self._legacy = legacy_job_audit()
         self._source_audit = source_crosswalk(self._rows)["tests"]
         self._version_audit = build_version_audit(rows=self._rows, schema_root=self._schema_root)
+        self._metadata_audit = build_metadata_qa(rows=self._rows)
 
         outer = QVBoxLayout(self)
         intro = QLabel(
@@ -141,6 +143,23 @@ class XPathCoverageDialog(QDialog):
             'Gjelder versjons- og kildedekning, IKKE om Noark-kontrollen er bestått.')
         source_row.addWidget(self.version_qa_filter, 1)
         outer.addLayout(source_row)
+        meta_row = QHBoxLayout()
+        meta_row.addWidget(QLabel('Metadata / krav:', self))
+        self.metadata_filter = QComboBox(self)
+        for title, key in (
+            ('Alle koblinger', ''),
+            ('XPath omtaler metadatafelt', 'xpath_candidate'),
+            ('Eksplisitt verdi-settreferanse', 'explicit_value_set_reference'),
+            ('Ingen metadata-kandidat', 'no_metadata_candidate'),
+            ('XPath kan omtale registrert krav', 'requirement_candidate'),
+            ('Eksplisitt kravreferanse', 'explicit_requirement_reference'),
+        ):
+            self.metadata_filter.addItem(title, key)
+        self.metadata_filter.setToolTip(
+            'Kobling er ikke bevis for at M-feltet eller kravet er validert.')
+        meta_row.addWidget(self.metadata_filter, 1)
+        meta_row.addWidget(QLabel('Alle registrerte metadata og krav finnes i egen fane.', self), 2)
+        outer.addLayout(meta_row)
 
         self.summary = QLabel(self)
         self.summary.setWordWrap(True)
@@ -179,7 +198,42 @@ class XPathCoverageDialog(QDialog):
         splitter.setStretchFactor(0, 7)
         splitter.setStretchFactor(1, 5)
         splitter.setSizes((740, 500))
-        outer.addWidget(splitter, 1)
+        # A second work surface in the SAME dialog. No nested file picker or popup.
+        self.results_tabs = QTabWidget(self)
+        self.results_tabs.addTab(splitter, 'XPath-kontroller')
+        metadata_page = QWidget(self.results_tabs)
+        metadata_layout = QVBoxLayout(metadata_page)
+        metadata_layout.setContentsMargins(5, 5, 5, 5)
+        metadata_note = QLabel(
+            'Kilderegistrerte M-felt og normative krav per valgt Noark-versjon. '
+            'XPath-kandidater og verdi-settreferanser er IKKE bestått validering.',
+            metadata_page)
+        metadata_note.setWordWrap(True)
+        metadata_layout.addWidget(metadata_note)
+        self.metadata_summary = QLabel(metadata_page)
+        self.metadata_summary.setWordWrap(True)
+        metadata_layout.addWidget(self.metadata_summary)
+        self.metadata_splitter = QSplitter(Qt.Orientation.Horizontal, metadata_page)
+        self.metadata_splitter.setChildrenCollapsible(False)
+        self.metadata_table = QTreeWidget(self.metadata_splitter)
+        self.metadata_table.setRootIsDecorated(False)
+        self.metadata_table.setUniformRowHeights(True)
+        self.metadata_table.setHeaderLabels((
+            'Type', 'ID', 'Felt / krav', 'Noark', 'XPath-kandidater', 'Kobling'))
+        meta_header = self.metadata_table.header()
+        meta_header.setStretchLastSection(False)
+        for col, width in ((0, 85), (1, 120), (2, 260), (3, 68), (4, 122), (5, 190)):
+            meta_header.setSectionResizeMode(col, QHeaderView.ResizeMode.Interactive)
+            self.metadata_table.setColumnWidth(col, width)
+        self.metadata_splitter.addWidget(self.metadata_table)
+        self.metadata_detail = QPlainTextEdit(self.metadata_splitter)
+        self.metadata_detail.setReadOnly(True)
+        self.metadata_detail.setLineWrapMode(QPlainTextEdit.LineWrapMode.WidgetWidth)
+        self.metadata_splitter.addWidget(self.metadata_detail)
+        self.metadata_splitter.setSizes((650, 520))
+        metadata_layout.addWidget(self.metadata_splitter, 1)
+        self.results_tabs.addTab(metadata_page, 'Metadata og krav')
+        outer.addWidget(self.results_tabs, 1)
 
         bottom = QHBoxLayout()
         self.schema_info = QLabel(self)
@@ -204,9 +258,11 @@ class XPathCoverageDialog(QDialog):
         self.source.currentIndexChanged.connect(self._filter)
         self.mapping.currentIndexChanged.connect(self._filter)
         self.version_qa_filter.currentIndexChanged.connect(self._filter)
+        self.metadata_filter.currentIndexChanged.connect(self._filter)
         self.severity.currentIndexChanged.connect(self._filter)
         self.search.textChanged.connect(self._filter)
         self.table.itemSelectionChanged.connect(self._selection_changed)
+        self.metadata_table.itemSelectionChanged.connect(self._metadata_selection_changed)
         self.open_result.clicked.connect(self._open_result)
         self._refresh_schema_summary()
         self._refresh_source()
@@ -245,6 +301,10 @@ class XPathCoverageDialog(QDialog):
             matching, self._version_audit,
             version=str(self.version.currentData() or ''),
             state=str(self.version_qa_filter.currentData() or ''))
+        matching = filter_metadata_rows(
+            matching, self._metadata_audit,
+            version=str(self.version.currentData() or ''),
+            state=str(self.metadata_filter.currentData() or ''))
         selected_mapping = str(self.mapping.currentData() or '')
         source_problems = {'source_unavailable', 'source_not_found',
                            'source_xml_conflict', 'expression_incomplete'}
@@ -292,6 +352,72 @@ class XPathCoverageDialog(QDialog):
               '\nVersjons-QA: Deklarert anvendelse er ikke dokumentert normoppfyllelse. '
               'Status og kildebevis vises per valgt Noark-versjon.')
         self._selection_changed()
+        self._render_metadata()
+
+    def _render_metadata(self):
+        """Browse ALL registered M-fields / requirements, including without XPath."""
+        version = str(self.version.currentData() or '')
+        query = self.search.text().strip().casefold()
+        entries = []
+        for v in ((version,) if version else VERSIONS):
+            summary = self._metadata_audit['versions'][v]
+            for meta in summary['metadata']:
+                entries.append(meta)
+            for req in summary['requirements']:
+                entries.append(req)
+        if query:
+            entries = [entry for entry in entries if query in ' '.join(str(entry.get(k, ''))
+                       for k in ('metadata_id', 'requirement_id', 'name', 'summary',
+                                 'noark_version', 'xml_field_name')).casefold()]
+        previous = self.metadata_table.currentItem()
+        previous_key = previous.data(0, Qt.ItemDataRole.UserRole) if previous else None
+        self._metadata_entries = entries
+        self.metadata_table.blockSignals(True)
+        try:
+            self.metadata_table.clear()
+            chosen = None
+            for i, entry in enumerate(entries):
+                is_meta = entry['type'] == 'metadata'
+                label = entry['metadata_id'] if is_meta else entry['requirement_id']
+                title = entry['name'] if is_meta else entry['summary']
+                candidates = entry['xpath_candidates']
+                state = (entry['mapping_state'] if is_meta else entry['source_status'])
+                row = QTreeWidgetItem((
+                    'Metadata' if is_meta else 'Krav', label, title,
+                    entry['noark_version'], str(len(candidates)), state))
+                row.setData(0, Qt.ItemDataRole.UserRole, (entry['noark_version'], label))
+                row.setData(0, int(Qt.ItemDataRole.UserRole) + 1, i)
+                for col in range(row.columnCount()):
+                    row.setToolTip(col, row.text(col))
+                self.metadata_table.addTopLevelItem(row)
+                if previous_key == (entry['noark_version'], label):
+                    chosen = row
+            if chosen is None and self.metadata_table.topLevelItemCount():
+                chosen = self.metadata_table.topLevelItem(0)
+            if chosen is not None:
+                self.metadata_table.setCurrentItem(chosen)
+        finally:
+            self.metadata_table.blockSignals(False)
+        self.metadata_summary.setText(
+            f'{len(entries)} registrerte elementer vist. '
+            'Tomt/manglende kravregister = ennå ikke kildekartlagt, ikke ingen krav. '
+            'Ingen godkjenning beregnes her.')
+        self._metadata_selection_changed()
+
+    def _metadata_selection_changed(self):
+        selected = self.metadata_table.currentItem()
+        if selected is None:
+            self.metadata_detail.clear()
+            return
+        index = selected.data(0, int(Qt.ItemDataRole.UserRole) + 1)
+        if not isinstance(index, int) or not (0 <= index < len(self._metadata_entries)):
+            self.metadata_detail.clear()
+            return
+        entry = self._metadata_entries[index]
+        self.metadata_detail.setPlainText(
+            'METADATA / NORMATIVT KRAV - KILDEKOBLING (a4)\n'
+            'Kun katalog- og kildereferanser, ikke kontrollutfall.\n\n'
+            + _preview_json(entry, limit=75_000))
 
     def _version_qa_label(self, test_id):
         item = self._version_audit['tests'].get(test_id, {}).get('by_version', {})
@@ -357,6 +483,11 @@ class XPathCoverageDialog(QDialog):
             '', 'NOARK-VERSJON: KILDEKONTROLL (a3, ikke normativ godkjenning)',
             *(_preview_json(version_qa.get(v, {}), limit=12_000) for v in shown_versions),
             'En kobling til et verdi-sett dokumenterer bare referansen, ikke at feltet er validert.',
+            '', 'METADATA OG KRAV: MULIGE KOBLINGER (a4)',
+            *(_preview_json(self._metadata_audit['tests'].get(row.test_id, {})
+                            .get('by_version', {}).get(v, {}), limit=8_000)
+              for v in shown_versions),
+            'XPath-omtale og verdi-settreferanse er ikke en faglig M-feltvalidering.',
             '', 'STANDARDVERDIREFERANSER',
             *('  - ' + value for value in row.standard_checks),
         ]

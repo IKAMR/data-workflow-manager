@@ -42,6 +42,82 @@
         "directly_testable_from_extract": false,
         "reason": "Et statisk uttrekk kan ikke bevise at løsningen hindret nye koblinger etter avslutning."
       }
+    },
+    {
+      "requirement_id": "noark5.v5.class.class_id_mandatory",
+      "id_role": "local_registry_id",
+      "noark_version": "5.0",
+      "source_id": "noark5-5.0-metadata-catalog",
+      "source_location": "Noark 5 v5.0, Vedlegg 1 Metadatakatalog, M002 klasseID, side 4",
+      "verification_status": "verified",
+      "subject": "klasse",
+      "rule_type": "metadata_obligation",
+      "related_metadata_id": "M002",
+      "xml_field_name": "klasseID",
+      "normative_summary": "M002 klasseID er obligatorisk med én forekomst for klasse.",
+      "validation_relevance": "Direkte kontroll mulig i uttrekk når XML-struktur, kontekst og kardinalitet er verifisert.",
+      "extract_validation": {
+        "directly_testable_from_extract": true,
+        "implemented_as_dwm_control": false,
+        "reason": "Den eksisterende XPath-katalogen har bare potensielle feltkandidater, ingen verifisert kontekst- og kardinalitetsregel."
+      }
+    },
+    {
+      "requirement_id": "noark5.v5.folder.folder_id_mandatory",
+      "id_role": "local_registry_id",
+      "noark_version": "5.0",
+      "source_id": "noark5-5.0-metadata-catalog",
+      "source_location": "Noark 5 v5.0, Vedlegg 1 Metadatakatalog, M003 mappeID, side 4",
+      "verification_status": "verified",
+      "subject": "mappe",
+      "rule_type": "metadata_obligation",
+      "related_metadata_id": "M003",
+      "xml_field_name": "mappeID",
+      "normative_summary": "M003 mappeID er obligatorisk med én forekomst for mappe.",
+      "validation_relevance": "Direkte kontroll mulig i uttrekk når XML-struktur, kontekst og kardinalitet er verifisert.",
+      "extract_validation": {
+        "directly_testable_from_extract": true,
+        "implemented_as_dwm_control": false,
+        "reason": "Den eksisterende XPath-katalogen har bare potensielle feltkandidater, ingen verifisert kontekst- og kardinalitetsregel."
+      }
+    },
+    {
+      "requirement_id": "noark5.v5.document_object.version_number_mandatory",
+      "id_role": "local_registry_id",
+      "noark_version": "5.0",
+      "source_id": "noark5-5.0-metadata-catalog",
+      "source_location": "Noark 5 v5.0, Vedlegg 1 Metadatakatalog, M005 versjonsnummer, side 5",
+      "verification_status": "verified",
+      "subject": "dokumentobjekt",
+      "rule_type": "metadata_obligation",
+      "related_metadata_id": "M005",
+      "xml_field_name": "versjonsnummer",
+      "normative_summary": "M005 versjonsnummer er obligatorisk med én forekomst for dokumentobjekt.",
+      "validation_relevance": "Direkte kontroll mulig i uttrekk når XML-struktur, kontekst og kardinalitet er verifisert.",
+      "extract_validation": {
+        "directly_testable_from_extract": true,
+        "implemented_as_dwm_control": false,
+        "reason": "Den eksisterende XPath-katalogen har bare potensielle feltkandidater, ingen verifisert kontekst- og kardinalitetsregel."
+      }
+    },
+    {
+      "requirement_id": "noark5.v5.document_description.document_number_mandatory",
+      "id_role": "local_registry_id",
+      "noark_version": "5.0",
+      "source_id": "noark5-5.0-metadata-catalog",
+      "source_location": "Noark 5 v5.0, Vedlegg 1 Metadatakatalog, M007 dokumentnummer, side 6",
+      "verification_status": "verified",
+      "subject": "dokumentbeskrivelse",
+      "rule_type": "metadata_obligation",
+      "related_metadata_id": "M007",
+      "xml_field_name": "dokumentnummer",
+      "normative_summary": "M007 dokumentnummer er obligatorisk med én forekomst for dokumentbeskrivelse.",
+      "validation_relevance": "Direkte kontroll mulig i uttrekk når XML-struktur, kontekst og kardinalitet er verifisert.",
+      "extract_validation": {
+        "directly_testable_from_extract": true,
+        "implemented_as_dwm_control": false,
+        "reason": "Den eksisterende XPath-katalogen har bare potensielle feltkandidater, ingen verifisert kontekst- og kardinalitetsregel."
+      }
     }
   ]
 }

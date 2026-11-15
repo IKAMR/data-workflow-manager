@@ -45,6 +45,98 @@
       "notes": "Only explicitly source-verified properties are represented."
     },
     {
+      "metadata_id": "M002",
+      "name": "klasseID",
+      "noark_version": "5.0",
+      "source_id": "noark5-5.0-metadata-catalog",
+      "source_location": "Vedlegg 1 Metadatakatalog, M002 klasseID, side 4",
+      "verification_status": "verified",
+      "normative_properties": {
+        "obligation": "mandatory",
+        "occurrence": "one",
+        "definition": "Entydig identifikasjon av klassen innenfor klassifikasjonssystemet.",
+        "objects": [
+          "klasse"
+        ]
+      },
+      "machine_readable_scope": [
+        "identity",
+        "obligation",
+        "occurrence",
+        "object_applicability"
+      ],
+      "notes": "Source-verified 5.0 metadata properties only. Not proof of implemented XPath compliance."
+    },
+    {
+      "metadata_id": "M003",
+      "name": "mappeID",
+      "noark_version": "5.0",
+      "source_id": "noark5-5.0-metadata-catalog",
+      "source_location": "Vedlegg 1 Metadatakatalog, M003 mappeID, side 4",
+      "verification_status": "verified",
+      "normative_properties": {
+        "obligation": "mandatory",
+        "occurrence": "one",
+        "definition": "Entydig identifikasjon av mappen innenfor det arkivet mappen tilhører.",
+        "objects": [
+          "mappe"
+        ]
+      },
+      "machine_readable_scope": [
+        "identity",
+        "obligation",
+        "occurrence",
+        "object_applicability"
+      ],
+      "notes": "Source-verified 5.0 metadata properties only. Not proof of implemented XPath compliance."
+    },
+    {
+      "metadata_id": "M005",
+      "name": "versjonsnummer",
+      "noark_version": "5.0",
+      "source_id": "noark5-5.0-metadata-catalog",
+      "source_location": "Vedlegg 1 Metadatakatalog, M005 versjonsnummer, side 5",
+      "verification_status": "verified",
+      "normative_properties": {
+        "obligation": "mandatory",
+        "occurrence": "one",
+        "definition": "Identifikasjon av versjoner innenfor ett og samme dokument.",
+        "objects": [
+          "dokumentobjekt"
+        ]
+      },
+      "machine_readable_scope": [
+        "identity",
+        "obligation",
+        "occurrence",
+        "object_applicability"
+      ],
+      "notes": "Source-verified 5.0 metadata properties only. Not proof of implemented XPath compliance."
+    },
+    {
+      "metadata_id": "M007",
+      "name": "dokumentnummer",
+      "noark_version": "5.0",
+      "source_id": "noark5-5.0-metadata-catalog",
+      "source_location": "Vedlegg 1 Metadatakatalog, M007 dokumentnummer, side 6",
+      "verification_status": "verified",
+      "normative_properties": {
+        "obligation": "mandatory",
+        "occurrence": "one",
+        "definition": "Identifikasjon av dokumentene innenfor en registrering",
+        "objects": [
+          "dokumentbeskrivelse"
+        ]
+      },
+      "machine_readable_scope": [
+        "identity",
+        "obligation",
+        "occurrence",
+        "object_applicability"
+      ],
+      "notes": "Source-verified 5.0 metadata properties only. Not proof of implemented XPath compliance."
+    },
+    {
       "metadata_id": "M050",
       "name": "arkivstatus",
       "source_id": "noark5-5.0-metadata-catalog",

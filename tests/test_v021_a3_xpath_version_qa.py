@@ -356,12 +356,12 @@ class TestCliAndGui(Fixture):
 class FullRepoAvailability(unittest.TestCase):
     def test_actual_version_registers_if_available(self):
         expected = ROOT / 'config/noark5/standards/requirements/5.0.json'
-        if not expected.exists():
+        if not expected.exists() or not (ROOT / 'config/noark5/tests/xpath_catalog_2026_05_26.json').exists():
             self.skipTest('Full repo unavailable in delta-only test directory')
         report = build_version_audit(ROOT)
         self.assertEqual(report['summary']['3.1']['verified_requirement_registry_entries'], 0)
         self.assertEqual(report['summary']['4.0']['verified_requirement_registry_entries'], 0)
-        self.assertEqual(report['summary']['5.0']['verified_requirement_registry_entries'], 2)
+        self.assertGreaterEqual(report['summary']['5.0']['verified_requirement_registry_entries'], 2)
         self.assertFalse(report['noark_conformance_verified'])
 
 

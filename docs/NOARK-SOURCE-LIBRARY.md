@@ -1,9 +1,64 @@
 # Noark-kilder: Digital Archive Workflow
 
-**DWM sin faste referansesamling for Noark 3, 4 og 5 er**
-[IKAMR/digital-archive-workflow / docs/kilder/noark](https://github.com/IKAMR/digital-archive-workflow/tree/main/docs/kilder/noark).
-Samlingen forvaltes i et separat repo for å kunne brukes av flere verktøy og beholdes
-uavhengig av endringer i eksterne nettsteder. Originale kildefiler kopieres ikke inn i DWM.
+## Bindende kildepolicy for DWM og Noark 5-arbeid (2026-11-15)
+
+**IKAMRs autoritative, interne referansesamling (single source of truth) for Noark 5
+spesifikasjoner, vedlegg, eksempler og XML-skjemaer er repositoriet
+[`IKAMR/digital-archive-workflow`](https://github.com/IKAMR/digital-archive-workflow),
+under `docs/kilder/noark/noark5/`.** Den samlingen skal alltid konsulteres
+**før** annen kildesøking og **før** nye Noark-krav, metadata, XSD-regler,
+versjonskoblinger, XPath-kontroller eller dekningspåstander innføres i DWM.
+Dette gjelder spesielt de separate, fullstendige kildearkivene for
+**v3.1, v4.0 og v5.0**: hovedspesifikasjon, metadatakataloger, øvrige vedlegg,
+eksempel-XML og fem XSD-filer per versjon. DWM skal ikke erstatte dem med
+løsrevne nettfunn eller antakelser om at standardversjoner er like.
+
+**Normativt opphav og vår referansesamling er ulike ting:** Originale publikasjoner
+fra Riksarkivet/Arkivverket/Nasjonalarkivet er standardenes normative opphav.
+`digital-archive-workflow` er den **autoritative versjonerte kildesamlingen for
+vårt arbeid i IKAMR/DWM**. Kilderepoet har i dag uavklarte opphavs-/utgave-
+opplysninger for enkelte Noark 5-filer; dette skal registreres, ikke forties.
+
+### Fast arbeidsrekkefølge og avviksbehandling
+
+1. **Intern kilde først:** Åpne eksakt dokument/XSD for valgt Noark-versjon i
+   `IKAMR/digital-archive-workflow`; registrer filsti og den eksakte Git-commiten.
+   Sjekk relevant kravnummer, metadata-ID, avsnitt/side og/eller XSD-komponent.
+2. **Verifiser ved behov eksternt:** Sammenlign gjerne med Nasjonalarkivet,
+   Arkivverket, Riksarkivet eller andre etterprøvbare kilder; noter URL,
+   utgivelsesdato, versjon og eventuelle rettelsesutgaver. Et eksternt dokument
+   erstatter **aldri automatisk** innholdet i vår samling.
+3. **Ved ethvert avvik:** Opprett en sporbar **QA-sak for gjennomgang hos repositoriets eier** med begge
+   kilder, versjon, eksakte filnavn/komponenter, forskjell, konsekvens for DWM
+   og foreslått løsning. **Ikke endre originalkilder, normative kontrollregler
+   eller klassifiseringsstatus før repositoriets eier har gjennomgått saken.**
+4. **Etter QA-beslutning:** Oppdater eller utvid `digital-archive-workflow`
+   først dersom beslutningen tilsier det, med kildeproveniens, versjon, hash og
+   beslutningsreferanse. Deretter oppdateres DWM sine maskinlesbare registre,
+   tester, XPath-implementasjoner og dokumentasjon, med sporbar kobling tilbake.
+5. **Ingen stille harmonisering:** Ikke bland XSD-er mellom versjoner, ikke
+   erstatt lokale kilder med «nyeste» uten godkjenning, og ikke regn en omtale
+   av et metadatafelt i XPath som en implementert normativ validering.
+
+### Originale kilder til Noark 5 XPath-testene
+
+Den historiske **KDRS Query Standard/U1/U2**-kilden er
+[`IKAMR/KDRS_Query`](https://github.com/IKAMR/KDRS_Query), særlig
+`doc/xml-queries_noark5_2026-05-26.txt`,
+`doc/xml-queries_noark5_2026-05-26_U1.txt` og
+`doc/xml-queries_noark5_2026-05-26_U2.txt`.
+DWM har referansekopier under `docs/reference/kdrs-query/` og en egen
+maskinlesbar katalog under `config/noark5/tests/`.
+**KDRS Query er historisk testgrunnlag, ikke normativ Noark-spesifikasjon.**
+Ved semantiske endringer må alle tre sammenholdes; forskjeller skal dokumenteres
+og vurderes, ikke glattes over automatisk.
+
+**Obligatorisk ved enhver ny Noark 5-utviklingsøkt:** Les denne filen,
+`AGENTS.md` og de to originale kilde-repoenes relevante filer før implementasjon.
+Når kildegrunnlag ikke er tilgjengelig, oppgi begrensningen og unnlat å påstå
+at full kravdekning eller semantisk ekvivalens er verifisert.
+
+---
 
 ## Katalog (kontrollert 2026-11-13)
 

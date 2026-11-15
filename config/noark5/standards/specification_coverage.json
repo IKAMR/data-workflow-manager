@@ -46,8 +46,55 @@
             "inheritance",
             "condition"
           ]
+        },
+        {
+          "noark_version": "5.0",
+          "metadata_id": "M002",
+          "properties": [
+            "obligation",
+            "occurrence",
+            "definition",
+            "objects"
+          ]
+        },
+        {
+          "noark_version": "5.0",
+          "metadata_id": "M003",
+          "properties": [
+            "obligation",
+            "occurrence",
+            "definition",
+            "objects"
+          ]
+        },
+        {
+          "noark_version": "5.0",
+          "metadata_id": "M005",
+          "properties": [
+            "obligation",
+            "occurrence",
+            "definition",
+            "objects"
+          ]
+        },
+        {
+          "noark_version": "5.0",
+          "metadata_id": "M007",
+          "properties": [
+            "obligation",
+            "occurrence",
+            "definition",
+            "objects"
+          ]
         }
-      ]
+      ],
+      "a4_new_source_verified_metadata_ids_v5": [
+        "M002",
+        "M003",
+        "M005",
+        "M007"
+      ],
+      "a4_note": "Registered individual metadata facts for Noark 5 v5.0; not general cardinality verification, not automatically applicable to v3.1 or v4.0."
     },
     "requirements": {
       "registry": "config/noark5/standards/requirements/index.json",
@@ -56,9 +103,9 @@
       "verified_requirement_count": {
         "3.1": 0,
         "4.0": 0,
-        "5.0": 2
+        "5.0": 6
       },
-      "coverage_note": "Not complete. a23 proves the source-verification and provenance model with selected verified v5.0 requirements."
+      "coverage_note": "Partial, not full coverage. v0.2.1-a4 adds four source-located v5.0 metadata obligations (M002, M003, M005, M007); all six registered requirements remain separate from executed validation and conformance decisions."
     },
     "legacy_regression": {
       "registry": "config/noark5/analysis/u1_u2_coverage_2026_05_26.json",
