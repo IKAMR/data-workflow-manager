@@ -1,2 +1,6 @@
+# Installed by install.bat for both CLI and GUI Python environments.
 lxml>=5.0.0
 psutil>=5.9.0
+# Noark 5 a7: PDF text extraction for the local source-specification matrix.
+# Pure Python; no separate PDF install or native-wheel requirement.
+pypdf>=5.0.0

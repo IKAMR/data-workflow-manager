@@ -19,6 +19,9 @@ from PySide6.QtWidgets import (
 from app.noark5_xpath_regression_v021_a2 import source_crosswalk
 from app.noark5_xpath_metadata_qa_v021_a4 import build_metadata_qa, filter_metadata_rows
 from app.noark_semantic_values_v021_a6 import load_registry
+from app.noark5_requirement_matrix_v021_a7 import (
+    REPORT_TYPE as A7_MATRIX_REPORT_TYPE, filter_matrix_rows,
+)
 from app.noark5_xpath_version_qa_v021_a3 import build_version_audit, filter_version_rows
 
 from app.noark5_xpath_audit_v021_a1 import (
@@ -72,6 +75,8 @@ class XPathCoverageDialog(QDialog):
         self._metadata_audit = build_metadata_qa(rows=self._rows)
         self._semantic_registry = load_registry()
         self._semantic_entries = []
+        self._coverage_report = None
+        self._coverage_entries = []
 
         outer = QVBoxLayout(self)
         intro = QLabel(
@@ -272,6 +277,54 @@ class XPathCoverageDialog(QDialog):
         semantic_splitter.setSizes((720, 430))
         semantic_layout.addWidget(semantic_splitter, 1)
         self.results_tabs.addTab(semantic_page, 'Verdier og menings-ID')
+
+        # a7: inspect a read-only, locally generated matrix from our original
+        # Noark source checkout. No automatic normalization or normative pass.
+        coverage_page = QWidget(self.results_tabs)
+        coverage_layout = QVBoxLayout(coverage_page)
+        coverage_layout.setContentsMargins(5, 5, 5, 5)
+        coverage_note = QLabel(
+            'Teknisk kilde-/kravmatrise fra originalspesifikasjoner og 15 XSD-er. '
+            'FEIL/WARNING/NOTE gjelder kontroll av kilde- og testdekning, '
+            'ikke feil i et bestemt arkivuttrekk. Kildetreff er ikke bestått Noark-krav.',
+            coverage_page)
+        coverage_note.setWordWrap(True)
+        coverage_layout.addWidget(coverage_note)
+        coverage_controls = QHBoxLayout()
+        self.coverage_load = QPushButton('Åpne generert a7 QA-matrise (.json)...', coverage_page)
+        coverage_controls.addWidget(self.coverage_load)
+        coverage_controls.addWidget(QLabel('QA-status:', coverage_page))
+        self.coverage_status = QComboBox(coverage_page)
+        for label, state in (('Alle', ''), ('FEIL - kildekonflikt', 'FEIL'),
+                             ('WARNING - QA / manglende dekning', 'WARNING'),
+                             ('NOTE - kandidat / informasjon', 'NOTE')):
+            self.coverage_status.addItem(label, state)
+        coverage_controls.addWidget(self.coverage_status)
+        coverage_controls.addStretch(1)
+        coverage_layout.addLayout(coverage_controls)
+        self.coverage_summary = QLabel(coverage_page)
+        self.coverage_summary.setWordWrap(True)
+        coverage_layout.addWidget(self.coverage_summary)
+        coverage_splitter = QSplitter(Qt.Orientation.Horizontal, coverage_page)
+        coverage_splitter.setChildrenCollapsible(False)
+        self.coverage_table = QTreeWidget(coverage_splitter)
+        self.coverage_table.setRootIsDecorated(False)
+        self.coverage_table.setUniformRowHeights(True)
+        self.coverage_table.setHeaderLabels((
+            'QA', 'Noark', 'Type', 'ID / kilde', 'Felt / beskrivelse', 'XPath-kandidater'))
+        c_header = self.coverage_table.header()
+        c_header.setStretchLastSection(False)
+        for col, width in ((0, 85), (1, 65), (2, 95), (3, 205), (4, 255), (5, 120)):
+            c_header.setSectionResizeMode(col, QHeaderView.ResizeMode.Interactive)
+            self.coverage_table.setColumnWidth(col, width)
+        coverage_splitter.addWidget(self.coverage_table)
+        self.coverage_detail = QPlainTextEdit(coverage_splitter)
+        self.coverage_detail.setReadOnly(True)
+        self.coverage_detail.setLineWrapMode(QPlainTextEdit.LineWrapMode.WidgetWidth)
+        coverage_splitter.addWidget(self.coverage_detail)
+        coverage_splitter.setSizes((790, 400))
+        coverage_layout.addWidget(coverage_splitter, 1)
+        self.results_tabs.addTab(coverage_page, 'Kravmatrise og XSD')
         outer.addWidget(self.results_tabs, 1)
 
         bottom = QHBoxLayout()
@@ -303,6 +356,9 @@ class XPathCoverageDialog(QDialog):
         self.table.itemSelectionChanged.connect(self._selection_changed)
         self.metadata_table.itemSelectionChanged.connect(self._metadata_selection_changed)
         self.semantic_table.itemSelectionChanged.connect(self._semantic_selection_changed)
+        self.coverage_load.clicked.connect(self._choose_coverage_report)
+        self.coverage_status.currentIndexChanged.connect(self._render_coverage)
+        self.coverage_table.itemSelectionChanged.connect(self._coverage_selection_changed)
         self.open_result.clicked.connect(self._open_result)
         self._refresh_schema_summary()
         self._refresh_source()
@@ -394,6 +450,7 @@ class XPathCoverageDialog(QDialog):
         self._selection_changed()
         self._render_metadata()
         self._render_semantics()
+        self._render_coverage()
 
     def _render_metadata(self):
         """Browse ALL registered M-fields / requirements, including without XPath."""
@@ -459,6 +516,76 @@ class XPathCoverageDialog(QDialog):
             'METADATA / NORMATIVT KRAV - KILDEKOBLING (a4)\n'
             'Kun katalog- og kildereferanser, ikke kontrollutfall.\n\n'
             + _preview_json(entry, limit=75_000))
+
+    def _choose_coverage_report(self):
+        filename, _selected = QFileDialog.getOpenFileName(
+            self, 'Velg generert a7 QA-matrise', '', 'JSON (*.json)')
+        if not filename:
+            return
+        try:
+            path = Path(filename)
+            if not path.is_file() or path.stat().st_size > 20_000_000:
+                raise ValueError('Rapporten mangler eller er for stor.')
+            loaded = json.loads(path.read_text(encoding='utf-8-sig'))
+            if not isinstance(loaded, dict) or loaded.get('report_type') != A7_MATRIX_REPORT_TYPE:
+                raise ValueError('Ikke en gjenkjennelig a7-kildematrise.')
+            if loaded.get('noark_conformance_verified') is not False:
+                raise ValueError('Rapportens normative status er ukjent eller ugyldig.')
+            if set(loaded.get('versions', {})) != set(VERSIONS):
+                raise ValueError('Rapporten mangler en av de tre Noark-versjonene.')
+        except (OSError, UnicodeError, ValueError, TypeError) as exc:
+            QMessageBox.warning(self, 'QA-matrise', str(exc))
+            return
+        self._coverage_report = loaded
+        self._render_coverage()
+
+    def _render_coverage(self, *_unused):
+        """Filter saved QA evidence without rewriting, executing or approving it."""
+        self.coverage_table.blockSignals(True)
+        try:
+            self.coverage_table.clear()
+            self._coverage_entries = []
+            if not self._coverage_report:
+                self.coverage_summary.setText(
+                    'Ingen a7-matrise lastet. Generer den fra lokal digital-archive-workflow '
+                    'med a7 CLI og velg noark5-a7-matrix.json. Ingen Noark-krav er automatisk godkjent.')
+                self.coverage_detail.clear()
+                return
+            version = str(self.version.currentData() or '')
+            status = str(self.coverage_status.currentData() or '')
+            search = self.search.text().strip().casefold()
+            entries = filter_matrix_rows(
+                self._coverage_report, version=version, severity=status, query=search)
+            self._coverage_entries = entries
+            for idx, entry in enumerate(entries):
+                item = QTreeWidgetItem((str(entry['severity']), str(entry['version']),
+                    str(entry['kind']), str(entry['id']), str(entry['name']),
+                    str(entry['candidate_count'])))
+                item.setData(0, Qt.ItemDataRole.UserRole, idx)
+                for column in range(item.columnCount()):
+                    item.setToolTip(column, item.text(column))
+                self.coverage_table.addTopLevelItem(item)
+            if self.coverage_table.topLevelItemCount():
+                self.coverage_table.setCurrentItem(self.coverage_table.topLevelItem(0))
+            self.coverage_summary.setText(
+                f'{len(entries)} matrise- og QA-rader vist. '
+                f"Kildecommit: {self._coverage_report.get('source_checkout_commit') or 'ukjent'}. "
+                'Status gjelder kildesporing, ikke arkivuttrekkets valideringsutfall. '
+                'Alle normative krav er fortsatt under kartlegging.')
+        finally:
+            self.coverage_table.blockSignals(False)
+        self._coverage_selection_changed()
+
+    def _coverage_selection_changed(self):
+        selected = self.coverage_table.currentItem()
+        position = selected.data(0, Qt.ItemDataRole.UserRole) if selected else None
+        if not isinstance(position, int) or position < 0 or position >= len(self._coverage_entries):
+            self.coverage_detail.clear()
+            return
+        entry = self._coverage_entries[position]
+        self.coverage_detail.setPlainText(
+            'KILDE-/KRAVMATRISE: TEKNISK QA, IKKE NORMATIV GODKJENNING\n\n'
+            + _preview_json(entry['detail'], limit=75_000))
 
     def _render_semantics(self):
         """Show entire version-aware meaning catalogue, not Work's raw data."""

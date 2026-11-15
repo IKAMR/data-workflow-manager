@@ -121,3 +121,19 @@ leksikalske XPath-treff **når kilderepoet er lokalt tilgjengelig**.
 Dette verifiserer **ikke** normativ kravordlyd i PDF/DOCX/XLSX, og ingen
 KDRS/Saxon-formelekvivalens er bekreftet. Se
 `docs/NOARK5-SEMANTISK-VERDIREGISTER-V021-A6.md`.
+
+## 10. Videreføring a7: kildebasert metadata-/kravmatrise
+
+a6 er committet og pushet som `c6e491f862b6e4edaacdd6f53cf4cf035e116b97`.
+A7 introduserer `app/noark5_requirement_matrix_v021_a7.py` og fanen
+«Kravmatrise og XSD». Ved kjøring mot **lokalt** `digital-archive-workflow`
+oppbygges versjonsspesifikke spor for alle 15 XSD-er, registrerte M-typer,
+DWM-krav, testkandidater, tekniske restriksjoner og originaldokumenters
+M-ID-/nummererte teksttreff, med rapporter i egen QA-mappe utenfor repoene.
+
+**Status:** Testet mot syntetisk komplett 15-XSD-fixture og syntetiske
+DOCX-/XLSX-/PDF-kilder. Fullstendige originale PDF-/DOCX-/XLSX-kilder i
+`digital-archive-workflow` må leses og kravordlyden gjennomgås før noen
+normativ komplett-dekningspåstand er mulig. Ingen M300-korrigering eller
+egendefinerte-verdi-godkjenninger er gjennomført. Se
+`docs/NOARK5-KRAVMATRISE-XSD-V021-A7.md` for kjøring, filter og avgrensning.
