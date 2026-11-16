@@ -343,7 +343,8 @@ class TestCliAndGui(Fixture):
 
     def test_version_fields_synchronized(self):
         from version import VERSION
-        self.assertRegex(VERSION, r'^0\.2\.1(?:-a(?:[3-9]|[1-9][0-9]+))?$')
+        from tests.version_assertions import assert_release_at_least
+        assert_release_at_least(self, f'VERSION = "{VERSION}"', "0.2.1", 3)
         text = (ROOT / 'pyproject.toml').read_text(encoding='utf8')
         self.assertIn('version = "' + VERSION.replace('-a', 'a') + '"', text)
 

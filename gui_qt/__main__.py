@@ -1,4 +1,4 @@
-"""Qt desktop entry point with v0.2.0-a2 production-line navigation."""
+"""Qt desktop entry point with v0.2.2-a1 depot organization profiles."""
 from __future__ import annotations
 
 import sys
@@ -16,6 +16,7 @@ def main() -> int:
     from gui_qt.canonical_results_v0115_a3 import install_canonical_results_menu
     from gui_qt.start_shell_v020_a1 import install_setup_tab, install_start_navigation
     from gui_qt.production_home_v020_a2 import ProductionStartPage, install_integrated_home
+    from gui_qt.depot_profile_v022_a1 import install_depot_profile_controls
     from app.workbench_api_v020_a2 import DwmWorkbenchAPI
     from gui_qt.appearance_v0110_a3 import apply_appearance
     from gui_qt.combobox_popup_v020_a2 import install_dropdown_positioning
@@ -31,6 +32,9 @@ def main() -> int:
     window.v020_start_page_factory = ProductionStartPage
     install_start_navigation(window)
     install_integrated_home(window)
+    if not install_depot_profile_controls(window):
+        QMessageBox.warning(window, 'Depotprofil',
+                            'Rapporteringsarbeidsflaten mangler. Depotprofil kan ikke åpnes.')
     install_dropdown_positioning(application, window)
     window.show()
     if len(sys.argv) > 1:

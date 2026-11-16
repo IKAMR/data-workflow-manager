@@ -298,7 +298,8 @@ class TestRepoIntegration(unittest.TestCase):
     def test_versions_match(self):
         from version import VERSION
         # Historical a4 test must remain valid for later alphas/releases.
-        self.assertRegex(VERSION, r'^0\.2\.1(?:-a(?:[4-9]|[1-9][0-9]+))?$')
+        from tests.version_assertions import assert_release_at_least
+        assert_release_at_least(self, f'VERSION = "{VERSION}"', "0.2.1", 4)
         self.assertIn(f'version = "{VERSION.replace("-", "")}"',
                       (ROOT / 'pyproject.toml').read_text('utf8'))
 

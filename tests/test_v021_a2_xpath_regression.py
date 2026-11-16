@@ -312,7 +312,8 @@ class GUISourceContract(unittest.TestCase):
 
     def test_versions_are_synchronized(self):
         from version import VERSION
-        self.assertRegex(VERSION, r'^0\.2\.1(?:-a(?:[2-9]|[1-9][0-9]+))?$')
+        from tests.version_assertions import assert_release_at_least
+        assert_release_at_least(self, f'VERSION = "{VERSION}"', "0.2.1", 2)
         self.assertEqual((ROOT / 'version.py').read_text(encoding='utf8').count(VERSION), 1)
         import re
         project = (ROOT / 'pyproject.toml').read_text(encoding='utf8')
