@@ -28,32 +28,43 @@ teksttreff, XSD-validitet eller intern DWM-regresjon som normativ godkjenning.
    eksisterende rapporttjeneste; ingen parallelle rapportdatabaser, ingen
    omskriving av Source eller tidligere Work-rapporter.
 
-## Status etter v0.2.1-a15 – neste trinn
+## Status etter v0.2.1-a16 og godkjent arbeidsretning
 
-- **a14:** Lesbar, kildebundet forklaring før tekniske XML-linjer; oppgitt
-  DIAS/METS-system, roller, perioder og Noark-versjon i KS-/depotutkast med
-  SHA-256 og uten å overstyre kanonisk kilde. N5.22 er forklart som et
-  faktisk avvik ved uttrekk, ikke som en ugyldig M053-verdi.
-- **a15 (implementert, avventer Windows-test):** De to foreløpige sjekklistene
-  i `docs/reference-material/checklists/` brukes som kilde til en felles,
-  operatørstyrt sjekkliste i Depotvurdering: 49 manuelle kontrollpunkt, 8
-  fritekstfelt, Work kontra bevart METS, jobb-/arkivdelsbundet append-only
-  historikk og selektiv gjenbruk i KS-/depotrapport. Ingen automatisk J/N,
-  beslutning eller ny rapportmotor. Se
-  `docs/NOARK5-DEPOT-CHECKLIST-V021-A15.md`. Normative krav og flere
-  automatiserte regelprofiler må avklares med prosjektansvarlig.
-- **a16 (plan):** Håndter arkivskapers svar, oppfølging av restavvik,
-  sjekklistepunkt og faglig beslutningsgrunnlag med sporbarhet, ikke
-  automatisk godkjenning. Vis gjeldende og eldre Work-hendelser tydelig,
-  og avklar hvordan sjekklistepunkter inngår i samlet deponivurdering.
-- **a17 (plan):** Manuell depotgodkjenning på uttrekks-/arkivdelsnivå med
-  vurderingshistorikk, ansvarlig saksbehandler, forutsetninger og journalref.
-  Sjekkliste-status `Ja` er aldri automatisk en slik beslutning.
-- **Videre:** Verifisert KDRS/Saxon-paritet, bredere historisk 3.1/4.0/5.0-
-  sammenligning og foreslåtte/gjenbrukbare avvikstekster **etter** faglig
-  avklaring. Bevar Noark 4 som eget historisk format, ikke Noark 5 v4.0.
-- **Utsatt GUI-arbeid:** Vurder synlige `Periodevurdering`-/`Depotvurdering`-
-  knapper og bedre initial vindusstørrelse, uten å forskyve rapportprioritet.
+- **a15 (committet):** Felles arbeidsflate for depotets sjekkliste: 49
+  manuelle kontrollpunkter, 8 faglige tekstfelter, Work/METS-kildesporing
+  og separate mottakere i KS-/depotrapporter.
+- **a16 (leveres til testing):** Bevart ytre info.xml og indre DIAS METS
+  som separate, SHA-256-verifiserte Work-kilder; komplett tekst-/attributt-
+  inventar for kildefiler innenfor dokumenterte størrelsesgrenser; de 47
+  Arkade 5-feltene og de fire allerede eksisterende depotfeltene redigeres
+  i samme Work-metadata; øvrige XML-forekomster har egne kildebundne Work-
+  korreksjoner og append-only historikk. Like verdier vises nøytralt,
+  ulike/endrede utheves. Se `docs/NOARK5-DIAS-METADATA-V021-A16.md`.
+- **a16.1 (GUI-opprydding etter a16-test):** 47 Arkade-felt som
+  standardvisning, separate depotfelt, faglig gruppert tillegg fra METS,
+  teknisk XML-inventar i egen visning. Begge METS-representasjonene har
+  kildefelt per metadataelement med forventet plassering, faktisk
+  forekomst når bevart kilde er importert, kildeidentitet og SHA-256.
+  Se `docs/NOARK5-DIAS-METADATA-V021-A16-1.md`. Dette er en retting
+  over a16, ikke et nytt funksjonelt hovedtrinn.
+- **a17 (plan):** Konfigurerbar **depotprofil** uavhengig av Noark-teknisk
+  profil og DWM-brukeridentitet. Standard **Test Depot** med fiktive data,
+  logo/ikon og headeroppsett `Small / Medium / Full`. Depotidentitet
+  må aldri utledes automatisk fra METS `PRESERVATION` uten vurdering.
+- **a18 (plan):** **Én** kanonisk depot-sjekkliste fremfor to parallelle
+  DOCX-utkast. Bruk depotprofil for dokumentoppsett og velg eventuelt hvilke
+  METS-data som skal vises i header. Sjekkpunktene gjenbruker faktisk evidens,
+  men ingen kontroller blir automatisk godkjent.
+- **a19 (plan):** Valg mellom en **Enkel**, lineær arbeidsflyt for kontroll
+  og validering, og den eksisterende **Avansert** visningen. Begge bruker
+  nøyaktig samme jobb, kontrollmotorer, Work og rapportgrunnlag.
+- **a20 (plan):** Godkjenningsbrev med depotprofil, KS-/depotgrunnlag,
+  dokumenterte restavvik og eksplisitt manuell faglig beslutning.
+- **Supplerende:** Strømmebasert håndtering av svært store indre METS,
+  arkivskapers svar/avvikshåndtering, differansevisning mellom flere
+  kildeperioder, XML-innsyn fra funn, kontrast mellom dialoger og knappen
+  `Åpne mappe` for genererte artefakter. Verifisert KDRS/Saxon-paritet
+  og historisk Noark 5 v3.1/4.0/5.0-dekning fortsetter separat.
 
 ## Senere GUI-forbedringer og etterprøvbarhet (observert i a14-test)
 

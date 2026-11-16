@@ -51,7 +51,7 @@ class DepotChecklistDialog(QDialog):
         self.setMinimumSize(850, 610)
         layout = QVBoxLayout(self)
         note = QLabel(
-            "Arbeidsutkast basert på sjekkliste-mets.docx. Opplysningene fra Work/METS "
+            "Depotets felles sjekkliste. Opplysningene fra Work/METS "
             "er dokumentasjon, ikke automatisk beståtte kontrollpunkter. "
             "Sjekkpunktene vurderes manuelt og er ikke depotvedtak."
         )
@@ -140,6 +140,9 @@ class DepotChecklistDialog(QDialog):
         )
         source_note.setWordWrap(True)
         metadata_layout.addWidget(source_note)
+        self.complete_metadata_button = QPushButton("Komplett DIAS/METS: sammenlign og rediger metadata…", self)
+        self.complete_metadata_button.clicked.connect(self._open_complete_metadata)
+        metadata_layout.addWidget(self.complete_metadata_button)
         self.meta = QTableWidget(0, 3, self)
         self.meta.setHorizontalHeaderLabels(("Opplysning", "Registrert i Work", "Bevart METS info.xml"))
         self.meta.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -153,14 +156,15 @@ class DepotChecklistDialog(QDialog):
         self.meta_note.setWordWrap(True)
         metadata_layout.addWidget(self.meta_note)
         templates = QHBoxLayout()
-        for label, relative in (("Åpne METS-sjekkliste.docx", DOC_MET),
-                                ("Åpne eldre sjekkliste.docx", DOC_BASE)):
+        # The older checklist stays as history in repository; it is NOT a
+        # competing operational checklist. A18 will consolidate the documents.
+        for label, relative in (("Åpne sjekklisteutkast (kilde)…", DOC_MET),):
             button = QPushButton(label, self)
             button.clicked.connect(lambda checked=False, rel=relative: self._open_template(rel))
             templates.addWidget(button)
         templates.addStretch(1)
         metadata_layout.addLayout(templates)
-        self.tabs.addTab(metadata_page, "METS / kildedokumenter")
+        self.tabs.addTab(metadata_page, "Metadata og kilder")
 
         footer = QHBoxLayout()
         self.feedback = QLabel("")
@@ -247,6 +251,11 @@ class DepotChecklistDialog(QDialog):
                 cell = QTableWidgetItem(str(value))
                 if row["conflict"]:
                     cell.setToolTip("Ulike opplysninger i Work og bevart METS – krever menneskelig avstemming")
+                    if col == 1:  # highlight only current changed/contradictory value
+                        from PySide6.QtGui import QFont
+                        font = QFont(cell.font())
+                        font.setBold(True)
+                        cell.setFont(font)
                 self.meta.setItem(i, col, cell)
         orig = header.get("preserved_source")
         self.meta_note.setText(
@@ -322,6 +331,18 @@ class DepotChecklistDialog(QDialog):
             self.feedback.setText("Lagret sjekklistevurdering (ikke depotvedtak): " + event["event_id"])
         except (OSError, ValueError, ReportInputError, ChecklistError) as exc:
             QMessageBox.warning(self, "Kan ikke lagre sjekkpunkt", str(exc))
+
+    def _open_complete_metadata(self):
+        if not self._confirm_discard():
+            return
+        try:
+            from gui_qt.dias_metadata_v021_a16 import CompleteDiasMetadataDialog
+            dialog = CompleteDiasMetadataDialog(self._work, self._panel, self)
+        except (OSError, ValueError, ChecklistError) as exc:
+            QMessageBox.warning(self, "Komplett DIAS/METS-metadata", str(exc))
+            return
+        dialog.exec()
+        self._reload()  # reflect changes to the same canonical Work fields
 
     def _open_template(self, relative):
         root = Path(__file__).resolve().parents[1]

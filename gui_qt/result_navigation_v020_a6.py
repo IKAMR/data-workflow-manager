@@ -1,23 +1,31 @@
-"""v0.2.0-a6: compact result navigation and readable depot evidence.
+"""Compact result navigation; a16.2 makes professional review pages direct buttons.
 
-Existing result QTabWidget, tab pages, signals, per-tab actions and evidence
-models are kept in place. Only its tab bar is hidden; the grouped selector
-operates on the SAME tabs, including programmatic legacy navigation.
+The underlying result QTabWidget, original pages, signals and evidence models
+are unchanged. Group navigation uses the same original tabs; only the chooser
+for 'Faglig vurdering' is replaced with two directly visible, checkable buttons.
 """
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QTextCursor
 from PySide6.QtWidgets import (
-    QCheckBox, QComboBox, QHBoxLayout, QLabel, QTabBar, QVBoxLayout, QWidget,
+    QButtonGroup, QCheckBox, QComboBox, QHBoxLayout, QLabel, QPushButton,
+    QTabBar, QVBoxLayout, QWidget,
 )
 
 from app.depot_review_display_v020_a6 import readable_depot_review
 from app.result_tabs_v020_a6 import grouped_result_titles
 
 
+_REVIEW_GROUP = 'Faglig vurdering'
+_REVIEW_TITLES = ('Periodevurdering', 'Depotvurdering')
+
+
 class CompactResultNavigation(QWidget):
-    """Four short group tabs and a selector, without reparenting result pages."""
+    """Four short groups and direct buttons for professional assessments.
+
+    Legacy tab indexes and programmatic navigation remain authoritative.
+    """
 
     def __init__(self, tabs, parent):
         super().__init__(parent)
@@ -40,14 +48,60 @@ class CompactResultNavigation(QWidget):
             self.group_tabs.addTab(name)
         layout.addWidget(self.group_tabs)
 
-        chooser = QHBoxLayout()
-        chooser.addWidget(QLabel('Visning:', self))
-        self.view_choice = QComboBox(self)
+        # Existing selection remains available for all OTHER result groups.
+        # Hiding the whole container removes the otherwise confusing 'Visning:'
+        # label when direct assessment buttons are displayed.
+        self._choice_area = QWidget(self)
+        chooser = QHBoxLayout(self._choice_area)
+        chooser.setContentsMargins(0, 0, 0, 0)
+        chooser.addWidget(QLabel('Visning:', self._choice_area))
+        self.view_choice = QComboBox(self._choice_area)
         self.view_choice.setObjectName('v020_a6_result_choice')
         self.view_choice.setMinimumWidth(190)
         chooser.addWidget(self.view_choice)
         chooser.addStretch(1)
-        layout.addLayout(chooser)
+        layout.addWidget(self._choice_area)
+
+        self._review_area = QWidget(self)
+        self._review_area.setObjectName('v021_a16_2_assessment_buttons')
+        review_row = QHBoxLayout(self._review_area)
+        review_row.setContentsMargins(0, 0, 0, 0)
+        review_row.setSpacing(8)
+        self._review_button_group = QButtonGroup(self._review_area)
+        self._review_button_group.setExclusive(True)
+        self.review_buttons = {}
+        available = next((titles for name, titles in self.groups
+                          if name == _REVIEW_GROUP), ())
+        for title in _REVIEW_TITLES:
+            if title not in available:
+                continue
+            button = QPushButton(title, self._review_area)
+            button.setObjectName(
+                'v021_a16_2_period_review' if title == 'Periodevurdering'
+                else 'v021_a16_2_depot_review'
+            )
+            button.setCheckable(True)
+            button.setMinimumWidth(178)
+            button.setAccessibleName(title)
+            button.setToolTip('Vis ' + title.lower() + ' for valgt uttrekk')
+            # Clearly visible selection in both light and dark themes. The
+            # inactive state inherits the application's existing button style.
+            button.setStyleSheet(
+                'QPushButton:checked {'
+                ' background-color: #286e55; color: #ffffff;'
+                ' border: 2px solid #a7dac6; font-weight: bold;'
+                ' padding: 7px 14px; min-height: 24px;'
+                '}'
+                'QPushButton:!checked { padding: 7px 14px; min-height: 24px; }'
+            )
+            self._review_button_group.addButton(button)
+            button.clicked.connect(
+                lambda _checked=False, chosen=title: self._choose_title(chosen)
+            )
+            self.review_buttons[title] = button
+            review_row.addWidget(button)
+        review_row.addStretch(1)
+        layout.addWidget(self._review_area)
 
         tabs.currentChanged.connect(self.sync_from_original)
         self.group_tabs.currentChanged.connect(self._group_changed)
@@ -57,6 +111,18 @@ class CompactResultNavigation(QWidget):
     def _group_for(self, title: str) -> int:
         return next((index for index, (_, choices) in enumerate(self.groups)
                      if title in choices), 0)
+
+    def _update_assessment_buttons(self, group_index: int, title: str) -> None:
+        """Only professional assessment pages use direct buttons."""
+        is_review = (
+            0 <= group_index < len(self.groups)
+            and self.groups[group_index][0] == _REVIEW_GROUP
+            and bool(self.review_buttons)
+        )
+        self._choice_area.setVisible(not is_review)
+        self._review_area.setVisible(is_review)
+        for name, button in self.review_buttons.items():
+            button.setChecked(is_review and name == title)
 
     def sync_from_original(self, index):
         if self._syncing or index < 0 or index >= self.tabs.count():
@@ -75,6 +141,7 @@ class CompactResultNavigation(QWidget):
                 self.view_choice.addItem(name, name)
             self.view_choice.setCurrentIndex(self.view_choice.findData(title))
             self.view_choice.blockSignals(False)
+            self._update_assessment_buttons(group_index, title)
         finally:
             self._syncing = False
 
@@ -113,8 +180,6 @@ class ReadableDepotDetails:
         position = panel.layout().indexOf(panel.splitter)
         panel.layout().insertLayout(position, controls)
         self.raw.toggled.connect(self.refresh)
-        # Original panel selection and refresh behavior stay intact. Any
-        # inherited detail repaint is converted after it completes.
         panel.detail.textChanged.connect(self.refresh)
         self.refresh()
 
@@ -152,7 +217,6 @@ def install_compact_result_navigation(viewer):
     panel = getattr(viewer, '_a2_panel', None)
     if panel is not None:
         viewer._v020_a6_depot_details = ReadableDepotDetails(panel)
-    # Narrow-result side panes keep original data and raw view untouched.
     from .result_side_layout_v020_a6 import install_responsive_side_panels
     install_responsive_side_panels(viewer)
     return nav
