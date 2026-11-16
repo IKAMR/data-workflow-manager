@@ -449,6 +449,12 @@ def build_snapshot(*, work: Path, depot_report: str | None = None,
 def _report_body(s: dict, *, depot: bool) -> str:
     wi, identity = s["work_identity"], s["reported_identity"]
     d = s["dwm_summary"]
+    # a14 supplements the canonical fields with explicitly source-labelled
+    # Work/METS declarations; neither value overrides a canonical blank.
+    mets_excerpt = ""
+    if "a14_context" in s:
+        from .qa_context_v021_a14 import render_identity_excerpt
+        mets_excerpt = render_identity_excerpt(s)
     base = ("<h2>1. Uttrekk og kildeidentitet</h2>"
             "<p><b>Work-jobb:</b> " + _h(wi["job_id"]) + " / " + _h(wi["job_uid"]) +
             "<br><b>Uttrekk (fra DWM-jobbsti, ikke bekreftet):</b> " + _h(wi["extraction_label"]) +
@@ -456,7 +462,7 @@ def _report_body(s: dict, *, depot: bool) -> str:
             "<br><b>Periode (Arkade rapporterer):</b> " + _h(identity["period_from_arkade_not_verified"]) +
             "<br><b>Noark-versjon (kanonisk kilde):</b> " + _h(identity["noark_version_from_canonical"]) +
             "<br><b>Arkivskaper:</b> " + _h(identity["archive_creators_from_canonical"]) +
-            "<br><b>Arkiveier:</b> " + _h(identity["archive_owner_from_canonical"]) + "</p>"
+            "<br><b>Arkiveier:</b> " + _h(identity["archive_owner_from_canonical"]) + mets_excerpt + "</p>"
             "<p class='small'>Tomt felt betyr ukjent, aldri 0. System og periode er rapportert av ekstern validator, ikke bekreftet av arkivskaper. DWM-jobbens ID er ikke en verifisert identifikator for kildeuttrekket.</p>")
     metric_labels = (("archive_count", "Arkiv"), ("archive_part_count", "Arkivdeler"),
                      ("classification_system_count", "Klassifikasjonssystemer"),
@@ -557,6 +563,11 @@ def render_reports(snapshot: dict) -> dict[str, str]:
         from .qa_review_v021_a13 import review_html
         qa_body += review_html(snapshot, for_depot=False)
         depot_body += review_html(snapshot, for_depot=True)
+    if "a14_context" in snapshot:
+        # Read-only supplementary context; no changed a12/a13 findings or decisions.
+        from .qa_context_v021_a14 import render_context_html
+        qa_body += render_context_html(snapshot, depot=False)
+        depot_body += render_context_html(snapshot, depot=True)
     qa = _html("Kvalitetssikringsrapport til arkivskaper", meta, qa_body)
     de = _html("Depotets godkjennings- og ferdigstillingsrapport", meta, depot_body)
     index = _html("Noark 5 – kvalitetssikring og depotvurdering",meta,

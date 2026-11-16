@@ -28,6 +28,68 @@ teksttreff, XSD-validitet eller intern DWM-regresjon som normativ godkjenning.
    eksisterende rapporttjeneste; ingen parallelle rapportdatabaser, ingen
    omskriving av Source eller tidligere Work-rapporter.
 
+## Status etter v0.2.1-a14 – neste trinn
+
+- **a14:** Lesbar, kildebundet forklaring før tekniske XML-linjer; oppgitt
+  DIAS/METS-system, roller, perioder og Noark-versjon i KS-/depotutkast med
+  SHA-256 og uten å overstyre kanonisk kilde. N5.22 er forklart som et
+  faktisk avvik ved uttrekk, ikke som en ugyldig M053-verdi.
+- **a15 (plan):** Bruk de to foreløpige sjekklistene i
+  `docs/reference-material/checklists/` som *referansegrunnlag* for synlig,
+  operatørstyrt sjekkliste i eksisterende Depotvurdering. Kartlegg allerede
+  registrerte felt og evidens, uten å kreve full utfylling eller introdusere
+  en egen beslutnings-/rapportmotor. Avklar normative punkter med
+  prosjektansvarlig før de blir tvungne regler.
+- **a16 (plan):** Håndter arkivskapers svar, oppfølging av restavvik og
+  faglig beslutningsgrunnlag med sporbarhet, ikke automatisk godkjenning.
+- **Videre:** Verifisert KDRS/Saxon-paritet, bredere historisk 3.1/4.0/5.0-
+  sammenligning og foreslåtte/gjenbrukbare avvikstekster **etter** faglig
+  avklaring. Bevar Noark 4 som eget historisk format, ikke Noark 5 v4.0.
+- **Utsatt GUI-arbeid:** Vurder synlige `Periodevurdering`-/`Depotvurdering`-
+  knapper og bedre initial vindusstørrelse, uten å forskyve rapportprioritet.
+
+## Senere GUI-forbedringer og etterprøvbarhet (observert i a14-test)
+
+Prioriteres etter pågående Noark 5-rapporter og faglig vurdering, og avklares
+med prosjektansvarlig for implementering. Behold eksisterende Qt-rammeverk,
+Work-struktur og skrivebeskyttede kildegrunnlag.
+
+- **Åpne selve XML-forekomstene fra kontrollfunn:** Utvid detaljvisningen
+  `KS / depot -> N5.15/N5.22 -> Vis XML-linjenumre og kildehenvisninger...`
+  med lesbar visning av *faktisk element og noen kontekstlinjer* fra riktig
+  `arkivstruktur.xml`, for eksempel de 20 registreringene for N5.22.
+  Koble til test-ID, arkivdel/system-ID, dokumentert fil, linjenummer og
+  riktig run/evidensversjon. Vis rad/linjevis navigasjon, evt. kopier
+  utdrag. Original Source forblir uendret og skrivebeskyttet; verifiser
+  tilhørighet og filidentitet for navigering, og si tydelig fra hvis
+  kildefilen ikke er tilgjengelig eller er endret siden kontrollen.
+  Ingen stille linjeoppslag mot en annen versjon av XML-filen.
+- **Bedre visuell separasjon mellom dialogvinduer:** Operatøren mister
+  oversikten når flere mørke vinduer stables. Utred smal, kontrasterende
+  ytterramme/aktiv tittellinje (lysere i mørk modus, mørkere i lys),
+  tydelig fokus for aktivt vindu og mer dempet inaktivt vindu. Prøv
+  fargekontrast og Windows-tittellinjer i både lys og mørk modus.
+  Full fargeinvertering av en bred ramme eller egne rammeløse vinduer
+  er ikke et vedtatt tiltak. Bevar vanlig dra-/endre størrelse-/lukk-UI,
+  dialog-parenting, tastaturnavigasjon og plassering på riktig skjerm.
+- **Felles `Åpne mappe`-handling etter generering:** Der DWM lager rapport,
+  eksport, evidens eller annen fil i Work/valgt destinasjon, vis en tydelig
+  `Åpne rapportmappe` / `Åpne utdatamappe`-knapp ved siden av eventuell
+  `Åpne siste rapportpakke`. Knappen skal åpne *den faktiske mappen* i
+  filutforskeren, ikke bare `index.html`, og være deaktivert hvis
+  stien mangler. Bruk en felles Qt-handling, ikke separate kopier av
+  logikken. Ikke endre eller åpne Source for skriving.
+- **Tydeligere kildeperiode i rapporter:** a14-testen av `1525_004` viser
+  ulike oppgitte perioder: Arkade 5 `2005-01-24 - 2024-01-15`, Work/METS
+  `2005-01-01 - 2022-02-01`, mens METS-beskrivelsen har `2008-2022`.
+  Vis alle med kilde og datodefinisjon, og tilby faglig avstemming;
+  ikke velg ett tidsrom automatisk eller kall forskjellene feil uten
+  å dokumentere hvilken periode hvert felt beskriver.
+- **Supplerende METS-kontekst også i a20 Full-rapport:** a14 viser
+  kildebundet Work/METS i KS-/depotutkastene, ikke i den etablerte
+  tekniske a20 Full-rapporten. Vurder en lesbar kildemerket integrasjon
+  der uten å duplisere rapportmodell eller påstå bekreftet identitet.
+
 ## Videre: gjenbrukbare avvikstilfeller og forslag til håndtering (etter a13)
 
 - Registrer etter hvert **de vanligste, bekreftede avvikstilfellene** som egne,

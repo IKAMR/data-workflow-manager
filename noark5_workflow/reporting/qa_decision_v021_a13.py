@@ -29,7 +29,8 @@ def build_review_snapshot(*, work: str | Path, depot_report: str | None = None,
     base = build_snapshot(work=Path(work), depot_report=depot_report,
                           kdrs_qa=Path(kdrs_qa) if kdrs_qa else None,
                           arkade_evidence=arkade_evidence)
-    return with_selected_reviews(work, base)
+    from .qa_context_v021_a14 import enrich_snapshot
+    return enrich_snapshot(work, with_selected_reviews(work, base))
 
 
 def _safe_destination(destination: Path, work: Path, job: dict, jobs: tuple) -> None:
@@ -200,9 +201,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--preflight", action="store_true")
     args = parser.parse_args(argv)
     try:
-        snapshot = build_snapshot(work=Path(args.work), depot_report=args.depot_report,
-                                  kdrs_qa=Path(args.kdrs_qa) if args.kdrs_qa else None,
-                                  arkade_evidence=args.arkade_evidence)
+        snapshot = build_review_snapshot(work=Path(args.work), depot_report=args.depot_report,
+                                         kdrs_qa=Path(args.kdrs_qa) if args.kdrs_qa else None,
+                                         arkade_evidence=args.arkade_evidence)
         review = latest_reviews(args.work, snapshot)
         info = {"status": "DRAFT_REVIEW_REQUIRED",
                 "job_uid": snapshot["work_identity"]["job_uid"],
@@ -210,6 +211,9 @@ def main(argv: list[str] | None = None) -> int:
                 "faglig_vurderte": len(review["current"]),
                 "eldre_kildeversjoner": review["older_or_changed"],
                 "a20_included_via_cli": False,
+                "a14_mets_status": snapshot["a14_context"]["mets"]["status"],
+                "a14_noark_version": snapshot["a14_context"]["mets"]["version"]["version"],
+                "a14_noark_version_basis": snapshot["a14_context"]["mets"]["version"]["status"],
                 "formell_depotgodkjenning": False}
         if args.preflight:
             print(json.dumps(info, ensure_ascii=False, indent=2))

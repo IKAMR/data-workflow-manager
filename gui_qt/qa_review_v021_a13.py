@@ -14,13 +14,15 @@ from threading import Thread
 from PySide6.QtCore import Qt, QSettings, QTimer, QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
-    QAbstractItemView, QCheckBox, QComboBox, QDialog, QFileDialog, QHBoxLayout,
+    QAbstractItemView, QApplication, QCheckBox, QComboBox, QDialog, QFileDialog, QHBoxLayout,
     QHeaderView, QLabel, QLineEdit, QMessageBox, QPlainTextEdit, QPushButton,
     QSplitter, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
 from noark5_workflow.reporting.qa_decision_v021_a12 import build_snapshot, ReportInputError
+from noark5_workflow.reporting.qa_context_v021_a14 import enrich_snapshot, format_explanation
 from noark5_workflow.reporting.qa_decision_v021_a13 import export_review_bundle
+from noark5_workflow.reporting.qa_source_details_v021_a14 import format_source_details
 from noark5_workflow.reporting.qa_review_v021_a13 import (
     STATUSES, finding_key, latest_reviews, record_review,
 )
@@ -94,11 +96,23 @@ class QaFindingReviewDialog(QDialog):
         splitter.addWidget(self.table)
         editor = QWidget(splitter)
         form = QVBoxLayout(editor)
-        form.addWidget(QLabel("Kildedetaljer (skrivebeskyttet):"))
-        self.details = QPlainTextEdit(editor)
-        self.details.setReadOnly(True)
-        self.details.setMaximumHeight(128)
-        form.addWidget(self.details)
+        form.addWidget(QLabel("Hva er funnet, og hvorfor er det et avvik?"))
+        self.explanation = QPlainTextEdit(editor)
+        self.explanation.setReadOnly(True)
+        self.explanation.setMinimumHeight(95)
+        self.explanation.setMaximumHeight(154)
+        self.explanation.setPlaceholderText("Velg et funn for en kort, kildebasert forklaring.")
+        form.addWidget(self.explanation)
+        # Technical evidence is opened in its own resizable viewer. Expanding
+        # it inside this form previously squeezed long XML line lists into
+        # 118px and obscured the professional review controls.
+        source_row = QHBoxLayout()
+        self.source_toggle = QPushButton("Vis XML-linjenumre og kildehenvisninger…", editor)
+        self.source_toggle.setToolTip("Åpner lesbare tekniske detaljer i eget vindu (ikke XML-innhold).")
+        self.source_toggle.clicked.connect(self._open_source_details)
+        source_row.addWidget(self.source_toggle)
+        source_row.addStretch(1)
+        form.addLayout(source_row)
         row_status = QHBoxLayout()
         row_status.addWidget(QLabel("Faglig vurdering:"))
         self.status = QComboBox(editor)
@@ -128,8 +142,11 @@ class QaFindingReviewDialog(QDialog):
         actions.addStretch(1)
         form.addLayout(actions)
         splitter.addWidget(editor)
-        splitter.setStretchFactor(0, 5)
-        splitter.setStretchFactor(1, 5)
+        # Most review work happens in the explanation and note editor;
+        # reserve more initial space for it without changing window geometry.
+        splitter.setStretchFactor(0, 3)
+        splitter.setStretchFactor(1, 7)
+        splitter.setSizes([225, 555])
         outer.addWidget(splitter, 1)
 
         export = QHBoxLayout()
@@ -172,6 +189,44 @@ class QaFindingReviewDialog(QDialog):
         self._timer.timeout.connect(self._poll)
         self._reload()
 
+    def _open_source_details(self):
+        """Show full, scrollable evidence without shrinking the review form."""
+        selection = self.table.selectionModel().selectedRows()
+        if not selection:
+            QMessageBox.information(self, "Kildedetaljer", "Velg et funn først.")
+            return
+        index = selection[0].row()
+        if not 0 <= index < len(self._findings):
+            return
+        finding = self._findings[index]
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Tekniske kildedetaljer – " + str(finding.get("test_id") or "ukjent test"))
+        dialog.resize(950, 600)
+        dialog.setMinimumSize(650, 420)
+        layout = QVBoxLayout(dialog)
+        explanation = QLabel(
+            "Lesbare kildehenvisninger for valgt funn. Linjenumrene peker til XML-filen; "
+            "selve XML-innholdet vises ikke her. Alle opplysninger er skrivebeskyttet.", dialog
+        )
+        explanation.setWordWrap(True)
+        layout.addWidget(explanation)
+        details = QPlainTextEdit(dialog)
+        details.setReadOnly(True)
+        details.setLineWrapMode(QPlainTextEdit.LineWrapMode.WidgetWidth)
+        details.setPlainText(format_source_details(finding))
+        layout.addWidget(details, 1)
+        footer = QHBoxLayout()
+        copy = QPushButton("Kopier kildedetaljer", dialog)
+        copy.clicked.connect(lambda: QApplication.clipboard().setText(details.toPlainText()))
+        footer.addWidget(copy)
+        footer.addStretch(1)
+        close = QPushButton("Lukk", dialog)
+        close.clicked.connect(dialog.accept)
+        close.setDefault(True)
+        footer.addWidget(close)
+        layout.addLayout(footer)
+        dialog.exec()
+
     def _mark_dirty(self, *_args):
         if not self._loading_form:
             self._dirty = True
@@ -190,8 +245,8 @@ class QaFindingReviewDialog(QDialog):
         if self._uncommitted():
             return
         try:
-            candidate = build_snapshot(
-                work=self._work, depot_report=self._depot_path, kdrs_qa=self._kdrs_path)
+            candidate = enrich_snapshot(self._work, build_snapshot(
+                work=self._work, depot_report=self._depot_path, kdrs_qa=self._kdrs_path))
             findings = list(candidate["findings"])
             current = latest_reviews(self._work, candidate)["current"]
         except (ValueError, OSError, ReportInputError) as exc:
@@ -221,7 +276,7 @@ class QaFindingReviewDialog(QDialog):
             self.table.selectRow(0)
             self._choose_finding()
         else:
-            self.details.setPlainText("Ingen observerte funn i valgt rapportgrunnlag. Dette er ikke en godkjenning.")
+            self.explanation.setPlainText("Ingen registrerte kildefunn. Dette er ikke en godkjenning.")
         self.message.setText(f"{len(self._findings)} kildefunn · {len(self._current_reviews)} faglig vurdert. "
                              "Valgt rapportversjon er skrivebeskyttet.")
         return True
@@ -255,13 +310,7 @@ class QaFindingReviewDialog(QDialog):
         if key == self._active_key:
             return
         self._active_key = key
-        lines = ", ".join(str(x) for x in finding.get("lines") or [])
-        self.details.setPlainText(
-            "Test: " + str(finding.get("test_id")) + " | Kilde: " + str(finding.get("source")) +
-            " | Nivå: " + str(finding.get("severity")) + "\n" + str(finding.get("message")) +
-            "\nArkivdel/kontekst: " + str(finding.get("context") or "Ikke dokumentert") +
-            "\nFil/linje: " + str(finding.get("file") or "Ikke dokumentert") + " " + lines +
-            "\nEvidens: " + str(finding.get("source_ref") or "Ikke dokumentert"))
+        self.explanation.setPlainText(format_explanation(finding, self._snapshot["a14_context"]))
         saved = self._current_reviews.get(key)
         self._loading_form = True
         try:
