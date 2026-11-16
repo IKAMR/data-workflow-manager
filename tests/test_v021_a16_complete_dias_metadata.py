@@ -216,8 +216,15 @@ class A16MetadataTests(unittest.TestCase):
         self.assertIn("self.panel._identity()", editor)
         self.assertIn("QFont", editor)
         self.assertIn("if row[\"changed\"]", editor)
-        self.assertIn('VERSION = "0.2.1-a16"', (root / "version.py").read_text())
-        self.assertIn('version = "0.2.1a16"', (root / "pyproject.toml").read_text())
+        # Final release satisfies the historical a16 feature milestone.
+        from tests.version_assertions import assert_release_at_least
+        from version import VERSION
+        import tomllib
+        physical_version = (root / "version.py").read_text(encoding="utf-8")
+        assert_release_at_least(self, physical_version, "0.2.1", 16)
+        with (root / "pyproject.toml").open("rb") as handle:
+            distribution_version = tomllib.load(handle)["project"]["version"]
+        self.assertEqual(distribution_version, VERSION.replace("-a", "a"))
 
     def test_xml_occurrence_edit_is_source_bound_and_append_only(self):
         state = self._load()

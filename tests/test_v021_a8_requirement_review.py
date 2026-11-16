@@ -186,7 +186,8 @@ class A8ReviewTest(TestCase):
     def test_a8_version_matches_distribution(self):
         root=Path(__file__).resolve().parents[1]
         from version import VERSION
-        self.assertRegex(VERSION,r'^0\.2\.1-a(?:[8-9]|[1-9][0-9]+)$')
+        from tests.version_assertions import assert_release_at_least
+        assert_release_at_least(self, f'VERSION = "{VERSION}"', "0.2.1", 8)
         self.assertIn(f'version = "{VERSION.replace("-", "")}"',
                       (root/'pyproject.toml').read_text(encoding='utf-8'))
 
