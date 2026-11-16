@@ -30,7 +30,11 @@ def build_review_snapshot(*, work: str | Path, depot_report: str | None = None,
                           kdrs_qa=Path(kdrs_qa) if kdrs_qa else None,
                           arkade_evidence=arkade_evidence)
     from .qa_context_v021_a14 import enrich_snapshot
-    return enrich_snapshot(work, with_selected_reviews(work, base))
+    from .qa_checklist_v021_a15 import attach_checklist
+    # The same canonical a12 data now carries a13 notes, a14 provenance, and
+    # a15 *manual* checklist events. No second reporting/validation engine.
+    enriched = enrich_snapshot(work, with_selected_reviews(work, base))
+    return attach_checklist(work, enriched)
 
 
 def _safe_destination(destination: Path, work: Path, job: dict, jobs: tuple) -> None:

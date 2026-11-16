@@ -568,6 +568,12 @@ def render_reports(snapshot: dict) -> dict[str, str]:
         from .qa_context_v021_a14 import render_context_html
         qa_body += render_context_html(snapshot, depot=False)
         depot_body += render_context_html(snapshot, depot=True)
+    if "a15_checklist" in snapshot:
+        # a15 adds checklist responses to the SAME two established report
+        # drafts. Unselected professional notes never leak into a report.
+        from .qa_checklist_v021_a15 import checklist_html
+        qa_body += checklist_html(snapshot, depot=False)
+        depot_body += checklist_html(snapshot, depot=True)
     qa = _html("Kvalitetssikringsrapport til arkivskaper", meta, qa_body)
     de = _html("Depotets godkjennings- og ferdigstillingsrapport", meta, depot_body)
     index = _html("Noark 5 – kvalitetssikring og depotvurdering",meta,

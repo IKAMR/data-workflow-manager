@@ -1,4 +1,4 @@
-"""v0.2.1-a13: retain all a6 result navigation, add a13 human review entry."""
+"""v0.2.1-a15: retain a6 navigation plus a13 reviews and a15 depot checklist."""
 from __future__ import annotations
 
 from gui_qt.basic_main_v0113_a2 import DwmMainWindow as _ExistingMainWindow
@@ -11,9 +11,11 @@ class DwmMainWindow(_ExistingMainWindow):
         from gui_qt.result_navigation_v020_a6 import install_compact_result_navigation
         from gui_qt.noark5_xpath_audit_v021_a1 import install_xpath_catalog_link
         from gui_qt.qa_review_v021_a13 import install_qa_review_panel
+        from gui_qt.checklist_v021_a15 import install_depot_checklist
         for viewer in getattr(self, '_a12_result_windows', ()):
             if viewer not in existing:
                 install_compact_result_navigation(viewer)
                 install_xpath_catalog_link(viewer)
                 install_qa_review_panel(viewer)
+                install_depot_checklist(viewer)
         return outcome

@@ -28,20 +28,27 @@ teksttreff, XSD-validitet eller intern DWM-regresjon som normativ godkjenning.
    eksisterende rapporttjeneste; ingen parallelle rapportdatabaser, ingen
    omskriving av Source eller tidligere Work-rapporter.
 
-## Status etter v0.2.1-a14 – neste trinn
+## Status etter v0.2.1-a15 – neste trinn
 
 - **a14:** Lesbar, kildebundet forklaring før tekniske XML-linjer; oppgitt
   DIAS/METS-system, roller, perioder og Noark-versjon i KS-/depotutkast med
   SHA-256 og uten å overstyre kanonisk kilde. N5.22 er forklart som et
   faktisk avvik ved uttrekk, ikke som en ugyldig M053-verdi.
-- **a15 (plan):** Bruk de to foreløpige sjekklistene i
-  `docs/reference-material/checklists/` som *referansegrunnlag* for synlig,
-  operatørstyrt sjekkliste i eksisterende Depotvurdering. Kartlegg allerede
-  registrerte felt og evidens, uten å kreve full utfylling eller introdusere
-  en egen beslutnings-/rapportmotor. Avklar normative punkter med
-  prosjektansvarlig før de blir tvungne regler.
-- **a16 (plan):** Håndter arkivskapers svar, oppfølging av restavvik og
-  faglig beslutningsgrunnlag med sporbarhet, ikke automatisk godkjenning.
+- **a15 (implementert, avventer Windows-test):** De to foreløpige sjekklistene
+  i `docs/reference-material/checklists/` brukes som kilde til en felles,
+  operatørstyrt sjekkliste i Depotvurdering: 49 manuelle kontrollpunkt, 8
+  fritekstfelt, Work kontra bevart METS, jobb-/arkivdelsbundet append-only
+  historikk og selektiv gjenbruk i KS-/depotrapport. Ingen automatisk J/N,
+  beslutning eller ny rapportmotor. Se
+  `docs/NOARK5-DEPOT-CHECKLIST-V021-A15.md`. Normative krav og flere
+  automatiserte regelprofiler må avklares med prosjektansvarlig.
+- **a16 (plan):** Håndter arkivskapers svar, oppfølging av restavvik,
+  sjekklistepunkt og faglig beslutningsgrunnlag med sporbarhet, ikke
+  automatisk godkjenning. Vis gjeldende og eldre Work-hendelser tydelig,
+  og avklar hvordan sjekklistepunkter inngår i samlet deponivurdering.
+- **a17 (plan):** Manuell depotgodkjenning på uttrekks-/arkivdelsnivå med
+  vurderingshistorikk, ansvarlig saksbehandler, forutsetninger og journalref.
+  Sjekkliste-status `Ja` er aldri automatisk en slik beslutning.
 - **Videre:** Verifisert KDRS/Saxon-paritet, bredere historisk 3.1/4.0/5.0-
   sammenligning og foreslåtte/gjenbrukbare avvikstekster **etter** faglig
   avklaring. Bevar Noark 4 som eget historisk format, ikke Noark 5 v4.0.
@@ -85,7 +92,7 @@ Work-struktur og skrivebeskyttede kildegrunnlag.
   Vis alle med kilde og datodefinisjon, og tilby faglig avstemming;
   ikke velg ett tidsrom automatisk eller kall forskjellene feil uten
   å dokumentere hvilken periode hvert felt beskriver.
-- **Supplerende METS-kontekst også i a20 Full-rapport:** a14 viser
+- **Supplerende METS-kontekst også i a20 Full-rapport:** a14/a15 viser
   kildebundet Work/METS i KS-/depotutkastene, ikke i den etablerte
   tekniske a20 Full-rapporten. Vurder en lesbar kildemerket integrasjon
   der uten å duplisere rapportmodell eller påstå bekreftet identitet.
