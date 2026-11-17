@@ -184,7 +184,11 @@ def prepare_basic_plan(source: str | Path, selected_work: str | Path,
 
 
 def existing_basic_job(api, plan: BasicControlPlan) -> str | None:
-    """Reuse an identical job; never reinterpret an old nested Work layout."""
+    """Reuse an existing Source/Work job with the same control membership.
+
+    a6: Manual reordering of the *same* controls must not make a registered
+    job unusable from Basic or cause a duplicate job to be created.
+    """
     for job in api.workspace().jobs:
         if not _same_path(job.source_extraction, plan.source_extraction):
             continue
@@ -194,7 +198,9 @@ def existing_basic_job(api, plan: BasicControlPlan) -> str | None:
         ):
             details = api.job_details(job.job_id)
             operations = tuple(operation.operation_id for operation in details.operations)
-            if operations != plan.operation_ids:
+            # Membership, not ordering, is what Basic's checkboxes select.
+            # Incompatible *membership* is still rejected as before.
+            if sorted(operations) != sorted(plan.operation_ids):
                 raise ValueError(
                     'Det finnes allerede en jobb med denne Source- og Work-plasseringen, '
                     'men med en annen arbeidsflyt. Åpne Avansert modus eller velg en annen Work-mappe.'

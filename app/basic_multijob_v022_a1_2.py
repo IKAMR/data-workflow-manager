@@ -11,6 +11,8 @@ import os
 from pathlib import Path
 from typing import Callable
 
+from app.workflow_order_v022_a6 import preserved_basic_order
+
 
 @dataclass(frozen=True)
 class Registration:
@@ -69,15 +71,19 @@ def register_basic_plan(api, plan, *, selected_job_id: str | None = None,
                              'for en ny jobb; eksisterende jobb overskrives ikke.')
         details = api.job_details(current.job_id)
         current_ops = tuple(operation.operation_id for operation in details.operations)
-        changed = current_ops != tuple(plan.operation_ids)
+        # Preserve an operator-chosen per-job sequence when Basic simply
+        # re-registers the same checked controls on Save/Start/mode switching.
+        # Only a real addition/removal of controls regenerates the Basic order.
+        proposed = preserved_basic_order(current_ops, plan.operation_ids)
+        changed = current_ops != proposed
         if changed:
-            api.set_workflow(current.job_id, plan.operation_ids)
+            api.set_workflow(current.job_id, proposed)
         api.select_job(current.job_id)
         return Registration(current.job_id, False, changed)
 
     if matching is not None:
         current_ops = tuple(op.operation_id for op in api.job_details(matching.job_id).operations)
-        if current_ops != tuple(plan.operation_ids):
+        if sorted(current_ops) != sorted(plan.operation_ids):
             raise ValueError('Source og Work tilhører allerede ' + matching.job_id +
                              ' med andre kontroller. Velg jobben i jobbvelgeren for å endre.')
         api.select_job(matching.job_id)
