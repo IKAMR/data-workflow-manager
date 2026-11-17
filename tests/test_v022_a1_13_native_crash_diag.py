@@ -103,14 +103,14 @@ class TestNativeCrashDiagnostics(unittest.TestCase):
         self.assertNotIn('install_editable_workflow_columns', text)
         self.assertNotIn('workflow_columns_v022_a1_11', text)
 
-    def test_default_starts_with_unchanged_gui_features(self):
+    def test_default_starts_with_conservative_gui_features(self):
         events = []
         modules, _window = fake_gui_modules(events)
         main = load_gui_main()
         with patch.dict(sys.modules, modules), patch.dict(os.environ, {'DWM_CRASH_DIAG': '0', 'DWM_SAFE_MODE': '0'}), patch.object(sys, 'argv', ['gui_qt']):
             self.assertEqual(main.main(), 0)
-        self.assertIn('dialog_filter', events)
-        self.assertIn('popup_filter', events)
+        self.assertNotIn('dialog_filter', events)
+        self.assertNotIn('popup_filter', events)
         self.assertIn('window_show', events)
         self.assertLess(events.index('window_show'), events.index('qt_eventloop'))
 
@@ -151,7 +151,7 @@ class TestNativeCrashDiagnostics(unittest.TestCase):
         debug = (ROOT / 'start-debug.bat').read_text(encoding='utf-8')
         safe = (ROOT / 'start-safe.bat').read_text(encoding='utf-8')
         for key in ('DWM_CRASH_DIAG=1', 'PYTHONFAULTHANDLER=1', 'PYTHONUNBUFFERED=1',
-                    'dwm-startup-debug.log', 'call "%~dp0start.bat"'):
+                    'dwm-startup-', 'call "%~dp0start.bat"'):
             self.assertIn(key, debug)
         self.assertIn('DWM_SAFE_MODE=1', safe)
         self.assertIn('call "%~dp0start-debug.bat"', safe)

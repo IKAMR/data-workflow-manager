@@ -33,13 +33,21 @@ def main() -> int:
     from gui_qt.depot_profile_v022_a1 import install_depot_profile_controls
     from app.workbench_api_v020_a2 import DwmWorkbenchAPI
     from gui_qt.appearance_v0110_a3 import apply_appearance
-    from gui_qt.combobox_popup_v020_a2 import install_dropdown_positioning
-    from gui_qt.file_dialog_contrast_v022_a1_10 import install_file_dialog_navigation_contrast
+    from gui_qt.qt_startup_policy_v022_a1_14 import select_qt_startup_features
 
     _boot_phase("04 Imports complete, before QApplication")
-    safe_mode = os.environ.get("DWM_SAFE_MODE") == "1"
-    if safe_mode:
-        _boot_phase("SAFE mode: skip optional global GUI filters and automatic resizing")
+    # Historical Windows reports include 0xC0000005 and a partially painted
+    # main window. The native root cause is not yet proved. Do not install
+    # optional global QObject filters or trigger the competing Qt geometry
+    # controller on normal startup; they are opt-in diagnostic experiments.
+    features = select_qt_startup_features(os.environ)
+    _boot_phase(
+        "Qt startup profile: "
+        + ("SAFE" if features.safe_mode else "STABLE")
+        + f", file_dialog_filter={int(features.dialog_filter)}"
+        + f", popup_filter={int(features.popup_filter)}"
+        + f", basic_auto_fit={int(features.basic_auto_fit)}"
+    )
     application = QApplication(sys.argv)
     _boot_phase("05 QApplication created")
     application.setOrganizationName('IKAMR')
@@ -50,7 +58,8 @@ def main() -> int:
     _boot_phase("08 Before applying appearance")
     apply_appearance(application, api.settings)
     _boot_phase("09 Appearance applied")
-    if not safe_mode:
+    if features.dialog_filter:
+        from gui_qt.file_dialog_contrast_v022_a1_10 import install_file_dialog_navigation_contrast
         install_file_dialog_navigation_contrast(application)
     _boot_phase("10 File-dialog filter stage complete")
     install_setup_tab()
@@ -58,9 +67,15 @@ def main() -> int:
     install_setup_reset_actions()
     _boot_phase("11 Setup hooks installed, before main-window construction")
     window = DwmMainWindow(api)
-    if safe_mode:
-        # Avoid optional timer-based window resizing without saving a setting.
+    if not features.basic_auto_fit:
+        # The Basic mixin has already queued a 0-ms fit callback. Disable it
+        # before show()/the event loop so it cannot race the older window
+        # restoration controller. Do not persist or reset user preferences.
         window._v022_fit_ready = False
+        # This control cannot do anything while the feature is suspended.
+        fit_control = getattr(window, 'v022_fit_window_button', None)
+        if fit_control is not None:
+            fit_control.hide()
     _boot_phase("12 Main window constructed")
     install_canonical_results_menu(window)
     _boot_phase("13 Result navigation installed")
@@ -72,7 +87,8 @@ def main() -> int:
     if not install_depot_profile_controls(window):
         QMessageBox.warning(window, 'Depotprofil',
                             'Rapporteringsarbeidsflaten mangler. Depotprofil kan ikke åpnes.')
-    if not safe_mode:
+    if features.popup_filter:
+        from gui_qt.combobox_popup_v020_a2 import install_dropdown_positioning
         install_dropdown_positioning(application, window)
     _boot_phase("16 Optional popup filter stage complete")
     _boot_phase("17 Before window.show")
