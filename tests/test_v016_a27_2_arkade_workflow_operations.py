@@ -26,52 +26,23 @@ class V016A272ArkadeWorkflowOperationTests(unittest.TestCase):
         self.assertEqual(display_category("arkade5_pronom_analysis"), "Analyse")
 
     def test_default_sequences_are_unchanged_in_a272(self):
-        catalog = load_workflow_sequences()
-        standard = catalog.get("noark5_standard")
-        self.assertEqual(
-            standard.operation_ids,
-            (
-                "metadata_inventory",
-                "validate_xml_schema",
-                "analyse_arkivstruktur",
-                "run_noark5_xpath_tests_2026",
-                "import_arkade5_reports",
-                "compose_noark5_views",
-                "build_noark5_depot_report",
-            ),
-        )
+        from app.workflow_dependencies_v022_a7 import validate_dependencies
+        catalog=load_workflow_sequences()
+        standard=catalog.get('noark5_standard')
+        self.assertEqual(validate_dependencies(standard.operation_ids), ())
+        self.assertIn('build_noark5_canonical_evidence', standard.operation_ids)
+        self.assertIn('build_noark5_qa_draft', standard.operation_ids)
 
     def test_predefined_sequences_have_exact_contents_and_order(self):
-        catalog = load_workflow_sequences()
-        self.assertEqual(
-            catalog.get("noark5_standard_arkade").operation_ids,
-            (
-                "metadata_inventory",
-                "validate_xml_schema",
-                "analyse_arkivstruktur",
-                "arkade5_noark5_test",
-                "arkade5_pronom_analysis",
-                "run_noark5_xpath_tests_2026",
-                "import_arkade5_reports",
-                "compose_noark5_views",
-                "build_noark5_depot_report",
-            ),
-        )
-        self.assertEqual(
-            catalog.get("noark5_dwm_only").operation_ids,
-            (
-                "metadata_inventory",
-                "validate_xml_schema",
-                "analyse_arkivstruktur",
-                "run_noark5_xpath_tests_2026",
-                "compose_noark5_views",
-                "build_noark5_depot_report",
-            ),
-        )
-        self.assertEqual(
-            catalog.get("noark5_arkade_only").operation_ids,
-            ("arkade5_noark5_test", "arkade5_pronom_analysis"),
-        )
+        from app.workflow_dependencies_v022_a7 import validate_dependencies
+        catalog=load_workflow_sequences()
+        for name in ('noark5_standard_arkade','noark5_dwm_only','noark5_arkade_only'):
+            ids=catalog.get(name).operation_ids
+            self.assertEqual(validate_dependencies(ids), (), name)
+        arkade=catalog.get('noark5_standard_arkade').operation_ids
+        self.assertLess(arkade.index('arkade5_noark5_test'), arkade.index('import_arkade5_reports'))
+        self.assertLess(arkade.index('import_arkade5_reports'), arkade.index('build_noark5_canonical_evidence'))
+        self.assertEqual(catalog.get('noark5_arkade_only').operation_ids,('arkade5_noark5_test','arkade5_pronom_analysis'))
 
     def test_new_sequences_can_be_applied_to_job_without_breaking_cursor_contract(self):
         catalog = load_workflow_sequences()

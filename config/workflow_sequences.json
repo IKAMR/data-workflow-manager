@@ -3,24 +3,27 @@
   "sequences": [
     {
       "sequence_id": "noark5_standard",
-      "name": "Noark 5 – standard",
+      "name": "Noark 5 \u2013 standard",
       "profile_id": "noark5",
-      "description": "Standardløype der individuelle Noark 5-testresultater er master. Lokale Arkade 5 Noark 5-rapporter oppdages og importeres som separat ekstern evidens før resultatvisninger og depotrapport bygges. Historisk U1/U2 og regresjonskjøring inngår ikke i ordinær kjøring.",
+      "description": "Individuelle DWM Noark 5-tester er master. Etterbehandling og evidens bygges etter kontrollene.",
       "operation_ids": [
         "metadata_inventory",
         "validate_xml_schema",
         "analyse_arkivstruktur",
         "run_noark5_xpath_tests_2026",
-        "import_arkade5_reports",
+        "build_noark5_canonical_evidence",
+        "analyze_noark5_external_evidence",
+        "audit_noark5_evidence",
         "compose_noark5_views",
-        "build_noark5_depot_report"
+        "build_noark5_depot_report",
+        "build_noark5_qa_draft"
       ]
     },
     {
       "sequence_id": "noark5_standard_arkade",
-      "name": "Noark 5 – standard + Arkade",
+      "name": "Noark 5 \u2013 standard + Arkade",
       "profile_id": "noark5",
-      "description": "Standardløype med Arkade 5 Noark 5-test og PRONOM-analyse lagt inn før individuelle Noark 5-testresultater, import av Arkade-rapporter, visninger og depotrapport.",
+      "description": "Komplett Noark 5-lop med Arkade 5, normalisering, evidens, resultatvisninger, depotrapport og KS-grunnlag.",
       "operation_ids": [
         "metadata_inventory",
         "validate_xml_schema",
@@ -29,43 +32,55 @@
         "arkade5_pronom_analysis",
         "run_noark5_xpath_tests_2026",
         "import_arkade5_reports",
+        "build_noark5_canonical_evidence",
+        "analyze_noark5_external_evidence",
+        "audit_noark5_evidence",
         "compose_noark5_views",
-        "build_noark5_depot_report"
+        "build_noark5_depot_report",
+        "build_noark5_qa_draft"
       ]
     },
     {
       "sequence_id": "noark5_dwm",
-      "name": "Noark 5 – DWM uten Arkade",
+      "name": "Noark 5 \u2013 DWM uten Arkade",
       "profile_id": "noark5",
-      "description": "Komplett DWM-løype uten Arkade 5-import: metadata, XML/XSD, struktur, Noark 5-tester, resultatvisninger og depotrapport.",
+      "description": "Komplett DWM-lop uten Arkade: metadata, XML/XSD, XPath, intern evidens og rapportering.",
       "operation_ids": [
         "metadata_inventory",
         "validate_xml_schema",
         "analyse_arkivstruktur",
         "run_noark5_xpath_tests_2026",
+        "build_noark5_canonical_evidence",
+        "analyze_noark5_external_evidence",
+        "audit_noark5_evidence",
         "compose_noark5_views",
-        "build_noark5_depot_report"
+        "build_noark5_depot_report",
+        "build_noark5_qa_draft"
       ]
     },
     {
       "sequence_id": "noark5_dwm_only",
-      "name": "Noark 5 – DWM only",
+      "name": "Noark 5 \u2013 DWM only",
       "profile_id": "noark5",
-      "description": "DWM-løypen uten Arkade 5. Brukes for ren DWM-kjøring uten ekstern Arkade-tests.",
+      "description": "DWM-lop uten Arkade og med etterbehandling av de faktiske DWM-resultatene.",
       "operation_ids": [
         "metadata_inventory",
         "validate_xml_schema",
         "analyse_arkivstruktur",
         "run_noark5_xpath_tests_2026",
+        "build_noark5_canonical_evidence",
+        "analyze_noark5_external_evidence",
+        "audit_noark5_evidence",
         "compose_noark5_views",
-        "build_noark5_depot_report"
+        "build_noark5_depot_report",
+        "build_noark5_qa_draft"
       ]
     },
     {
       "sequence_id": "noark5_arkade_only",
-      "name": "Noark 5 – Arkade only",
+      "name": "Noark 5 \u2013 Arkade only",
       "profile_id": "noark5",
-      "description": "Kun Arkade 5-operasjonene for Noark 5-test og PRONOM-analyse uten DWM-resultatvisninger/depotrapport.",
+      "description": "Kun Arkade Noark 5 og PRONOM uten XPath-master og kanonisk DWM-indeks.",
       "operation_ids": [
         "arkade5_noark5_test",
         "arkade5_pronom_analysis"
@@ -73,9 +88,9 @@
     },
     {
       "sequence_id": "noark5_analyse",
-      "name": "Noark 5 – grunnkontroll",
+      "name": "Noark 5 \u2013 grunnkontroll",
       "profile_id": "noark5",
-      "description": "Metadata, XML/XSD, struktur og individuelle Noark 5-tester. Resultatene fra de individuelle testene er master for videre sammenstilling.",
+      "description": "Metadata, XML/XSD, struktur og individuelle Noark 5-tester uten rapportetterbehandling.",
       "operation_ids": [
         "metadata_inventory",
         "validate_xml_schema",

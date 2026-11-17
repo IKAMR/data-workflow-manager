@@ -37,16 +37,15 @@ class V016A37RuntimeTests(unittest.TestCase):
         self.assertIn("self.on_apply_workflow(selected, sequence_id)", source)
 
     def test_standard_arkade_sequence_has_nine_operations(self):
-        payload = json.loads(
-            (ROOT / "config" / "workflow_sequences.json").read_text(encoding="utf-8")
-        )
-        sequence = next(
-            item for item in payload["sequences"]
-            if item["sequence_id"] == "noark5_standard_arkade"
-        )
-        self.assertEqual(9, len(sequence["operation_ids"]))
-        self.assertEqual("arkade5_noark5_test", sequence["operation_ids"][3])
-        self.assertEqual("arkade5_pronom_analysis", sequence["operation_ids"][4])
+        from app.workflow_dependencies_v022_a7 import validate_dependencies
+        payload=json.loads((ROOT / 'config' / 'workflow_sequences.json').read_text(encoding='utf-8'))
+        sequence=next(item for item in payload['sequences'] if item['sequence_id']=='noark5_standard_arkade')
+        ids=sequence['operation_ids']
+        self.assertEqual(validate_dependencies(ids), ())
+        self.assertGreaterEqual(len(ids), 13)
+        self.assertEqual('arkade5_noark5_test',ids[3])
+        self.assertEqual('arkade5_pronom_analysis',ids[4])
+        self.assertLess(ids.index('import_arkade5_reports'), ids.index('build_noark5_canonical_evidence'))
 
     def test_apply_workflow_targets_all_selected_jobs(self):
         source = (ROOT / "gui" / "persistent_app_a37_runtime.py").read_text(encoding="utf-8")

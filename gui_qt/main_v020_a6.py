@@ -16,6 +16,7 @@ class DwmMainWindow(_ExistingMainWindow):
         super().__init__(*args, **kwargs)
         self._a3_install_qa_shortcuts()
         self._a6_install_workflow_order()
+        self._a7_install_postprocessing()
 
     def _a3_install_qa_shortcuts(self):
         """No new top-level windows at startup and no Qt event filters."""
@@ -86,6 +87,80 @@ class DwmMainWindow(_ExistingMainWindow):
     def _a6_change_order(self, *_args):
         from gui_qt.workflow_order_v022_a6 import open_active_job_order
         return open_active_job_order(self)
+
+    def _a7_install_postprocessing(self):
+        self.a7_prepare_action = QAction('Legg til a7-etterbehandling...', self)
+        self.a7_prepare_action.setToolTip(
+            'Utvid en eksisterende fullfort Work-jobb med kanonisk evidens, '
+            'kildeanalyse, evidensrevisjon og KS-utkast uten ny teknisk testkjoring')
+        self.a7_prepare_action.triggered.connect(self._a7_prepare_postprocessing)
+        run_menu = next((action.menu() for action in self.menuBar().actions()
+                         if action.menu() is not None
+                         and action.text().replace('&', '').strip() == 'Kjør'), None)
+        if run_menu is not None:
+            run_menu.addAction(self.a7_prepare_action)
+        group = getattr(self,'_a2_step_groups',{}).get('run')
+        if group is not None and group.layout() is not None:
+            self.a7_prepare_button = QPushButton('Legg til a7-etterbehandling...', group)
+            self.a7_prepare_button.clicked.connect(self._a7_prepare_postprocessing)
+            group.layout().insertWidget(min(2,group.layout().count()),self.a7_prepare_button,
+                                        0,Qt.AlignmentFlag.AlignLeft)
+
+    def _a7_prepare_postprocessing(self, *_args):
+        from PySide6.QtWidgets import QMessageBox
+        if self._worker is not None or self.api.running:
+            QMessageBox.warning(self,'a7-etterbehandling','Avslutt kjøringen først.')
+            return False
+        if getattr(self,'_basic_active',False):
+            register=getattr(self,'_v022_register_current',None)
+            if callable(register) and not register():
+                return False
+        if not self._active_id:
+            QMessageBox.information(self,'a7-etterbehandling','Velg en jobb først.')
+            return False
+        decision=QMessageBox.question(
+            self,'a7-etterbehandling - '+self._active_id,
+            'Legg til evidens, eksterne kilder, kontroll av evidensdekning '
+            'og KS-utkast for denne Work-jobben?\n\n'
+            'En allerede fullført teknisk kjøring bevares. '
+            'Status blir Klar for etterbehandling og tidligere rapporter slettes ikke.\n\n'
+            'Dette gjelder bare valgt JOB. Fortsette?',
+            QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No)
+        if decision != QMessageBox.StandardButton.Yes:
+            return False
+        try:
+            self.api.prepare_a7_postprocessing(self._active_id)
+            if self.api.workspace().job_list_path:
+                self.api.save_job_list()
+            self._render_key=None
+            self._refresh(force=True)
+            QMessageBox.information(self,'a7 klargjort',
+                'Tekniske deljobber gjenbrukes. Start kjøringen for kun '
+                'etterbehandling i oppdatert arbeidsflyt.')
+            return True
+        except (OSError,ValueError,RuntimeError) as exc:
+            QMessageBox.warning(self,'a7-etterbehandling',str(exc))
+            return False
+
+    def _refresh(self, *args, **kwargs):
+        result = super()._refresh(*args, **kwargs)
+        tree = getattr(self, 'workflow_tree', None)
+        if tree is not None:
+            from app.workflow_dependencies_v022_a7 import (
+                dependency_label, dependency_links,
+            )
+            ids = tuple(str(tree.topLevelItem(i).data(0, Qt.ItemDataRole.UserRole))
+                        for i in range(tree.topLevelItemCount()))
+            for index, oid in enumerate(ids):
+                item = tree.topLevelItem(index)
+                number = dependency_label(oid)
+                prefix = '[' + number + '] '
+                if not item.text(1).startswith(prefix):
+                    item.setText(1, prefix + item.text(1))
+                prerequisites = ', '.join(dependency_links(oid, ids)) or 'Ingen'
+                item.setToolTip(1, f'Avhengighetsnr. {number}\nOperasjon: {oid}\nEtter: {prerequisites}')
+        return result
 
     def _a3_open_qa(self, *_args):
         from gui_qt.qa_workflow_v022_a3 import open_active_job_qa

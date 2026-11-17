@@ -149,7 +149,8 @@ def prepare_basic_plan(source: str | Path, selected_work: str | Path,
     profile = resolve_storage_profile(settings)
     if controls is not None:
         selected = normalize_basic_controls(controls)
-        operation_ids = basic_operation_ids(selected)
+        from app.workflow_dependencies_v022_a7 import ensure_a7_processing
+        operation_ids = ensure_a7_processing(basic_operation_ids(selected))
         if any(item == 'dias_package' for item in operation_ids):
             raise ValueError('Basic skal ikke produsere AIP.')
         chosen_id = (BASIC_WORKFLOW_ID if selected == ('dwm',) else
@@ -173,12 +174,13 @@ def prepare_basic_plan(source: str | Path, selected_work: str | Path,
         raise ValueError('Standard Basic-kontroll skal ikke kreve Arkade 5 CLI.')
     if workflow_id == BASIC_ARKADE_WORKFLOW_ID and selected_ids != arkade_ids:
         raise ValueError('Utvidet profil skal inneholde baade Arkade 5 Noark 5 og PRONOM.')
+    from app.workflow_dependencies_v022_a7 import ensure_a7_processing
     return BasicControlPlan(
         source_extraction=extraction,
         work_root=chosen,
         work_operations=chosen,
         storage_profile_id=profile,
-        operation_ids=tuple(sequence.operation_ids),
+        operation_ids=ensure_a7_processing(sequence.operation_ids),
         workflow_id=workflow_id,
     )
 

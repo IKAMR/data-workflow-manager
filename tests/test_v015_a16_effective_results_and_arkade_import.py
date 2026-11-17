@@ -42,18 +42,12 @@ class V015A16Tests(unittest.TestCase):
         )
 
     def test_standard_sequence_imports_arkade_before_views(self):
-        seq = workflow_sequence_by_id("noark5_standard")
-        self.assertIsNotNone(seq)
-        ids = list(seq.operation_ids)
-        self.assertIn("import_arkade5_reports", ids)
-        self.assertLess(
-            ids.index("run_noark5_xpath_tests_2026"),
-            ids.index("import_arkade5_reports"),
-        )
-        self.assertLess(
-            ids.index("import_arkade5_reports"),
-            ids.index("compose_noark5_views"),
-        )
+        from app.workflow_dependencies_v022_a7 import validate_dependencies
+        from app.workflow_sequences import workflow_sequence_by_id
+        ids=list(workflow_sequence_by_id('noark5_standard').operation_ids)
+        self.assertEqual(validate_dependencies(ids), ())
+        self.assertIn('build_noark5_canonical_evidence', ids)
+        self.assertLess(ids.index('build_noark5_canonical_evidence'),ids.index('compose_noark5_views'))
 
     def test_discovery_import_and_duplicate_skip(self):
         with tempfile.TemporaryDirectory() as td:

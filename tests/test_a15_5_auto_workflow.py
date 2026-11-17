@@ -14,21 +14,14 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class A155AutoWorkflowTests(unittest.TestCase):
     def test_standard_sequence_is_canonical_noark5_flow(self):
+        from app.workflow_dependencies_v022_a7 import validate_dependencies
         sequence = workflow_sequence_by_id("noark5_standard")
         self.assertIsNotNone(sequence)
         self.assertEqual(sequence.profile_id, "noark5")
-        self.assertEqual(
-            sequence.operation_ids,
-            (
-                "metadata_inventory",
-                "validate_xml_schema",
-                "analyse_arkivstruktur",
-                "run_noark5_xpath_tests_2026",
-                "import_arkade5_reports",
-                "compose_noark5_views",
-                "build_noark5_depot_report",
-            ),
-        )
+        self.assertEqual(validate_dependencies(sequence.operation_ids), ())
+        self.assertIn("run_noark5_xpath_tests_2026", sequence.operation_ids)
+        self.assertIn("build_noark5_canonical_evidence", sequence.operation_ids)
+        self.assertLess(sequence.operation_ids.index("run_noark5_xpath_tests_2026"), sequence.operation_ids.index("build_noark5_canonical_evidence"))
 
     def test_setup_exposes_none_standard_and_analysis(self):
         labels = noark5_workflow_labels()

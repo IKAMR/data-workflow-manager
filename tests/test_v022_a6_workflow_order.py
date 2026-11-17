@@ -299,13 +299,13 @@ class VersionAndIntegrationContracts(unittest.TestCase):
                     def exec(self):
                         return 1
                     def operation_ids(self):
-                        return arkade_last_order(self._original)
+                        return __import__("app.workflow_dependencies_v022_a7", fromlist=["arkade_last_with_dependencies"]).arkade_last_with_dependencies(self._original)
                 module.WorkflowOrderDialog = FakeDialog
                 self.assertTrue(module.open_active_job_order(window))
-            self.assertEqual(tuple(jobs[1].operation_ids), arkade_last_order(EXAMPLE))
+            self.assertEqual(tuple(jobs[1].operation_ids), __import__('app.workflow_dependencies_v022_a7', fromlist=['arkade_last_with_dependencies']).arkade_last_with_dependencies(EXAMPLE))
             self.assertEqual(tuple(jobs[0].operation_ids), EXAMPLE)
             saved = json.loads((base/'multijob.n5jobs').read_text(encoding='utf-8'))
-            self.assertEqual(tuple(saved['JOB-002']), arkade_last_order(EXAMPLE))
+            self.assertEqual(tuple(saved['JOB-002']), __import__('app.workflow_dependencies_v022_a7', fromlist=['arkade_last_with_dependencies']).arkade_last_with_dependencies(EXAMPLE))
             self.assertEqual(tuple(saved['JOB-001']), EXAMPLE)
             self.assertEqual(window.refreshed, [{'force': True}])
             self.assertFalse(Message.questions)  # Ready, not previously run.

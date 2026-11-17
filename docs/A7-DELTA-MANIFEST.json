@@ -1,0 +1,93 @@
+{
+  "delta": "v0.2.2-a7",
+  "requires": "v0.2.2-a6 already installed",
+  "github_base": "95ef735a1987078112648a6e8a4a2cdbdfd7b021 (a5), with a6 local delta",
+  "code_tested": "56 targeted unittest cases in isolated testbed (not a full Windows GUI test)",
+  "files": [
+    {
+      "path": "app/basic_start_v0111_a1.py",
+      "sha256": "2ba129d56e8a0fc04ea0ba695ca32c15049a0be3614f2cc4725ea8c082eec076",
+      "bytes": 13273
+    },
+    {
+      "path": "app/workbench_api_v020_a2.py",
+      "sha256": "1f79eb804a0897c482f1373862b866f472104b96f8bb5da3b5960c324a12b4e0",
+      "bytes": 4624
+    },
+    {
+      "path": "app/workflow_dependencies_v022_a7.py",
+      "sha256": "cf18febd46cf591a8e968c268effc1da086ca2d9294cf3046b5d98add638e1a1",
+      "bytes": 6571
+    },
+    {
+      "path": "app/workflow_order_v022_a6.py",
+      "sha256": "4153bac09cf03b41abb02d5021e9a4eebd0214149775cd33395dddd4690d9a26",
+      "bytes": 4636
+    },
+    {
+      "path": "config/workflow_sequences.json",
+      "sha256": "2adba7663e07bb1642fe3baceb8c96f73c76fa1d79a04ae4672992fb40f58c7f",
+      "bytes": 3399
+    },
+    {
+      "path": "docs/ARBEIDSFLYT-AVHENGIGHETER-OG-EVIDENS-V022-A7.md",
+      "sha256": "cee066a237a2fef54a13b9125a71120ce0a70f9977452fa234ef0f2323f9a151",
+      "bytes": 5155
+    },
+    {
+      "path": "gui_qt/main_v020_a6.py",
+      "sha256": "e274756a4d2a058848e009e43af30184894986ce4a8e3b7ccbbb84a5bfc26078",
+      "bytes": 9916
+    },
+    {
+      "path": "gui_qt/workflow_order_v022_a6.py",
+      "sha256": "02ec6c38f0befdbef6d2139439c8a75590780a402bc92a336b8bd38c84d857bc",
+      "bytes": 9873
+    },
+    {
+      "path": "noark5_workflow/core/job_runner_a39.py",
+      "sha256": "fb3ad1b897b47e9f202e263a20e8287b5f8962e2fc680d5ada9017cb967b94e2",
+      "bytes": 4442
+    },
+    {
+      "path": "noark5_workflow/operations/canonical_evidence_v022_a7.py",
+      "sha256": "175ac2442bc0a1303fcb21dbb3173bdae213c2b61113da381f371e32b36137e8",
+      "bytes": 26267
+    },
+    {
+      "path": "noark5_workflow/profile.py",
+      "sha256": "f6f9ee9bcca0d02c7f1b044dd6902f99147869b300e5c11a15f0fc386ef8973c",
+      "bytes": 2235
+    },
+    {
+      "path": "pyproject.toml",
+      "sha256": "cde6bccb1869089b20f0d51d1a90907b17b2b0984fd103c5d8f1d6f7d208afbf",
+      "bytes": 473
+    },
+    {
+      "path": "tests/test_v022_a6_workflow_order.py",
+      "sha256": "b1a1f9f027365779204847626b38647e6ebd5268460b9f94b97e62d2781dc8d2",
+      "bytes": 15293
+    },
+    {
+      "path": "tests/test_v022_a7_dependencies.py",
+      "sha256": "97c47fe93c9c4215c63b845136fcb72803b4cd551fa7836f6949a3e08bb9047a",
+      "bytes": 6536
+    },
+    {
+      "path": "tests/test_v022_a7_evidence.py",
+      "sha256": "2f0d3705ce262e9c406f5ac1e9bd0873968ac0a72d4c60ac9b921c7475c79d61",
+      "bytes": 12830
+    },
+    {
+      "path": "tests/test_v022_a7_workbench.py",
+      "sha256": "3701f6a71f7fbafba3ced794f8d037b105eae9c69684c3736a686ad6aab171bf",
+      "bytes": 8243
+    },
+    {
+      "path": "version.py",
+      "sha256": "1fb86b9ff4febd106af0ee77d73b39c56087dfa931df0d1c6294c5aa895ba604",
+      "bytes": 56
+    }
+  ]
+}

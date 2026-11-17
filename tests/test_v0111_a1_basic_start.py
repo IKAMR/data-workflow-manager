@@ -76,6 +76,7 @@ class PathSafetyTests(unittest.TestCase):
                 ensure_separate_source_and_work(source, alias)
 
     def test_plan_uses_selected_work_directly_and_existing_dwm_workflow(self):
+        from app.workflow_dependencies_v022_a7 import ensure_a7_processing, validate_dependencies
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             source = root / 'source'
@@ -86,16 +87,13 @@ class PathSafetyTests(unittest.TestCase):
             calls = []
             def validate(path, *, profile_id):
                 calls.append(('validate', path, profile_id))
-                return () if (path / 'arkivstruktur.xml').is_file() else (
-                    SimpleNamespace(message='Uttrekk mangler'),)
+                return () if (path / 'arkivstruktur.xml').is_file() else (SimpleNamespace(message='Uttrekk mangler'),)
             def workflow(_id):
                 calls.append(('sequence', _id))
                 return SimpleNamespace(profile_id='noark5', operation_ids=WORKFLOW)
             stubs = {
-                'app.job_preflight_v018_a6': SimpleNamespace(
-                    check_extraction_folder=validate),
-                'app.storage_profiles_v0110_a2': SimpleNamespace(
-                    resolve_storage_profile=lambda _settings: 'standard_enkel'),
+                'app.job_preflight_v018_a6': SimpleNamespace(check_extraction_folder=validate),
+                'app.storage_profiles_v0110_a2': SimpleNamespace(resolve_storage_profile=lambda _settings: 'standard_enkel'),
                 'app.workflow_sequences': SimpleNamespace(workflow_sequence_by_id=workflow),
             }
             with patch.dict(sys.modules, stubs):
@@ -103,7 +101,8 @@ class PathSafetyTests(unittest.TestCase):
             self.assertEqual(result.source_extraction, source)
             self.assertEqual(result.work_root, work)
             self.assertEqual(result.work_operations, work)
-            self.assertEqual(result.operation_ids, WORKFLOW)
+            self.assertEqual(result.operation_ids, ensure_a7_processing(WORKFLOW))
+            self.assertEqual(validate_dependencies(result.operation_ids), ())
             self.assertIn(('validate', source, 'noark5'), calls)
             self.assertIn(('sequence', BASIC_WORKFLOW_ID), calls)
             self.assertEqual(list(work.iterdir()), [], 'Planning must not make folders')

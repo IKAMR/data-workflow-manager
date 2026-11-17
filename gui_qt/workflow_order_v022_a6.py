@@ -11,6 +11,10 @@ from PySide6.QtWidgets import (
     QListWidgetItem, QMessageBox, QPushButton, QVBoxLayout,
 )
 
+from app.workflow_dependencies_v022_a7 import (
+    dependency_label, dependency_links, validate_dependencies,
+    arkade_last_with_dependencies,
+)
 from app.workflow_order_v022_a6 import (
     arkade_last_order, checked_order, move_operation, ordering_warnings,
 )
@@ -80,9 +84,10 @@ class WorkflowOrderDialog(QDialog):
         try:
             self.list.clear()
             for index, operation_id in enumerate(self._order, 1):
-                item = QListWidgetItem(f'{index:02d}. {self._labels[operation_id]}', self.list)
+                item = QListWidgetItem(f'{index:02d}. [{dependency_label(operation_id)}] {self._labels[operation_id]}', self.list)
                 item.setData(Qt.ItemDataRole.UserRole, operation_id)
-                item.setToolTip(operation_id)
+                prerequisites = ', '.join(dependency_links(operation_id, self._order)) or 'Ingen'
+                item.setToolTip(f'Operasjon: {operation_id}\nAvhengighetsnr.: {dependency_label(operation_id)}\nMaa komme etter: {prerequisites}')
             self.list.setCurrentRow(max(0, min(selected, self.list.count() - 1)))
         finally:
             self.list.blockSignals(False)
@@ -95,8 +100,12 @@ class WorkflowOrderDialog(QDialog):
         self.arkade_last.setEnabled(any(op in self._order for op in
                                         ('arkade5_noark5_test', 'arkade5_pronom_analysis')))
         changed = self._order != self._original
-        self.apply_button.setEnabled(changed)
+        blockers = validate_dependencies(self._order)
+        self.apply_button.setEnabled(changed and not blockers)
         notes = ordering_warnings(self._order)
+        if blockers:
+            self.warnings.setText('BLOKKERT - ugyldig avhengighetsrekkefolge:\n' + '\n'.join(blockers))
+            return
         self.warnings.setText(
             ('Viktig om resultatgrunnlag:\n• ' + '\n• '.join(notes))
             if notes else
@@ -113,7 +122,7 @@ class WorkflowOrderDialog(QDialog):
     def _arkade_last(self) -> None:
         chosen = self.list.currentItem()
         selected_id = chosen.data(Qt.ItemDataRole.UserRole) if chosen else None
-        self._order = arkade_last_order(self._order)
+        self._order = arkade_last_with_dependencies(self._order)
         self._fill(selected=self._order.index(selected_id) if selected_id in self._order else 0)
 
     def _reset(self) -> None:
@@ -152,6 +161,9 @@ def open_active_job_order(window) -> bool:
         changed = dialog.operation_ids()
         if changed == original:
             return False
+        failures = validate_dependencies(changed)
+        if failures:
+            raise ValueError('Avhengigheter blokkerer lagring: ' + '; '.join(failures))
         # The edit is per-job; if selection changes while a dialog is open,
         # refuse rather than applying the order to the wrong extraction.
         current = tuple(op.operation_id for op in window.api.job_details(job_id).operations)

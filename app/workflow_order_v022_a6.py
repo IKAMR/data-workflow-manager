@@ -62,6 +62,12 @@ def preserved_basic_order(current: Iterable[str], basic_generated: Iterable[str]
     proposed = tuple(basic_generated)
     if len(original) == len(set(original)) and Counter(original) == Counter(proposed):
         return original
+    # a7 adds postprocessing only to newly composed Basic plans. It must NOT
+    # silently reset an existing completed a5/a6 job on Save/Start.
+    from app.workflow_dependencies_v022_a7 import NEW_A7
+    additions = set(proposed) - set(original)
+    if set(original).issubset(set(proposed)) and additions and additions.issubset(set(NEW_A7)):
+        return original
     return proposed
 
 

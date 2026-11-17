@@ -28,9 +28,14 @@ class V015A20WorkflowProfilesTests(unittest.TestCase):
         self.assertIn("build_noark5_depot_report", sequence.operation_ids)
 
     def test_standard_sequence_keeps_arkade_import(self):
-        sequence = workflow_sequence_by_id("noark5_standard")
-        self.assertIsNotNone(sequence)
-        self.assertIn("import_arkade5_reports", sequence.operation_ids)
+        from app.workflow_dependencies_v022_a7 import validate_dependencies
+        from app.workflow_sequences import workflow_sequence_by_id
+        sequence=workflow_sequence_by_id('noark5_standard')
+        self.assertEqual(validate_dependencies(sequence.operation_ids), ())
+        self.assertIn('build_noark5_canonical_evidence', sequence.operation_ids)
+        arkade=workflow_sequence_by_id('noark5_standard_arkade').operation_ids
+        self.assertIn('import_arkade5_reports', arkade)
+        self.assertLess(arkade.index('import_arkade5_reports'), arkade.index('build_noark5_canonical_evidence'))
 
     def test_a55_enables_save_and_choose_profile_controls(self):
         root = Path(__file__).resolve().parents[1]

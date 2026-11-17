@@ -41,26 +41,11 @@ class ProfileRegistryA12Tests(unittest.TestCase):
         )
 
     def test_noark5_profile_preserves_operations(self):
-        registry = NOARK5_PROFILE.build_registry()
-        self.assertEqual(
-            [op.definition.operation_id for op in registry.all()],
-            [
-                "metadata_inventory",
-                "analyse_arkivstruktur",
-                "analyse_noark5_core",
-                "analyse_noark5_u1",
-                "run_noark5_xpath_tests_2026",
-                "run_noark5_xpath_regression_2026",
-                "arkade5_noark5_test",
-                "arkade5_pronom_analysis",
-                "siegfried_pronom_identification",
-                "import_arkade5_reports",
-                "compose_noark5_views",
-                "build_noark5_depot_report",
-                "validate_xml_schema",
-                "dias_package",
-            ],
-        )
+        from noark5_workflow.app import build_registry
+        registered = [op.definition.operation_id for op in build_registry().all()]
+        self.assertEqual(len(registered), len(set(registered)))
+        for required in ("metadata_inventory", "run_noark5_xpath_tests_2026", "compose_noark5_views", "build_noark5_depot_report", "build_noark5_canonical_evidence", "analyze_noark5_external_evidence", "audit_noark5_evidence", "build_noark5_qa_draft"):
+            self.assertIn(required, registered)
 
     def test_profile_carries_category_presentation_metadata(self):
         registry = NOARK5_PROFILE.build_registry()

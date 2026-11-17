@@ -78,25 +78,29 @@ class BasicWorkflowTests(unittest.TestCase):
         }
 
     def test_extended_profile_produces_real_arkade_operations(self):
+        from app.workflow_dependencies_v022_a7 import ensure_a7_processing, validate_dependencies
         with tempfile.TemporaryDirectory() as tmp:
             source, work = Path(tmp) / 'source', Path(tmp) / 'work'
             source.mkdir(); work.mkdir()
-            calls = []
+            calls=[]
             with patch.dict(sys.modules, self._modules(calls)):
-                result = prepare_basic_plan(source, work, {}, workflow_id=BASIC_ARKADE_WORKFLOW_ID)
+                result=prepare_basic_plan(source, work, {}, workflow_id=BASIC_ARKADE_WORKFLOW_ID)
             self.assertEqual(result.workflow_id, BASIC_ARKADE_WORKFLOW_ID)
-            self.assertEqual(result.operation_ids, ARKADE)
+            self.assertEqual(result.operation_ids, ensure_a7_processing(ARKADE))
+            self.assertEqual(validate_dependencies(result.operation_ids), ())
             self.assertEqual(calls, [BASIC_ARKADE_WORKFLOW_ID])
             self.assertEqual(result.work_operations, work)
             self.assertFalse(list(work.iterdir()))
 
     def test_standard_has_no_arkade_or_aip(self):
+        from app.workflow_dependencies_v022_a7 import ensure_a7_processing, validate_dependencies
         with tempfile.TemporaryDirectory() as tmp:
             source, work = Path(tmp) / 'source', Path(tmp) / 'work'
             source.mkdir(); work.mkdir()
             with patch.dict(sys.modules, self._modules()):
-                result = prepare_basic_plan(source, work, {})
-            self.assertEqual(result.operation_ids, STANDARD)
+                result=prepare_basic_plan(source, work, {})
+            self.assertEqual(result.operation_ids, ensure_a7_processing(STANDARD))
+            self.assertEqual(validate_dependencies(result.operation_ids), ())
             self.assertNotIn('dias_package', result.operation_ids)
 
     def test_unknown_sequence_is_never_executed(self):
