@@ -1,4 +1,4 @@
-"""v0.2.2-a4: bounded and resumable DWM Siegfried execution.
+"""v0.2.2-a4/a5: bounded, resumable and optionally parallel DWM Siegfried execution.
 
 The SIARD Workflow Manager pattern of <=100 explicit paths per sf process is
 preserved. All discovery, partial results and checkpoints are Work-local;
@@ -12,7 +12,9 @@ completed-run readers until their directory is atomically published.
 """
 from __future__ import annotations
 
-from collections import Counter
+from collections import Counter, deque
+from concurrent.futures import ThreadPoolExecutor
+from threading import Event
 from datetime import datetime, timezone
 from hashlib import sha256
 import json
@@ -35,6 +37,7 @@ PROGRESS_INTERVAL = 500
 STATE_VERSION = 1
 MAX_PARTIAL_CANDIDATES = 50
 MAX_RECORD_LINE = 12 * 1024 * 1024
+MAX_SF_WORKERS = 8  # Several sf processes, not Python CPU workers.
 
 
 def _now() -> str:
@@ -317,17 +320,119 @@ def _validate_batch_files(batch: list[tuple[Path, dict]], source: Path) -> list[
     return paths
 
 
+def _source_order_rows(batch: list[tuple[Path, dict]], rows: list[dict]) -> list[dict]:
+    """Siegfried -multi may return files out of order; restore source order.
+
+    Resumable a4 checkpoints require one raw JSONL record per inventoried file
+    in deterministic order. Counter equality alone is insufficient because sf
+    can identify the requested 100 files in a different completion order.
+    """
+    if not isinstance(rows, list) or len(rows) != len(batch):
+        raise ValueError('Siegfried svarte med ufullstendig antall filoppføringer.')
+    by_name = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            raise ValueError('Ugyldig Siegfried-filoppføring.')
+        name = str(row.get('filename') or '')
+        key = os.path.normcase(os.path.normpath(name))
+        if not name or key in by_name:
+            raise ValueError('Siegfried svarte med tomt eller duplisert filnavn.')
+        by_name[key] = row
+    expected = [os.path.normcase(os.path.normpath(str(path))) for path, _ in batch]
+    if set(expected) != set(by_name) or len(set(expected)) != len(expected):
+        raise ValueError('Siegfried-resultatene samsvarer ikke med forespurte kildefiler.')
+    return [by_name[name] for name in expected]
+
+
+def _bounded_parallel_batches(batches, source: Path, executable: str, *,
+                              workers: int, cancelled_cb=None):
+    """Yield (batch, sf rows) in inventory order with bounded subprocesses.
+
+    SIARD's Siegfried adapter uses ThreadPoolExecutor to manage independent sf
+    subprocesses. Here only `workers` batches are ever in flight. A background
+    worker may finish early but does NOT mutate Work, advance a checkpoint or
+    call Qt callbacks: the owner thread commits each batch in source order.
+    This also keeps the legacy a4 checkpoint format reusable when workers
+    changes between attempts.
+    """
+    def interrupted():
+        return cancelled_cb is not None and cancelled_cb()
+
+    if workers < 1 or workers > MAX_SF_WORKERS:
+        raise ValueError(f'Ugyldig Siegfried-prosessantall: {workers} (1-{MAX_SF_WORKERS}).')
+
+    if workers == 1:
+        for batch in batches:
+            if interrupted():
+                raise InterruptedError('Siegfried-kjøringen ble avbrutt; kontrollpunkter er bevart.')
+            paths = _validate_batch_files(batch, source)
+            rows = _run_sf_batch(executable, paths, cancelled_cb=cancelled_cb)
+            if interrupted():
+                raise InterruptedError('Siegfried-kjøringen ble avbrutt; kontrollpunkter er bevart.')
+            yield batch, _source_order_rows(batch, rows)
+        return
+
+    stopping = Event()
+    work_items = iter(batches)
+    waiting = deque()
+
+    def should_stop():
+        return stopping.is_set() or interrupted()
+
+    def identify(batch):
+        if should_stop():
+            raise InterruptedError('Siegfried-kjøringen ble avbrutt; kontrollpunkter er bevart.')
+        paths = _validate_batch_files(batch, source)
+        if should_stop():
+            raise InterruptedError('Siegfried-kjøringen ble avbrutt; kontrollpunkter er bevart.')
+        return _run_sf_batch(executable, paths, cancelled_cb=should_stop)
+
+    with ThreadPoolExecutor(max_workers=workers, thread_name_prefix='dwm-sf') as pool:
+        try:
+            def submit_next():
+                if should_stop():
+                    raise InterruptedError('Siegfried-kjøringen ble avbrutt; kontrollpunkter er bevart.')
+                try:
+                    batch = next(work_items)
+                except StopIteration:
+                    return False
+                waiting.append((batch, pool.submit(identify, batch)))
+                return True
+
+            for _ in range(workers):
+                if not submit_next():
+                    break
+            while waiting:
+                if should_stop():
+                    raise InterruptedError('Siegfried-kjøringen ble avbrutt; kontrollpunkter er bevart.')
+                batch, future = waiting.popleft()
+                rows = future.result()  # May raise; never checkpoint this batch.
+                if should_stop():
+                    raise InterruptedError('Siegfried-kjøringen ble avbrutt; kontrollpunkter er bevart.')
+                yield batch, _source_order_rows(batch, rows)  # Persist in inventory order.
+                submit_next()
+        finally:
+            # On cancellation, failed futures or write errors, terminate other
+            # active sf processes through their cancellation callbacks.
+            stopping.set()
+            for _batch, future in waiting:
+                future.cancel()
+
+
 def scan_document_tree(*, source: Path, work: Path, executable: str,
                        version: str, signature: str, job_id: str = '',
                        job_uid: str = '', cancelled_cb=None,
                        log_cb: Callable[[str], None] | None = None,
                        progress_cb: Callable[[int, int], None] | None = None,
-                       discovery_cb: Callable[[int], None] | None = None) -> dict:
+                       discovery_cb: Callable[[int], None] | None = None,
+                       workers: int = 1) -> dict:
     """Return completed run paths/model; retain partial results on failure.
 
     No existing completed run is modified; a matching partial alone may be
     resumed after its inventory AND committed bytes have been verified.
     """
+    if type(workers) is not int or not 1 <= workers <= MAX_SF_WORKERS:
+        raise ValueError(f'Ugyldig Siegfried-prosessantall (1-{MAX_SF_WORKERS}): {workers!r}')
     source = Path(source).resolve(strict=True)
     work = Path(work).resolve(strict=True)
     if source == work or source.is_relative_to(work) or work.is_relative_to(source):
@@ -412,34 +517,41 @@ def scan_document_tree(*, source: Path, work: Path, executable: str,
                 digest.update(part)
         if digest.hexdigest() != checkpoint['raw_sha256']:
             raise ValueError('Siegfried-kontrollpunkt har endret råfil. Avbryter for å beskytte evidens.')
-        with (stage / 'siegfried_files.jsonl').open('ab') as output:
-            for batch in _batches(stage / 'file_inventory.jsonl', source,
-                                  skip=processed, executable=executable):
-                if cancelled_cb is not None and cancelled_cb():
-                    raise InterruptedError('Siegfried-kjøringen er avbrutt; fullførte batcher er bevart.')
-                paths = _validate_batch_files(batch, source)
-                actual = _run_sf_batch(executable, paths, cancelled_cb=cancelled_cb)
-                # One subprocess is an all-or-nothing batch. Write raw before
-                # its checkpoint; never announce work not durably persisted.
-                payload = b''.join((json.dumps(item, ensure_ascii=False) + '\n').encode('utf-8')
-                                   for item in actual)
-                output.write(payload)
-                output.flush()
-                os.fsync(output.fileno())
-                digest.update(payload)
-                _accumulate(summary, actual)
-                processed += len(batch)
-                checkpoint = {'state_version': STATE_VERSION, 'run_id': run_id,
-                              'inventory_sha256': meta['inventory_sha256'],
-                              'files_processed': processed,
-                              'raw_bytes': output.tell(), 'raw_sha256': digest.hexdigest(),
-                              'updated_at': _now()}
-                _dump_atomic(stage / 'checkpoint.json', checkpoint)
-                if progress_cb:
-                    progress_cb(processed, meta['files_total'])
-                if log_cb and (processed == meta['files_total'] or
-                               (processed // BATCH_FILES) % 100 == 0):
-                    log_cb(f'[Siegfried] Kontrollpunkt: {processed} av {meta["files_total"]} filer.')
+        if log_cb:
+            log_cb(f'[Siegfried] Prosessering: {workers} samtidig(e) sf-prosess(er), '
+                   f'maks {BATCH_FILES} filer per batch; ferdige batcher lagres i kilderekkefølge.')
+        batches = _bounded_parallel_batches(
+            _batches(stage / 'file_inventory.jsonl', source,
+                     skip=processed, executable=executable),
+            source, executable, workers=workers, cancelled_cb=cancelled_cb)
+        try:
+            with (stage / 'siegfried_files.jsonl').open('ab') as output:
+                for batch, actual in batches:
+                    if cancelled_cb is not None and cancelled_cb():
+                        raise InterruptedError('Siegfried-kjøringen er avbrutt; fullførte batcher er bevart.')
+                    # Workers never write to Work. Only the orchestration thread
+                    # commits contiguous batches, fsync + atomic checkpoint.
+                    payload = b''.join((json.dumps(item, ensure_ascii=False) + '\n').encode('utf-8')
+                                       for item in actual)
+                    output.write(payload)
+                    output.flush()
+                    os.fsync(output.fileno())
+                    digest.update(payload)
+                    _accumulate(summary, actual)
+                    processed += len(batch)
+                    checkpoint = {'state_version': STATE_VERSION, 'run_id': run_id,
+                                  'inventory_sha256': meta['inventory_sha256'],
+                                  'files_processed': processed,
+                                  'raw_bytes': output.tell(), 'raw_sha256': digest.hexdigest(),
+                                  'updated_at': _now()}
+                    _dump_atomic(stage / 'checkpoint.json', checkpoint)
+                    if progress_cb:
+                        progress_cb(processed, meta['files_total'])
+                    if log_cb and (processed == meta['files_total'] or
+                                   (processed // BATCH_FILES) % 100 == 0):
+                        log_cb(f'[Siegfried] Kontrollpunkt: {processed} av {meta["files_total"]} filer.')
+        finally:
+            batches.close()  # Stop in-flight sf subprocesses also on write failure.
         if processed != meta['files_total'] or summary['files_total'] != processed:
             raise ValueError('Ufullstendig Siegfried-skanning; samlet resultat blir ikke publisert.')
         model = _final_summary(summary)
@@ -459,7 +571,8 @@ def scan_document_tree(*, source: Path, work: Path, executable: str,
                     'normalized_file': 'pronom_statistics.json',
                     'files_total': processed, 'created_at': model['created_at'],
                     'inventory_sha256': meta['inventory_sha256'],
-                    'batch_files_max': BATCH_FILES, 'resumable_checkpoint': True}
+                    'batch_files_max': BATCH_FILES, 'resumable_checkpoint': True,
+                    'siegfried_process_workers': workers}
         _dump_atomic(stage / 'manifest.json', manifest)
         target = runs / run_id
         if target.exists():

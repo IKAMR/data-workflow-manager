@@ -1,8 +1,9 @@
 """DWM-owned Siegfried identification, separate from Arkade PRONOM.
 
-Since v0.2.2-a4 the Noark workflow uses streaming, sequential 100-file sf
-batches with durable Work checkpoints. The former 250,000-file hard limit is
-removed; Source remains read-only and previous completed runs are immutable.
+Since v0.2.2-a5 the Noark workflow uses streaming, bounded parallel sf
+processes (100 files per batch) with durable ordered Work checkpoints.
+The former 250,000-file hard limit is removed; Source remains read-only and
+previous completed runs are immutable.
 """
 from __future__ import annotations
 
@@ -13,7 +14,7 @@ from app.siegfried_tool_v0111_a3 import inspect_siegfried
 from noark5_workflow.core.context import OperationContext
 from noark5_workflow.core.operation import BaseOperation, ExecutionTarget, OperationDefinition
 from noark5_workflow.core.result import OperationResult
-from .siegfried_stream_v022_a4 import iter_document_files, scan_document_tree
+from .siegfried_stream_v022_a4 import MAX_SF_WORKERS, iter_document_files, scan_document_tree
 
 
 def document_files(source: Path, *, cancelled_cb=None, max_files: int | None = None,
@@ -83,6 +84,15 @@ class SiegfriedPronomOperation(BaseOperation):
         if ctx.work_operations is None or ctx.extraction_root is None:
             return OperationResult(False, 'Source og Work må være angitt.')
         try:
+            configured_workers = ctx.settings.get('siegfried_max_workers', 2)
+            # Never truncate a fractional or boolean worker setting silently.
+            if (type(configured_workers) not in (int, str) or
+                    (isinstance(configured_workers, str) and
+                     not configured_workers.strip().isdigit())):
+                raise ValueError(f'Siegfried-prosessantall må være et heltall fra 1 til {MAX_SF_WORKERS}.')
+            workers = int(configured_workers)
+            if workers < 1 or workers > MAX_SF_WORKERS:
+                raise ValueError(f'Siegfried-prosessantall må være et heltall fra 1 til {MAX_SF_WORKERS}.')
             ctx.progress(.02, 'Finner dokumentfiler (strømmende opptelling)')
             run = scan_document_tree(
                 source=Path(ctx.extraction_root),
@@ -93,6 +103,7 @@ class SiegfriedPronomOperation(BaseOperation):
                 job_id=str(ctx.metadata.get('job_id') or ''),
                 job_uid=str(ctx.metadata.get('job_uid') or ctx.metadata.get('job_uuid') or ''),
                 cancelled_cb=ctx.cancelled,
+                workers=workers,
                 log_cb=ctx.log,
                 discovery_cb=lambda found: ctx.progress(
                     .03, f'Finner dokumentfiler: {found} filer funnet'),
@@ -113,7 +124,8 @@ class SiegfriedPronomOperation(BaseOperation):
                       'format_groups': len(model['format_groups']),
                       'files_total': model['files_total'],
                       'unidentified': model['unidentified'],
-                      'output_dir': str(target), 'resumed': run['resumed']},
+                      'output_dir': str(target), 'resumed': run['resumed'],
+                      'siegfried_process_workers': workers},
                 outputs=[str(target / 'manifest.json'), str(target / 'pronom_statistics.json')],
             )
         except (OSError, ValueError, RuntimeError, TimeoutError,
