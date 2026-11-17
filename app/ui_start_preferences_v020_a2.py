@@ -13,13 +13,10 @@ UI_SETUP_KEYS = frozenset({
 })
 WORK_PROFILES = ('control', 'depot', 'custom')
 START_MODES = ('last', 'basic', 'advanced')
-# 'profile' retains a2 behaviour: Control profile opens Control; depot/custom
-# opens Home. 'last' instead restores the actual last navigation page.
+# 'profile' remains available, but is no longer the default: all profiles
+# start on Kontroll / Enkel until the user chooses otherwise.
 START_PAGES = ('profile', 'last', 'home', 'control')
 WORK_SECTIONS = ('ingest', 'antivirus', 'workspace', 'control', 'report', 'preserve', 'crm', 'access')
-# Same 0/1/2 maturity scale as app.operation_metadata (alpha/beta/stable).
-# Separate threshold because work-area navigation and operation selection are
-# independent concerns. Zero preserves a2's eight-card depot landing page.
 WORK_AREA_VISIBILITY_LABELS = {
     0: '0 – Alle (inkl. Alpha)',
     1: '1 – Beta og stabile',
@@ -29,7 +26,7 @@ UI_DEFAULTS = {
     'ui_work_profile': 'control',
     'ui_startup_mode': 'basic',
     'ui_visible_sections': ['control'],
-    'ui_startup_page': 'profile',
+    'ui_startup_page': 'control',
     'ui_area_visibility': 0,
 }
 

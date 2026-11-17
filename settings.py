@@ -67,6 +67,13 @@ DEFAULT_CONFIG = {
     "last_receiving_info_xml": "",
     "last_ingest_disk": "",
     "last_ingest_group": "",
+    # v0.2.2-a1.5: new installations and a full Setup reset start in
+    # Enkel modus, on Kontroll, independently of the chosen depot profile.
+    "ui_work_profile": "control",
+    "ui_startup_mode": "basic",
+    "ui_startup_page": "control",
+    "ui_visible_sections": ["control"],
+    "ui_area_visibility": 0,
 }
 
 def load_config() -> dict:
