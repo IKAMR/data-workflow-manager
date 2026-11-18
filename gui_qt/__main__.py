@@ -1,4 +1,4 @@
-"""Qt desktop entry point with a10 GUI over the shared multi-job controller."""
+"""Qt desktop entry point with a11 Advanced GUI over the shared multi-job controller."""
 from __future__ import annotations
 
 import sys
@@ -25,9 +25,11 @@ def main() -> int:
     _boot_phase("03 Bootstrap installed, importing DWM GUI classes")
     from gui_qt.main_v020_a6 import DwmMainWindow as _StableDwmMainWindow
     from gui_qt.basic_multijob_v022_a1_2 import DwmMainWindow as _MultiJobDwmMainWindow
-    from gui_qt.main_v022_a10 import DwmMainWindow
+    from gui_qt.main_v022_a10 import DwmMainWindow as _A10DwmMainWindow
+    from gui_qt.main_v022_a11 import DwmMainWindow
     if (not issubclass(DwmMainWindow, _StableDwmMainWindow)
-            or not issubclass(DwmMainWindow, _MultiJobDwmMainWindow)):
+            or not issubclass(DwmMainWindow, _MultiJobDwmMainWindow)
+            or not issubclass(DwmMainWindow, _A10DwmMainWindow)):
         raise RuntimeError('Enkel flerjobbvisning m\u00e5 utvide det eksisterende Qt-hovedvinduet')
     from gui_qt.canonical_results_v0115_a3 import install_canonical_results_menu
     from gui_qt.start_shell_v020_a1 import install_setup_tab, install_start_navigation

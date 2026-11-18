@@ -1,0 +1,41 @@
+{
+  "release": "v0.2.2-a11",
+  "type": "delta",
+  "base_release": "v0.2.2-a10",
+  "base_commit": "4ea42b55c60c3044266e03d4c0d6d54f3e3a0671",
+  "test_summary": "14 a11 + 26 a10 + 11 a9 headless tests passed; full Windows test.bat pending",
+  "files": [
+    {
+      "path": "app/advanced_layout_v022_a11.py",
+      "sha256": "2fd364eaded721d660d0ec5f3d955f7a3a6024b61cd0d38e1ca164c3e67d965c"
+    },
+    {
+      "path": "gui_qt/main_v022_a11.py",
+      "sha256": "fc54d3d3ed8411fbdf0a8aa169d10f49cc0dc9ec4bea6b774d2ad4d9ef2a9b78"
+    },
+    {
+      "path": "gui_qt/__main__.py",
+      "sha256": "8e164e074c6f17abc106121eb3b08cd6c67059bd4c6de9d7607ecf32f948c516"
+    },
+    {
+      "path": "version.py",
+      "sha256": "93e866c00a0f3351e976880bae1847aa14ed466cd4fcfecbb10dbd02612b261b"
+    },
+    {
+      "path": "pyproject.toml",
+      "sha256": "b450fdc6b3fc4fb355cd125b586be3ad16d9e103575e75f4f703f90e021ac9d6"
+    },
+    {
+      "path": "tests/test_v022_a11_advanced_layout.py",
+      "sha256": "c5c5caf9d1ffed714f4de7c1b3235c02c0afd849dbd131b680a644a291db1d77"
+    },
+    {
+      "path": "tests/test_v022_a9_run_profiles.py",
+      "sha256": "ded147483499d23e437417970a4c33208f07c644d17a3101d49567012b410a95"
+    },
+    {
+      "path": "docs/V022-A11.md",
+      "sha256": "6ea55fc6b068000fc8d447f3fd044d916137fdbcc22044cf6c5662deb2a0f654"
+    }
+  ]
+}
