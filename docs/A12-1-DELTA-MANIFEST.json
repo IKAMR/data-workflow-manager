@@ -1,0 +1,16 @@
+{
+  "delta": "v0.2.2-a12.1",
+  "base": "v0.2.2-a12",
+  "runtime_version": "0.2.2-a12",
+  "description": "Recognize small main-window DPI corrections without a false red Qt alert; preserve raw diagnostics",
+  "files": {
+    "gui_qt/console_alert_v0114_a1.py": "f45649fd73c7ab5e2549789044f61018ae64c78b6fc2f04ace44577d1eccf2ed",
+    "tests/test_v022_a12_1_console_dpi.py": "601709d5d053f9cee4a6275903d55ec9578e9f76b286fcb7ff55add81bbf4b1d",
+    "docs/V022-A12-1.md": "bd3a81521f8ca623d19f99370d1ace7e70a7c8bb0997f7a549cf1a94aac3a5c8"
+  },
+  "targeted_tests": {
+    "passed": 18,
+    "failed": 0,
+    "windows_full_test": "not_run"
+  }
+}

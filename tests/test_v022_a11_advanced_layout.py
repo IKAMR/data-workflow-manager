@@ -79,8 +79,8 @@ class IntegrationContracts(unittest.TestCase):
         import tomllib
         with (ROOT / 'pyproject.toml').open('rb') as stream:
             version = tomllib.load(stream)['project']['version']
-        self.assertEqual(VERSION, '0.2.2-a11')
-        self.assertEqual(version, '0.2.2a11')
+        self.assertEqual(VERSION, '0.2.2-a12')
+        self.assertEqual(version, '0.2.2a12')
 
     def test_entrypoint_extends_a10_without_new_runner(self):
         entry = (ROOT / 'gui_qt/__main__.py').read_text('utf-8')

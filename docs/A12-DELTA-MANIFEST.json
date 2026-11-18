@@ -1,0 +1,60 @@
+{
+  "version": "0.2.2-a12",
+  "base_version": "0.2.2-a11",
+  "base_commit": "cdd1feebbc860068517d7ba0c126f422658f5101",
+  "delivery": "delta_zip",
+  "files": [
+    {
+      "path": "app/ks_workshop_v022_a12.py",
+      "bytes": 25208,
+      "sha256": "b19fc4db7cef9ca454ce474f32c2aa178cb4fa6cd17b1c6b944d3e4bfcd74eab"
+    },
+    {
+      "path": "gui_qt/ks_workshop_v022_a12.py",
+      "bytes": 30647,
+      "sha256": "9a5125185fb5c1ed53f967c722d68615ebd0c502e79696b0062f4e966b96682f"
+    },
+    {
+      "path": "gui_qt/main_v022_a12.py",
+      "bytes": 4092,
+      "sha256": "7fcad649932798702738b1dfceeb7d88c4e35763da8f8a05f3b561cd17368359"
+    },
+    {
+      "path": "gui_qt/__main__.py",
+      "bytes": 5131,
+      "sha256": "4baab10d5a318bbd0631f06514f0ecd27a9d8760686cb01c1a416df45c9f73c8"
+    },
+    {
+      "path": "version.py",
+      "bytes": 57,
+      "sha256": "6f4f15be4446d1af766e81539937a09e4bfe0cbfc8d98e27de9390468d68455f"
+    },
+    {
+      "path": "pyproject.toml",
+      "bytes": 474,
+      "sha256": "e6a530bd8d83d4d022a748d310f2249143251f5f2856ee2f850c6bd58c513e5f"
+    },
+    {
+      "path": "tests/test_v022_a12_ks_workshop.py",
+      "bytes": 16793,
+      "sha256": "67cf135204e4d5cccca10ad29a0551d5282992ed83f8b683a72a969fda97c5eb"
+    },
+    {
+      "path": "tests/test_v022_a11_advanced_layout.py",
+      "bytes": 14365,
+      "sha256": "8c3a175d8cd3974b0796971ca4162482a4a03dfe963941d4e8d8def862899287"
+    },
+    {
+      "path": "tests/test_v022_a9_run_profiles.py",
+      "bytes": 8788,
+      "sha256": "4a5f2e8310d4d7cdb99712958c17ead02e9afc20e4c957940e424b7c28614ebb"
+    },
+    {
+      "path": "docs/V022-A12.md",
+      "bytes": 5212,
+      "sha256": "398ea27ada092c00eb062b16da744afc7f453da2899e618d44dcd66608ba38bb"
+    }
+  ],
+  "no_job_or_work_data": true,
+  "full_windows_test_pending": true
+}
