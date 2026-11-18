@@ -4,6 +4,8 @@ No new startup timers, global event filters or workflow runner changes.
 """
 from __future__ import annotations
 
+import json
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QPushButton
@@ -201,6 +203,73 @@ class DwmMainWindow(_ExistingMainWindow):
     def _a8_choose_run_profile(self, *_args):
         from gui_qt.run_profiles_v022_a8 import open_run_profile_dialog
         return open_run_profile_dialog(self)
+
+    def _open_setup(self):
+        """Show the unified a9 Setup instead of the two competing selectors."""
+        from PySide6.QtWidgets import QDialog, QMessageBox
+        if self._worker is not None or self.api.running:
+            QMessageBox.information(self, 'Setup', 'Avslutt kjøringen før du endrer Setup.')
+            return
+        from gui_qt.setup_run_profiles_v022_a9 import DwmSetupDialog
+        dialog = DwmSetupDialog(self.api, self)
+        self._a3_place_dialog(dialog, 'setup')
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            # An untouched new Simple control should use the new user default,
+            # not retain the old QSettings checkboxes from a different profile.
+            if not self.api.workspace().jobs:
+                self._a9_apply_default_basic_checks()
+            self._a3_apply_display_preferences()
+            self._refresh(force=True)
+
+    def _a9_apply_default_basic_checks(self):
+        """Only set unregistered Simple drafts, never a saved job's switches."""
+        checks = getattr(self, 'basic_option_checks', {})
+        if not checks or (getattr(self, '_active_id', None) and
+                          not getattr(self, '_v022_draft', False)):
+            return
+        from app.run_profiles_v022_a8 import selected_default
+        profile = selected_default(self.api.settings)
+        chosen = set(profile.operation_ids)
+        mapping = {'dwm': 'run_noark5_xpath_tests_2026',
+                   'siegfried': 'siegfried_pronom_identification',
+                   'arkade_noark5': 'arkade5_noark5_test',
+                   'arkade_pronom': 'arkade5_pronom_analysis'}
+        self._setting_basic_workflow = True
+        try:
+            for key, check in checks.items():
+                check.setChecked(mapping.get(key) in chosen)
+            self.config.setValue('qt/v0111_basic_options',
+                                 json.dumps([k for k in mapping
+                                     if mapping[k] in chosen]))
+        finally:
+            self._setting_basic_workflow = False
+        self._basic_workflow_changed(initializing=True)
+
+    def _reset_basic_selection(self):
+        result = super()._reset_basic_selection()
+        # This also runs when starting a new control in an existing application.
+        # Loading a saved job immediately afterwards restores *its* switches.
+        if (not getattr(self, '_active_id', None) or
+                getattr(self, '_v022_draft', False)):
+            self._a9_apply_default_basic_checks()
+        return result
+
+    def _new_job(self):
+        """Apply the immutable user-default template to a genuinely new Qt job."""
+        from PySide6.QtWidgets import QMessageBox
+        from app.run_profiles_v022_a9 import install_default_on_new_job
+        previous = {job.job_id for job in self.api.workspace().jobs}
+        result = super()._new_job()
+        try:
+            installed = install_default_on_new_job(self.api, previous)
+            if installed:
+                self._render_key = None
+                self._refresh(force=True)
+        except (ValueError, RuntimeError, OSError) as exc:
+            QMessageBox.warning(self, 'Kjøreprofil',
+                'Ny jobb ble opprettet, men standardprofilen kunne ikke settes. '
+                'Kontroller deljobblisten før kjøring.\n\n' + str(exc))
+        return result
 
     def _a3_open_qa(self, *_args):
         from gui_qt.qa_workflow_v022_a3 import open_active_job_qa

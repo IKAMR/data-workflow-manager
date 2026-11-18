@@ -30,7 +30,7 @@ SPECS = (
     Dependency(160, 'arkade5_pronom_analysis', 'technical'),
     Dependency(170, 'analyse_noark5_core', 'technical'),
     Dependency(180, 'analyse_noark5_u1', 'technical'),
-    Dependency(190, 'run_noark5_xpath_regression', 'technical'),
+    Dependency(190, 'run_noark5_xpath_regression_2026', 'technical'),
     Dependency(200, 'import_arkade5_reports', 'processing', (150, 160)),
     Dependency(210, 'build_noark5_canonical_evidence', 'processing',
                (130, 140, 150, 160, 200), (130,)),

@@ -55,19 +55,29 @@ def builtin_profiles() -> tuple[RunProfile, ...]:
 
 
 def toggle_arkade(profile: RunProfile, *, noark: bool, pronom: bool) -> RunProfile:
-    """Remove/reinsert individual Arkade operations *before* processing.
+    """Toggle the two independent adapters, preserving any saved custom order.
 
-    Avoid carrying a stale A200 importer or moving an Arkade scan after A210.
+    a9: selecting an unchanged profile MUST NOT silently move Arkade steps.
+    When the operator adds one, append it at the end of technical controls,
+    before the mandatory evidence/report chain.
     """
-    existing = tuple(op for op in profile.operation_ids if op not in ARKADE_IDS
-                     and op not in ('import_arkade5_reports',
-                                    'build_noark5_canonical_evidence',
-                                    'analyze_noark5_external_evidence',
-                                    'audit_noark5_evidence', 'compose_noark5_views',
-                                    'build_noark5_depot_report', 'build_noark5_qa_draft'))
-    selected = (*existing, *((ARKADE_NOARK,) if noark else ()),
-                *((ARKADE_PRONOM,) if pronom else ()))
-    return RunProfile(profile.profile_id, profile.name, _compose(selected),
+    chosen = (bool(noark), bool(pronom))
+    if chosen == profile_controls(profile):
+        return profile
+    processing = ('import_arkade5_reports', 'build_noark5_canonical_evidence',
+                  'analyze_noark5_external_evidence', 'audit_noark5_evidence',
+                  'compose_noark5_views', 'build_noark5_depot_report',
+                  'build_noark5_qa_draft')
+    technical = [op for op in profile.operation_ids if op not in processing]
+    if not noark and ARKADE_NOARK in technical:
+        technical.remove(ARKADE_NOARK)
+    if not pronom and ARKADE_PRONOM in technical:
+        technical.remove(ARKADE_PRONOM)
+    if noark and ARKADE_NOARK not in technical:
+        technical.append(ARKADE_NOARK)
+    if pronom and ARKADE_PRONOM not in technical:
+        technical.append(ARKADE_PRONOM)
+    return RunProfile(profile.profile_id, profile.name, _compose(technical),
                       profile.description, profile.builtin)
 
 

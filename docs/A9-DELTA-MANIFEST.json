@@ -1,0 +1,76 @@
+{
+  "release": "v0.2.2-a9",
+  "base_commit": "9cf3a9e05385f394383eb42c06b1f15e0ae8dd01",
+  "base_version": "v0.2.2-a8",
+  "kind": "delta-over-main",
+  "no_git_actions": true,
+  "no_source_or_work_data": true,
+  "tests": "34 målrettede Python-tester bestått; hele test.bat/PySide6 Windows ikke verifisert",
+  "files": [
+    {
+      "path": "app/basic_start_v0111_a1.py",
+      "sha256": "18e5c6111a3ea204bb62a723707b06a6fe8634b465c604bdb4a38cb2efb049ab",
+      "bytes": 14043
+    },
+    {
+      "path": "app/run_profiles_v022_a8.py",
+      "sha256": "38d7033e0eaab2429a83f94ee8656e048a3d861b1102bfd9e2e9d509ce78f7fb",
+      "bytes": 7970
+    },
+    {
+      "path": "app/run_profiles_v022_a9.py",
+      "sha256": "c395e46d8731154b58403da3d9a90d22bb005bce48739846b6682a89620a6e91",
+      "bytes": 7453
+    },
+    {
+      "path": "app/workbench_api_v020_a2.py",
+      "sha256": "a5e23a19ce67672ceb8825ea6c514f3eec01801e04009795c1474671517790ee",
+      "bytes": 5491
+    },
+    {
+      "path": "app/workflow_dependencies_v022_a7.py",
+      "sha256": "ee43e5850dc1f951f4c5c17e6a4440a25ae34fbdef3905ed4b050960ece5bf59",
+      "bytes": 6576
+    },
+    {
+      "path": "gui_qt/main_v020_a6.py",
+      "sha256": "b8f423a20060fd911bb01f133092a128aaa4887bc405b6b0be1cc0c0c1dee9e2",
+      "bytes": 15664
+    },
+    {
+      "path": "gui_qt/profile_editor_v022_a9.py",
+      "sha256": "5e5612db313ee8426e7c8f73191f7eef6ef0486a1fdc74df8cc2207c4e1ad98b",
+      "bytes": 6134
+    },
+    {
+      "path": "gui_qt/setup_run_profiles_v022_a9.py",
+      "sha256": "8e176feecf394a53266d9d8f13ef868f8904a87eba5d9b7948f33c9253c30832",
+      "bytes": 7017
+    },
+    {
+      "path": "tests/test_v022_a7_dependencies.py",
+      "sha256": "4ea6ee6c7ea76ab8201551085e36eda57671f37716386129229e2ff89b53825a",
+      "bytes": 6563
+    },
+    {
+      "path": "tests/test_v022_a9_run_profiles.py",
+      "sha256": "a69e46940bbabbc9fedda15a36d2292c37bcaa13de38f69fdea6d5e03d1dd00d",
+      "bytes": 8785
+    },
+    {
+      "path": "docs/KJOREPROFILER-V022-A9.md",
+      "sha256": "966b2dcb88171bc83ddba4b74aff4cbf8c1c81914a5c331049e6dedf082cc67a",
+      "bytes": 4937
+    },
+    {
+      "path": "pyproject.toml",
+      "sha256": "d8583fd9aa1ab139f8d9f8d69b28c79cbc215d9b9c3adb27bbb814a10b07d7a3",
+      "bytes": 473
+    },
+    {
+      "path": "version.py",
+      "sha256": "ae17b25fd025cc23a989a524ff60ae712e92ab9aff2f65d3c9f0d93735d46d03",
+      "bytes": 56
+    }
+  ]
+}

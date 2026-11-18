@@ -207,20 +207,16 @@ def existing_basic_job(api, plan: BasicControlPlan) -> str | None:
         ):
             details = api.job_details(job.job_id)
             operations = tuple(operation.operation_id for operation in details.operations)
-            # Membership, not ordering, is what Basic's checkboxes select.
-            # Incompatible *membership* is still rejected as before.
-            # a8: a saved advanced DWM profile may include supplementary
-            # technical operations which are not shown as Basic checkboxes.
-            # Preserve the job's exact workflow instead of silently resetting
-            # it to Basic's shorter checklist on Save/Start.
-            from app.run_profiles_v022_a8 import ADVANCED_IDS
-            effective = tuple(op for op in operations if op not in ADVANCED_IDS)
-            planned = tuple(op for op in plan.operation_ids if op not in ADVANCED_IDS)
-            if sorted(operations) != sorted(plan.operation_ids) and sorted(effective) != sorted(planned):
+            # a9: every saved job owns an immutable, possibly custom workflow.
+            # Simple's four visible checks only describe the four major engines,
+            # not optional technical operations or their order. Do not reject
+            # a custom profile because its hidden supplementary tests differ;
+            # equally, never silently change an existing job's visible engines.
+            if basic_options_for_operations(operations) != basic_options_for_operations(plan.operation_ids):
                 raise ValueError(
                     'Det finnes allerede en jobb med denne Source- og Work-plasseringen, '
-                    'men med en annen arbeidsflyt. Åpne Avansert modus eller velg en annen Work-mappe.'
-                )
+                    'men med en annen arbeidsflyt (andre hovedkontroller). Bruk jobben slik den er, '
+                    'eller velg en annen Work-mappe.')
             return job.job_id
         if _same_path(getattr(job, 'work_root', None), plan.work_root):
             raise ValueError(

@@ -74,21 +74,36 @@ class DwmWorkbenchAPI(_PreviousWorkbenchAPI):
         return self.job_details(job_id)
 
     def save_setup(self, changes: Mapping[str, object]) -> dict:
+        """Persist new run-profile settings through the same guarded Setup API.
+
+        The old Setup API accepts only its historical keys, and would turn
+        profile arrays into strings. Split off the two typed profile keys,
+        validate the COMPLETE proposed collection first, then save in the
+        existing Setup Save transaction. Existing job lists are untouched.
+        """
+        from app.run_profiles_v022_a9 import staged_profile_settings_valid
+
+        profile_keys = {'noark5_default_run_profile', 'noark5_custom_run_profiles'}
+        profiles = {key: value for key, value in changes.items()
+                    if key in profile_keys}
         ui_changes = {key: value for key, value in changes.items()
                       if key in UI_SETUP_KEYS}
-        if not ui_changes:
+        if not ui_changes and not profiles:
             return super().save_setup(changes)
         try:
-            validated = validate_ui_preferences(ui_changes)
+            validated_ui = validate_ui_preferences(ui_changes) if ui_changes else {}
+            if profiles:
+                staged_profile_settings_valid({**self.settings, **profiles})
         except ValueError as exc:
             raise DwmApiError(str(exc)) from exc
         ordinary = {key: value for key, value in changes.items()
-                    if key not in UI_SETUP_KEYS}
+                    if key not in UI_SETUP_KEYS and key not in profile_keys}
         if ordinary:
             super().save_setup(ordinary)
+        update = {**validated_ui, **profiles}
         with self._guard:
             self._assert_idle()
-            saved = save_config(validated)
-            self.settings.update(validated)
-        self._emit('setup.changed', message='Arbeidsprofil og oppstartspreferanser lagret')
+            saved = save_config(update)
+            self.settings.update(update)
+        self._emit('setup.changed', message='Oppstart, kjøreprofil og Setup lagret')
         return dict(saved)
