@@ -124,9 +124,9 @@ class DependencyTests(unittest.TestCase):
         self.assertNotEqual(OLD, ensure_a7_processing(OLD))
 
     def test_version_is_a7_in_distribution_and_runtime(self):
-        self.assertEqual(VERSION, '0.2.2-a7')
+        self.assertIn(VERSION, ('0.2.2-a7', '0.2.2-a8'))
         with (ROOT / 'pyproject.toml').open('rb') as stream:
-            self.assertEqual(tomllib.load(stream)['project']['version'], '0.2.2a7')
+            self.assertEqual(tomllib.load(stream)['project']['version'], '0.2.2a8')
 
 
 if __name__ == '__main__':

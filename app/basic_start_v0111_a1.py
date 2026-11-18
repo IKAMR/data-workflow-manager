@@ -151,6 +151,13 @@ def prepare_basic_plan(source: str | Path, selected_work: str | Path,
         selected = normalize_basic_controls(controls)
         from app.workflow_dependencies_v022_a7 import ensure_a7_processing
         operation_ids = ensure_a7_processing(basic_operation_ids(selected))
+        # a8: for a new Simple job, honor the configured run-profile default
+        # when its visible controls match. A manually changed checkbox set
+        # remains authoritative and is composed independently.
+        from app.run_profiles_v022_a8 import selected_default
+        configured = selected_default(settings or {})
+        if selected == basic_options_for_operations(configured.operation_ids):
+            operation_ids = configured.operation_ids
         if any(item == 'dias_package' for item in operation_ids):
             raise ValueError('Basic skal ikke produsere AIP.')
         chosen_id = (BASIC_WORKFLOW_ID if selected == ('dwm',) else
@@ -202,7 +209,14 @@ def existing_basic_job(api, plan: BasicControlPlan) -> str | None:
             operations = tuple(operation.operation_id for operation in details.operations)
             # Membership, not ordering, is what Basic's checkboxes select.
             # Incompatible *membership* is still rejected as before.
-            if sorted(operations) != sorted(plan.operation_ids):
+            # a8: a saved advanced DWM profile may include supplementary
+            # technical operations which are not shown as Basic checkboxes.
+            # Preserve the job's exact workflow instead of silently resetting
+            # it to Basic's shorter checklist on Save/Start.
+            from app.run_profiles_v022_a8 import ADVANCED_IDS
+            effective = tuple(op for op in operations if op not in ADVANCED_IDS)
+            planned = tuple(op for op in plan.operation_ids if op not in ADVANCED_IDS)
+            if sorted(operations) != sorted(plan.operation_ids) and sorted(effective) != sorted(planned):
                 raise ValueError(
                     'Det finnes allerede en jobb med denne Source- og Work-plasseringen, '
                     'men med en annen arbeidsflyt. Åpne Avansert modus eller velg en annen Work-mappe.'

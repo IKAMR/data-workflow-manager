@@ -17,6 +17,7 @@ class DwmMainWindow(_ExistingMainWindow):
         self._a3_install_qa_shortcuts()
         self._a6_install_workflow_order()
         self._a7_install_postprocessing()
+        self._a8_install_run_profiles()
 
     def _a3_install_qa_shortcuts(self):
         """No new top-level windows at startup and no Qt event filters."""
@@ -161,6 +162,45 @@ class DwmMainWindow(_ExistingMainWindow):
                 prerequisites = ', '.join(dependency_links(oid, ids)) or 'Ingen'
                 item.setToolTip(1, f'Avhengighetsnr. {number}\nOperasjon: {oid}\nEtter: {prerequisites}')
         return result
+
+    def _a8_install_run_profiles(self):
+        """One editor for both modes; no hidden secondary execution state."""
+        self.a8_profiles_action = QAction('Kjøreprofiler…', self)
+        self.a8_profiles_action.setToolTip(
+            'Velg Standard DWM, Avansert DWM eller Komplett, og velg Arkade-testene uavhengig')
+        self.a8_profiles_action.triggered.connect(self._a8_choose_run_profile)
+        menu = next((action.menu() for action in self.menuBar().actions()
+                     if action.menu() is not None
+                     and action.text().replace('&', '').strip() == 'Kjør'), None)
+        if menu is not None:
+            menu.addAction(self.a8_profiles_action)
+        group = getattr(self, '_a2_step_groups', {}).get('run')
+        if group is not None and group.layout() is not None:
+            self.a8_basic_profiles_button = QPushButton('Kjøreprofil…', group)
+            self.a8_basic_profiles_button.setToolTip(self.a8_profiles_action.toolTip())
+            self.a8_basic_profiles_button.clicked.connect(self._a8_choose_run_profile)
+            group.layout().insertWidget(0, self.a8_basic_profiles_button,
+                                        0, Qt.AlignmentFlag.AlignLeft)
+        # Only an untouched Basic installation receives the user's configured
+        # default. Existing explicit checkbox preferences are never reset.
+        checks = getattr(self, 'basic_option_checks', {})
+        if checks and not self.config.contains('qt/v0111_basic_options'):
+            from app.run_profiles_v022_a8 import selected_default
+            ids = set(selected_default(self.api.settings).operation_ids)
+            mapping = {'dwm': 'run_noark5_xpath_tests_2026',
+                       'siegfried': 'siegfried_pronom_identification',
+                       'arkade_noark5': 'arkade5_noark5_test',
+                       'arkade_pronom': 'arkade5_pronom_analysis'}
+            self._setting_basic_workflow = True
+            try:
+                for key, checkbox in checks.items():
+                    checkbox.setChecked(mapping.get(key) in ids)
+            finally:
+                self._setting_basic_workflow = False
+
+    def _a8_choose_run_profile(self, *_args):
+        from gui_qt.run_profiles_v022_a8 import open_run_profile_dialog
+        return open_run_profile_dialog(self)
 
     def _a3_open_qa(self, *_args):
         from gui_qt.qa_workflow_v022_a3 import open_active_job_qa
