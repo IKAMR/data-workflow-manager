@@ -1,14 +1,12 @@
-"""v0.1.14-a1 Fix 6: severity-aware Qt console warnings in Basic mode.
+"""Severity-aware Qt console messages and an accessible diagnostics window.
 
-Only Qt warning/critical/fatal messages set the flag. Normal debug and info
-messages do not imply an error. The original Qt console output is retained.
+Qt warnings remain in the original stderr stream. Small, known Windows frame
+rounding is not raised as a red alert; significant geometry failures remain
+visible. A10.2 replaces QMessageBox's tiny details pane with a resizable
+viewer whose entire text can be copied and whose size is remembered.
 """
 from __future__ import annotations
 
-
-# Windows sometimes rounds a requested client rectangle to fit its native
-# title bar, borders, or current DPI. Keep these messages in stderr for
-# diagnostics; only suppress the red alert for small, harmless adjustments.
 import re
 
 _GEOMETRY_WARNING = re.compile(
@@ -21,7 +19,7 @@ _GEOMETRY_WARNING = re.compile(
 
 
 def is_minor_windows_geometry_adjustment(message: str, *, tolerance: int = 24) -> bool:
-    """True only for a documented, bounded Qt/Windows geometry rounding."""
+    """True only when every Windows geometry correction is small and bounded."""
     match = _GEOMETRY_WARNING.search(str(message))
     if not match:
         return False
@@ -35,15 +33,89 @@ def should_flag_qt_message(message_type: int, message: str = '') -> bool:
     severity = int(getattr(message_type, 'value', message_type))
     if severity not in (1, 2, 3):
         return False
-    # Never silence a critical/fatal event, even if its wording is familiar.
     if severity == 1 and is_minor_windows_geometry_adjustment(message):
         return False
     return True
 
 
+def show_console_diagnostics(main, messages) -> None:
+    """Show the full stored Qt messages, never truncate or alter them."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import (
+        QApplication, QDialog, QHBoxLayout, QLabel, QPlainTextEdit,
+        QPushButton, QVBoxLayout,
+    )
+    from app.window_geometry_v022_a10_2 import bounded_dialog_size
+
+    details = '\n\n'.join(str(message) for message in messages)
+    dialog = QDialog(main)
+    dialog.setObjectName('a102_console_diagnostics')
+    dialog.setWindowTitle('Advarsler fra konsollen – detaljer')
+    dialog.setWindowFlag(Qt.WindowType.WindowMaximizeButtonHint, True)
+    dialog.setSizeGripEnabled(True)
+    screen = main.screen() or QApplication.primaryScreen()
+    available = screen.availableGeometry() if screen else None
+    config = getattr(main, 'config', None)
+    def saved_number(key, default):
+        if config is None:
+            return default
+        try:
+            return int(config.value(key, default))
+        except (TypeError, ValueError):
+            return default
+    width, height = bounded_dialog_size(
+        saved_number('qt/a102_console_width', 900),
+        saved_number('qt/a102_console_height', 540),
+        available.width() if available else 1280,
+        available.height() if available else 800,
+    )
+    dialog.resize(width, height)
+    dialog.setMinimumSize(min(520, width), min(300, height))
+    layout = QVBoxLayout(dialog)
+    description = QLabel(f'{len(messages)} konsolladvarsel(er) registrert. '
+                         'Meldingene er teknisk diagnostikk og betyr ikke '
+                         'automatisk at Noark 5-kontrollen har feilet.', dialog)
+    description.setWordWrap(True)
+    layout.addWidget(description)
+    viewer = QPlainTextEdit(dialog)
+    viewer.setObjectName('a102_console_details')
+    viewer.setReadOnly(True)
+    viewer.setLineWrapMode(QPlainTextEdit.LineWrapMode.WidgetWidth)
+    viewer.setPlainText(details)
+    layout.addWidget(viewer, 1)
+    footer = QHBoxLayout()
+    copy_button = QPushButton('Kopier alle detaljer', dialog)
+    copy_button.clicked.connect(lambda _checked=False: QApplication.clipboard().setText(details))
+    footer.addWidget(copy_button)
+    toggle_button = QPushButton('Skjul detaljer', dialog)
+    def toggle_details(_checked=False):
+        visible = not viewer.isVisible()
+        viewer.setVisible(visible)
+        toggle_button.setText('Skjul detaljer' if visible else 'Vis detaljer')
+    toggle_button.clicked.connect(toggle_details)
+    footer.addWidget(toggle_button)
+    footer.addStretch(1)
+    close_button = QPushButton('Lukk', dialog)
+    close_button.clicked.connect(dialog.accept)
+    footer.addWidget(close_button)
+    layout.addLayout(footer)
+    if available is not None:
+        # Position on the owner's screen, using Qt's logical coordinates.
+        owner = main.frameGeometry().center()
+        x = max(available.x() + 12,
+                min(owner.x() - width // 2, available.right() - width - 12))
+        y = max(available.y() + 20,
+                min(owner.y() - height // 2, available.bottom() - height - 20))
+        dialog.move(x, y)
+    dialog.exec()
+    if config is not None and not dialog.isMaximized():
+        config.setValue('qt/a102_console_width', dialog.width())
+        config.setValue('qt/a102_console_height', dialog.height())
+
+
 def install_console_alert(main, navigation):
     from PySide6.QtCore import QObject, Signal, Qt, qInstallMessageHandler
-    from PySide6.QtWidgets import QPushButton, QMessageBox
+    from PySide6.QtWidgets import QPushButton
     import sys
 
     class Bridge(QObject):
@@ -54,7 +126,9 @@ def install_console_alert(main, navigation):
     indicator = QPushButton('⚑ Konsoll', main)
     indicator.setObjectName('a14_console_alert')
     indicator.setToolTip('Reelle Qt-advarsler og feil i DWM. Klikk for detaljer.')
-    indicator.setStyleSheet('QPushButton { color: white; background-color: #a62929; font-weight: bold; border: 1px solid #f59b9b; }')
+    indicator.setStyleSheet(
+        'QPushButton { color: white; background-color: #a62929; '
+        'font-weight: bold; border: 1px solid #f59b9b; }')
     indicator.setVisible(False)
     navigation.addWidget(indicator)
 
@@ -70,16 +144,7 @@ def install_console_alert(main, navigation):
     def show_messages():
         if not messages:
             return
-        dialog = QMessageBox(main)
-        dialog.setWindowTitle('Advarsler fra konsollen')
-        dialog.setIcon(QMessageBox.Icon.Warning)
-        dialog.setText(f'{len(messages)} konsolladvarsel(er) registrert.')
-        dialog.setDetailedText('\n\n'.join(messages))
-        dialog.setStandardButtons(QMessageBox.StandardButton.Ok)
-        controller = getattr(main, '_a14_window_positions', None)
-        if controller is not None:
-            controller._place(dialog)
-        dialog.exec()
+        show_console_diagnostics(main, tuple(messages))
         messages.clear()
         indicator.setVisible(False)
     indicator.clicked.connect(show_messages)
@@ -99,7 +164,6 @@ def install_console_alert(main, navigation):
 
     previous[0] = qInstallMessageHandler(handler)
     bridge.destroyed.connect(lambda _obj=None: qInstallMessageHandler(previous[0]))
-    # Hold the Python callback and Qt signal bridge for DWM's entire lifetime.
     main._a14_console_qt_handler = handler
     main._a14_console_bridge = bridge
     return indicator

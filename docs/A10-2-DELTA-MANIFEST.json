@@ -1,0 +1,14 @@
+{
+  "version": "0.2.2-a10.2",
+  "base": "0.2.2-a10.1",
+  "application_version": "0.2.2-a10",
+  "type": "delta",
+  "paths": [
+    "app/window_geometry_v022_a10_2.py",
+    "gui_qt/main_v022_a10.py",
+    "gui_qt/console_alert_v0114_a1.py",
+    "tests/test_v022_a10_2_geometry_console.py",
+    "docs/V022-A10-2.md",
+    "docs/A10-2-DELTA-MANIFEST.json"
+  ]
+}

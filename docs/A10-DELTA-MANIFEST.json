@@ -1,0 +1,73 @@
+{
+  "base_version": "0.2.2-a9",
+  "base_commit": "5eb7aa513a7b826d55ef95d5e34a2ed903bb749b",
+  "delta_version": "0.2.2-a10",
+  "test_status": "27 targeted tests passed; full Windows test.bat not run",
+  "files": [
+    {
+      "path": "app/source_locator_v022_a10.py",
+      "bytes": 3569,
+      "sha256": "39400c0ddca1055d1c0cad0fec332102c99f4bfec26b486ed74ccce094d5b018"
+    },
+    {
+      "path": "app/run_display_v022_a10.py",
+      "bytes": 1409,
+      "sha256": "2269f631d6e070eff38f2f842d5d02b2630bced0bbf8b30e8d5380cf4ea917c8"
+    },
+    {
+      "path": "gui_qt/main_v022_a10.py",
+      "bytes": 14294,
+      "sha256": "ea8baf3a0cc77ce92bab5866cde293e1d37efa1a96b2be200c53a50eabb377dd"
+    },
+    {
+      "path": "gui_qt/combo_anchor_v022_a10.py",
+      "bytes": 2496,
+      "sha256": "bd4b541b87b293b5e070e18c726b26274ed492a60a4b9cbc1549f4619550b902"
+    },
+    {
+      "path": "gui_qt/profile_editor_v022_a9.py",
+      "bytes": 7160,
+      "sha256": "70af4e8e6c3123c8a2f18b37463373b34919f6338c12e069780f7470da5a3c32"
+    },
+    {
+      "path": "gui_qt/setup_run_profiles_v022_a9.py",
+      "bytes": 7164,
+      "sha256": "4b63c46ca483f15ebc87715a7eae3ae79b8d7429c391d3527854938969f991c0"
+    },
+    {
+      "path": "gui_qt/__main__.py",
+      "bytes": 4850,
+      "sha256": "3b94378a77a56fa363b5da1ba66e86684c7006d2282e3279bdbd280dfcf8c2bf"
+    },
+    {
+      "path": "tests/test_v022_a10_gui_fixes.py",
+      "bytes": 5715,
+      "sha256": "7c82db619a342d093ef49150301ced1d63a38e1992ef9ea2b823463c13b1d707"
+    },
+    {
+      "path": "tests/test_v022_a10_gui_headless.py",
+      "bytes": 6696,
+      "sha256": "4452ae61f37856cf9377f3420fc01a0c9d31b4d6dcb25ccd63ce379f6660bd14"
+    },
+    {
+      "path": "tests/test_v022_a9_run_profiles.py",
+      "bytes": 8788,
+      "sha256": "1095162d567988848f5f230039fa992d0a636ed70e50cb9cab2b7fdfefa54d7b"
+    },
+    {
+      "path": "version.py",
+      "bytes": 57,
+      "sha256": "e8a4dc13af33db839d693115521f753ac9517e7c739d2a814f8ef54d591bf156"
+    },
+    {
+      "path": "pyproject.toml",
+      "bytes": 474,
+      "sha256": "94e6b471619aaeca78253ad52a273c4de44914dae3f0bf1d9eac616b55ee56fd"
+    },
+    {
+      "path": "docs/V022-A10.md",
+      "bytes": 3581,
+      "sha256": "70f1779ef837d9cd0e13eefdd0126657bac8d48d39400ef5f587c87d5b173c16"
+    }
+  ]
+}

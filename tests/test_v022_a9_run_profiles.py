@@ -154,10 +154,10 @@ class RunProfilesA9Tests(unittest.TestCase):
         self.assertIn('staged_profile_settings_valid', api)
         self.assertIn("'noark5_custom_run_profiles'", api)
 
-    def test_version_matches_distribution_and_is_a9(self):
+    def test_version_matches_distribution_and_runtime(self):
         with (ROOT / 'pyproject.toml').open('rb') as stream:
             dist = tomllib.load(stream)['project']['version']
-        self.assertEqual(VERSION, '0.2.2-a9')
+        self.assertEqual(VERSION, '0.2.2-a10')
         self.assertEqual(dist, VERSION.replace('-a', 'a'))
 
 

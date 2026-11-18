@@ -1,4 +1,4 @@
-"""Qt desktop entry point with a1 depot profiles and a1.2 shared multi-job Basic."""
+"""Qt desktop entry point with a10 GUI over the shared multi-job controller."""
 from __future__ import annotations
 
 import sys
@@ -17,16 +17,18 @@ def main() -> int:
     try:
         from PySide6.QtWidgets import QApplication, QMessageBox
     except ImportError:
-        print('PySide6 mangler. Kjør: py -m pip install -r requirements-gui.txt', file=sys.stderr)
+        print('PySide6 mangler. Kj\u00f8r: py -m pip install -r requirements-gui.txt', file=sys.stderr)
         return 2
     _boot_phase("02 PySide6 imported, before DWM bootstrap")
     from gui_qt.bootstrap_v0113_a1 import install
     install()
     _boot_phase("03 Bootstrap installed, importing DWM GUI classes")
     from gui_qt.main_v020_a6 import DwmMainWindow as _StableDwmMainWindow
-    from gui_qt.basic_multijob_v022_a1_2 import DwmMainWindow
-    if not issubclass(DwmMainWindow, _StableDwmMainWindow):
-        raise RuntimeError('Enkel flerjobbvisning må utvide det eksisterende Qt-hovedvinduet')
+    from gui_qt.basic_multijob_v022_a1_2 import DwmMainWindow as _MultiJobDwmMainWindow
+    from gui_qt.main_v022_a10 import DwmMainWindow
+    if (not issubclass(DwmMainWindow, _StableDwmMainWindow)
+            or not issubclass(DwmMainWindow, _MultiJobDwmMainWindow)):
+        raise RuntimeError('Enkel flerjobbvisning m\u00e5 utvide det eksisterende Qt-hovedvinduet')
     from gui_qt.canonical_results_v0115_a3 import install_canonical_results_menu
     from gui_qt.start_shell_v020_a1 import install_setup_tab, install_start_navigation
     from gui_qt.production_home_v020_a2 import ProductionStartPage, install_integrated_home
@@ -36,10 +38,7 @@ def main() -> int:
     from gui_qt.qt_startup_policy_v022_a1_14 import select_qt_startup_features
 
     _boot_phase("04 Imports complete, before QApplication")
-    # Historical Windows reports include 0xC0000005 and a partially painted
-    # main window. The native root cause is not yet proved. Do not install
-    # optional global QObject filters or trigger the competing Qt geometry
-    # controller on normal startup; they are opt-in diagnostic experiments.
+    # Keep app-wide event filters disabled by default after earlier Windows faults.
     features = select_qt_startup_features(os.environ)
     _boot_phase(
         "Qt startup profile: "
@@ -68,11 +67,7 @@ def main() -> int:
     _boot_phase("11 Setup hooks installed, before main-window construction")
     window = DwmMainWindow(api)
     if not features.basic_auto_fit:
-        # The Basic mixin has already queued a 0-ms fit callback. Disable it
-        # before show()/the event loop so it cannot race the older window
-        # restoration controller. Do not persist or reset user preferences.
         window._v022_fit_ready = False
-        # This control cannot do anything while the feature is suspended.
         fit_control = getattr(window, 'v022_fit_window_button', None)
         if fit_control is not None:
             fit_control.hide()
@@ -86,7 +81,7 @@ def main() -> int:
     _boot_phase("15 Integrated home installed")
     if not install_depot_profile_controls(window):
         QMessageBox.warning(window, 'Depotprofil',
-                            'Rapporteringsarbeidsflaten mangler. Depotprofil kan ikke åpnes.')
+                            'Rapporteringsarbeidsflaten mangler. Depotprofil kan ikke \u00e5pnes.')
     if features.popup_filter:
         from gui_qt.combobox_popup_v020_a2 import install_dropdown_positioning
         install_dropdown_positioning(application, window)
@@ -98,7 +93,7 @@ def main() -> int:
         try:
             window.open_job_list(sys.argv[1])
         except Exception as exc:
-            QMessageBox.warning(window, 'Kunne ikke åpne jobbliste', str(exc))
+            QMessageBox.warning(window, 'Kunne ikke \u00e5pne jobbliste', str(exc))
     _boot_phase("19 Entering Qt event loop")
     code = application.exec()
     _boot_phase("20 Qt event loop returned with code " + str(code))

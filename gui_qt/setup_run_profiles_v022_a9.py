@@ -17,6 +17,7 @@ from app.run_profiles_v022_a9 import legacy_fallback_sequence
 from app.workflow_sequences import load_workflow_sequences
 from gui_qt.setup_format_v0111_a2 import DwmSetupDialog as _PreviousSetupDialog
 from gui_qt.profile_editor_v022_a9 import RunProfileOrderEditor
+from gui_qt.combo_anchor_v022_a10 import anchor_setup_combo
 
 
 class DwmSetupDialog(_PreviousSetupDialog):
@@ -40,6 +41,7 @@ class DwmSetupDialog(_PreviousSetupDialog):
         self._a9_pending = dict(self.settings)
         self._a9_combo = QComboBox(self)
         self._a9_combo.setMinimumWidth(300)
+        anchor_setup_combo(self._a9_combo)
         self._a9_combo.currentIndexChanged.connect(self._a9_selection_changed)
         form.addRow('Standard kjøreprofil for nye Noark 5-jobber:', self._a9_combo)
         self._a9_description = QLabel(self)
@@ -56,6 +58,7 @@ class DwmSetupDialog(_PreviousSetupDialog):
         form.addRow('', button_row)
 
         self.visibility = QComboBox(self)
+        anchor_setup_combo(self.visibility)
         for value, label in VISIBILITY_LABELS.items():
             self.visibility.addItem(label, value)
         try:

@@ -10,7 +10,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog, QDialogButtonBox, QHBoxLayout, QLabel, QLineEdit,
     QListWidget, QListWidgetItem, QMessageBox, QPushButton,
-    QTextEdit, QVBoxLayout,
+    QTextEdit, QVBoxLayout, QSplitter, QWidget,
 )
 
 from app.run_profiles_v022_a9 import (
@@ -30,7 +30,14 @@ class RunProfileOrderEditor(QDialog):
         self.profile = profile
         self.result_edit = None
         self.setWindowTitle('Deljobber og rekkefølge – ' + profile.name)
-        self.setMinimumSize(770, 660)
+        self.setMinimumSize(680, 500)
+        screen = self.screen()
+        if screen is not None:
+            bounds = screen.availableGeometry()
+            self.resize(min(1000, max(680, bounds.width() - 80)),
+                        min(820, max(500, bounds.height() - 90)))
+        else:
+            self.resize(900, 720)
         layout = QVBoxLayout(self)
         intro = QLabel(
             'Merk av deljobber og flytt dem opp/ned. Arkade Noark og PRONOM er uavhengige. '
@@ -44,10 +51,14 @@ class RunProfileOrderEditor(QDialog):
         self.name.setText(profile.name + ' – tilpasset' if profile.builtin else profile.name)
         layout.addWidget(self.name)
 
-        row = QHBoxLayout()
+        self.section_splitter = QSplitter(Qt.Orientation.Vertical, self)
+        self.section_splitter.setObjectName('a10_profile_sections')
+        technical_section = QWidget(self)
+        technical_layout = QHBoxLayout(technical_section)
+        technical_layout.setContentsMargins(0, 0, 0, 0)
         self.items = QListWidget(self)
         self.items.setAlternatingRowColors(True)
-        row.addWidget(self.items, 1)
+        technical_layout.addWidget(self.items, 1)
         buttons = QVBoxLayout()
         self.up = QPushButton('Flytt opp', self)
         self.down = QPushButton('Flytt ned', self)
@@ -56,15 +67,22 @@ class RunProfileOrderEditor(QDialog):
         buttons.addWidget(self.up)
         buttons.addWidget(self.down)
         buttons.addStretch(1)
-        row.addLayout(buttons)
-        layout.addLayout(row, 1)
-        self.items.itemChanged.connect(self._preview)
+        technical_layout.addLayout(buttons)
+        self.section_splitter.addWidget(technical_section)
 
-        layout.addWidget(QLabel('Faktisk arbeidsflyt inkl. automatisk etterbehandling:'))
+        process_section = QWidget(self)
+        process_layout = QVBoxLayout(process_section)
+        process_layout.setContentsMargins(0, 0, 0, 0)
+        process_layout.addWidget(QLabel('Faktisk arbeidsflyt inkl. automatisk etterbehandling:'))
         self.preview = QTextEdit(self)
         self.preview.setReadOnly(True)
-        self.preview.setMinimumHeight(180)
-        layout.addWidget(self.preview)
+        process_layout.addWidget(self.preview, 1)
+        self.section_splitter.addWidget(process_section)
+        self.section_splitter.setChildrenCollapsible(False)
+        self.section_splitter.setStretchFactor(0, 3)
+        self.section_splitter.setStretchFactor(1, 2)
+        self.section_splitter.setSizes([370, 260])
+        layout.addWidget(self.section_splitter, 1)
         self.note = QLabel(self)
         self.note.setWordWrap(True)
         layout.addWidget(self.note)
