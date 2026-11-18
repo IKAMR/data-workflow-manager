@@ -74,13 +74,14 @@ class PlanningTests(unittest.TestCase):
 
 
 class IntegrationContracts(unittest.TestCase):
-    def test_main_version_and_distribution_are_a11(self):
+    def test_a11_version_floor_and_distribution_consistency(self):
         from version import VERSION
         import tomllib
         with (ROOT / 'pyproject.toml').open('rb') as stream:
             version = tomllib.load(stream)['project']['version']
-        self.assertEqual(VERSION, '0.2.2-a12')
-        self.assertEqual(version, '0.2.2a12')
+        from tests.version_assertions import assert_release_at_least
+        assert_release_at_least(self, f'VERSION = "{VERSION}"', '0.2.2', 11)
+        self.assertEqual(version, VERSION.replace('-a', 'a'))
 
     def test_entrypoint_extends_a10_without_new_runner(self):
         entry = (ROOT / 'gui_qt/__main__.py').read_text('utf-8')

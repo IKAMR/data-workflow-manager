@@ -292,8 +292,9 @@ class GuiContracts(unittest.TestCase):
         import tomllib
         from version import VERSION
         with (ROOT/'pyproject.toml').open('rb') as file:project=tomllib.load(file)
-        self.assertEqual(VERSION,'0.2.2-a12')
-        self.assertEqual(project['project']['version'],'0.2.2a12')
+        from tests.version_assertions import assert_release_at_least
+        assert_release_at_least(self, f'VERSION = "{VERSION}"', '0.2.2', 12)
+        self.assertEqual(project['project']['version'], VERSION.replace('-a', 'a'))
 
 
 if __name__=='__main__':unittest.main()

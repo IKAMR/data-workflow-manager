@@ -9,6 +9,10 @@ Versjonene v0.1.0–v0.1.3 ble utgitt under navnet **Noark 5 Workflow Manager**.
 Nyeste ferdige versjon står øverst. Alpha-trinn dokumenteres ikke som egne
 permanente releaseversjoner.
 
+## v0.2.2
+
+Flere Noark 5-jobber i samme jobbliste, avhengighetsstyrte A100–A260-deljobber inkludert evidens og etterbehandling, sekvensiell kjøring, redigerbare kjøreprofiler, forbedret Windows-/Qt-arbeidsflate og samlet faglig KS-arbeidsflate med filtrering, kildebundne kommentarer og rapportutkast. Ingen automatisk faglig eller formell godkjenning. Se `docs/RELEASE-v0.2.2.md`.
+
 ## v0.2.1
 
 Noark 5 v3.1/4.0/5.0: kildebundne XSD-/XPath- og KDRS Query-kontroller, faglige funnvurderinger, KS-/depotrapportutkast og eksisterende Full-rapport med vedlegg A-D. Depotets manuelle sjekkliste (49 kontrollpunkter), 47 Arkade-metadatafelt med ytre `info.xml` og indre DIAS/METS som separate kilder, SHA-256-verifikasjon og Work-historikk. Direkte knapper for Periodevurdering og Depotvurdering. Ingen automatisk depotgodkjenning. Se `docs/RELEASE-v0.2.1.md` for detaljer og avgrensninger.

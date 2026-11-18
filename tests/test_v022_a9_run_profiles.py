@@ -157,7 +157,7 @@ class RunProfilesA9Tests(unittest.TestCase):
     def test_version_matches_distribution_and_runtime(self):
         with (ROOT / 'pyproject.toml').open('rb') as stream:
             dist = tomllib.load(stream)['project']['version']
-        self.assertEqual(VERSION, '0.2.2-a12')
+        self.assertEqual(VERSION, '0.2.2')
         self.assertEqual(dist, VERSION.replace('-a', 'a'))
 
 
