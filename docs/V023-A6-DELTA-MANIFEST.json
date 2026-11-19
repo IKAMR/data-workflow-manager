@@ -1,0 +1,39 @@
+{
+  "version": "0.2.3-a6",
+  "base_branch": "a220-a260-taa",
+  "base_merge_commit": "1c4ab89d4932b7b75ace41ac5901f3b91e5026e9",
+  "mode": "additions plus controlled existing-code patch",
+  "patched_existing": [
+    "noark5_workflow/operations/canonical_evidence_v022_a7.py",
+    "version.py",
+    "pyproject.toml",
+    "tests/test_v023_a4_guided_review.py"
+  ],
+  "contents": [
+    {
+      "path": "docs/V023-A6.md",
+      "bytes": 5423,
+      "sha256": "eb8e691c8b44d82a6ef280bff0d61beffff96365a6aa881da3a421527b6a5ab8"
+    },
+    {
+      "path": "noark5_workflow/reporting/qa_a260_v023_a6.py",
+      "bytes": 33174,
+      "sha256": "34ccd068df779ec2708b41629c53bbdbc32cf20c5f3ce3644509ae48fdb1c902"
+    },
+    {
+      "path": "tests/test_v023_a6_a260_large.py",
+      "bytes": 17177,
+      "sha256": "93b33e538b3fcd1572c30d117281fccbad18e5bb61967b17d5e38d30a43882da"
+    },
+    {
+      "path": "tests/test_v023_a6_apply.py",
+      "bytes": 3310,
+      "sha256": "2824ae9c419ce2e77f78dc1aea7394286698c4051c583eb88dda0cd63932c726"
+    },
+    {
+      "path": "tools/apply_v023_a6.py",
+      "bytes": 6744,
+      "sha256": "000e547ddb145c9fbf6c3ab37b2b5c2b7b414893341f166bb9f464688822b417"
+    }
+  ]
+}

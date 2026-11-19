@@ -156,9 +156,9 @@ class A4IntegrationContract(unittest.TestCase):
     def test_entrypoint_and_release_metadata(self):
         import tomllib
         from version import VERSION
-        self.assertEqual(VERSION, '0.2.3-a4')
+        self.assertGreaterEqual(int(VERSION.rsplit('-a', 1)[1]), 4)
         with (ROOT / 'pyproject.toml').open('rb') as f:
-            self.assertEqual(tomllib.load(f)['project']['version'], '0.2.3a4')
+            self.assertEqual(tomllib.load(f)['project']['version'], VERSION.replace('-a', 'a'))
         entry = (ROOT / 'gui_qt/__main__.py').read_text('utf-8')
         self.assertIn('from gui_qt.main_v023_a4 import DwmMainWindow', entry)
         self.assertNotIn('from gui_qt.main_v023_a3 import DwmMainWindow\n', entry)

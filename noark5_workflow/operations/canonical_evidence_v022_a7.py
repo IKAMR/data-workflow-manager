@@ -374,7 +374,7 @@ def audit_evidence(work: str | Path, *, job_id: str = '') -> dict:
             'missing': list(doc['missing_source_families']), 'status': doc['status']}
 
 
-def build_qa_basis(work: str | Path, *, job_id: str = '') -> dict:
+def _build_qa_basis_legacy_v022_a7(work: str | Path, *, job_id: str = '') -> dict:
     from noark5_workflow.reporting.qa_workflow_v022_a3 import (
         build_review_snapshot_v022_a3, finding_summary,
     )
@@ -428,6 +428,12 @@ def build_qa_basis(work: str | Path, *, job_id: str = '') -> dict:
             os.unlink(tempname)
     return {'path': str(target), 'html': str(html_target), 'summary': summary,
             'automatic_approval': False}
+
+
+def build_qa_basis(work: str | Path, *, job_id: str = '') -> dict:
+    """A260: stream complete source-bound findings; no 300-row ceiling."""
+    from noark5_workflow.reporting.qa_a260_v023_a6 import build_qa_basis_a6
+    return build_qa_basis_a6(work, job_id=job_id)
 
 
 class _BaseEvidenceOperation(BaseOperation):
