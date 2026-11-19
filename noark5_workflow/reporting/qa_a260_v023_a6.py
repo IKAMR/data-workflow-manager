@@ -434,7 +434,8 @@ def _manual_and_depot_findings(work: Path, identity: dict, depot_path: Path,
             raise A260CapacityError('PRONOM-kildehash stemmer ikke')
         manifest.append({'kind': 'external', 'path': pronom_ref['file'],
                          'sha256': pronom_ref['sha256']})
-    stub = {'work_identity': {'job_uid': identity['job_uid']},
+    stub = {'model_id': 'ikamr.dwm.noark5.qa-decision.a12.v1',
+            'work_identity': {'job_uid': identity['job_uid']},
             'evidence_manifest': manifest, 'arkade': {'source': arkade_rel}}
     for row in manual_findings(work, stub):
         yield row

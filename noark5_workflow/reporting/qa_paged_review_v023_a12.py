@@ -152,11 +152,32 @@ def _arkade_rows(work: Path, meta: dict, uid: str):
             conn.close()
 
 
-def _fingerprint(snapshot: dict, uid: str, depot_sha: str, arkade: dict | None) -> str:
+def _manual_state(work: Path, uid: str, depot_sha: str) -> dict:
+    """Read the manual ledger only when it exists in the selected Work.
+
+    Historic A12/A13 unit fixtures deliberately provide just their earlier
+    review API, and a Work without manual observations must not depend on
+    importing the unrelated manual-workflow adapter. The real manual ledger
+    is always revalidated if the event directory actually exists.
+    """
+    folder = work / 'noark5_evidence/qa_manual_findings_v022_a3'
+    if folder.is_symlink() or folder.parent.is_symlink():
+        raise PagedReviewError('Utrygg Work-katalog for manuell evidens')
+    if not folder.exists():
+        empty = sha256(b'').hexdigest()
+        return {'count': 0, 'sha256': empty,
+                'current_count': 0, 'current_ids_sha256': empty}
+    from .qa_workflow_v022_a3 import manual_ledger_state
+    return manual_ledger_state(work, job_uid=uid, depot_sha256=depot_sha)
+
+
+def _fingerprint(snapshot: dict, uid: str, depot_sha: str, arkade: dict | None,
+                 manual_state: dict | None = None) -> str:
     # Row keys include manual observations and historical sources that can
     # change independently of the depot-report revision.
     fields = {'job_uid': uid, 'depot_sha256': depot_sha,
               'keys': [finding_key(x) for x in snapshot.get('findings') or ()],
+              'manual_ledger': manual_state,
               'full_count': snapshot.get('full_finding_count'),
               'arkade': {k: arkade.get(k) for k in
                          ('source_relative_path', 'source_sha256', 'index_sha256',
@@ -212,7 +233,17 @@ def build_paged_index(work: str | Path, snapshot: dict, *,
             raise PagedReviewError('Ukjent eller ufullstendig DWM-funnstatus')
     if snapshot.get('findings_complete') is False and not (arkade or use_delivery):
         raise PagedReviewError('KS er ufullstendig uten sidevis kildegrunnlag')
-    fp = _fingerprint(snapshot, uid, depot_sha, arkade)
+    manual_state = _manual_state(root, uid, depot_sha)
+    # A stale, partial snapshot cannot be upgraded to a complete index merely
+    # because the depot/Arkade source files are unchanged. A user may have
+    # recorded new manual findings after the snapshot was built.
+    manual_ids = sorted(str(row['manual_event_id']) for row in
+                        snapshot.get('findings') or () if row.get('manual_event_id'))
+    manual_hash = sha256(''.join(eid + '\n' for eid in manual_ids).encode('utf-8')).hexdigest()
+    if (len(manual_ids) != manual_state['current_count']
+            or manual_hash != manual_state['current_ids_sha256']):
+        raise PagedReviewError('Manuelle funn er endret siden KS-grunnlaget ble lest; last inn på nytt')
+    fp = _fingerprint(snapshot, uid, depot_sha, arkade, manual_state)
     folder = _index_folder(root)
     db = folder / (fp[:32] + '.sqlite')
     manifest = folder / (fp[:32] + '.json')
@@ -326,7 +357,10 @@ def build_paged_index(work: str | Path, snapshot: dict, *,
             stat = path.stat()
             source_files.append({'path': ref, 'sha256': expected_sha,
                                  'size': stat.st_size, 'mtime_ns': stat.st_mtime_ns})
+        if _manual_state(root, uid, depot_sha) != manual_state:
+            raise PagedReviewError('Manuell evidens ble endret under KS-indeksering')
         doc = {'model_id': MODEL, 'complete': True, 'job_uid': uid,
+               'manual_ledger': manual_state,
                'depot_report_relative': depot_rel, 'depot_sha256': depot_sha,
                'snapshot_fingerprint': fp,
                'source_files': source_files,
@@ -401,6 +435,14 @@ def _open_index(work: str | Path, metadata: dict, *, digest: bool = False):
             raise PagedReviewError('SHA-256-avvik i original KS-evidens')
     if digest and _sha(db) != metadata.get('index_sha256'):
         raise PagedReviewError('KS-indeksen er endret siden indeksering')
+    if digest:
+        # Manual findings are immutable Work evidence, independent of the
+        # depot/Arkade source files above. Verify their *entire* event ledger
+        # before a review save or full report export. Old index manifests must
+        # be rebuilt, never silently treated as a complete A15 index.
+        actual = _manual_state(root, metadata['job_uid'], metadata['depot_sha256'])
+        if actual != metadata.get('manual_ledger'):
+            raise PagedReviewError('Manuell evidens er endret siden KS-indeksering')
     return root, db
 
 

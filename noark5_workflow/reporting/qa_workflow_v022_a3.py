@@ -12,7 +12,7 @@ import json
 import os
 from pathlib import Path
 import time
-from typing import Any
+from typing import Any, Iterator
 from uuid import uuid4
 
 from .qa_decision_v021_a12 import _hash, _json, _rel, build_snapshot, MAX_DEPO, MAX_JSON, ReportInputError
@@ -25,7 +25,7 @@ from .qa_review_v021_a13 import (
 
 MANUAL_DIR = "noark5_evidence/qa_manual_findings_v022_a3"
 MANUAL_MODEL = "ikamr.dwm.noark5.manual-finding-event.a3.v1"
-MAX_MANUAL = 2000
+MAX_MANUAL = None  # Kept for compatibility; no cumulative event-count ceiling.
 MAX_BYTES = 14000
 MAX_DESCRIPTION = 3000
 SEVERITIES = ("ERROR", "WARNING", "REVIEW", "NOTE", "INFORMATION")
@@ -65,34 +65,82 @@ def _manual_dir(work: Path, *, create: bool = False) -> Path:
     return folder
 
 
-def _read_manual(work: Path) -> list[dict]:
-    folder = _manual_dir(work)
+def _iter_manual_events(work: str | Path) -> Iterator[dict]:
+    """Verify every immutable manual event without a 2,000-file limit.
+
+    A missing directory means no manual observations. Unknown files,
+    symbolic links, oversized events, changed checksums and invalid event
+    identity fail closed, including events from older depot revisions.
+    Filesystem enumeration order is deliberately not treated as chronology.
+    """
+    folder = _manual_dir(Path(work))
     if not folder.exists():
-        return []
-    paths = list(folder.iterdir())
-    if len(paths) > MAX_MANUAL:
-        raise ReviewError("For mange manuelle avvik i Work")
-    records = []
-    for path in paths:
-        if path.suffix != ".json" or path.is_symlink() or not path.is_file():
-            raise ReviewError("Ukjent fil i manuelt avviksregister")
-        if path.stat().st_size > MAX_BYTES:
-            raise ReviewError("Manuelt avvik overskrider størrelsesgrensen")
-        event = _json(path, MAX_BYTES)
-        if event.get("model_id") != MANUAL_MODEL or event.get("event_id") != path.stem:
-            raise ReviewError("Ukjent avvikshendelse eller filidentitet")
-        unsigned = {k: v for k, v in event.items() if k != "event_sha256"}
-        if event.get("event_sha256") != sha256(_canonical(unsigned)).hexdigest():
-            raise ReviewError("Manuell avvikshendelse har endret innhold")
-        if (event.get("severity") not in SEVERITIES
-                or not isinstance(event.get("message"), str)
-                or not event["message"].strip()
-                or len(event["message"]) > MAX_DESCRIPTION
-                or type(event.get("recorded_ns")) is not int):
-            raise ReviewError("Ugyldig manuell avvikshendelse")
-        records.append(event)
-    records.sort(key=lambda x: (x["recorded_ns"], x["event_id"]))
-    return records
+        return
+    try:
+        with os.scandir(folder) as entries:
+            for entry in entries:
+                path = Path(entry.path)
+                if (path.suffix != ".json" or entry.is_symlink()
+                        or not entry.is_file(follow_symlinks=False)):
+                    raise ReviewError("Ukjent fil i manuelt avviksregister")
+                if entry.stat(follow_symlinks=False).st_size > MAX_BYTES:
+                    raise ReviewError("Manuelt avvik overskrider størrelsesgrensen")
+                event = _json(path, MAX_BYTES)
+                if event.get("model_id") != MANUAL_MODEL or event.get("event_id") != path.stem:
+                    raise ReviewError("Ukjent avvikshendelse eller filidentitet")
+                unsigned = {k: v for k, v in event.items() if k != "event_sha256"}
+                if event.get("event_sha256") != sha256(_canonical(unsigned)).hexdigest():
+                    raise ReviewError("Manuell avvikshendelse har endret innhold")
+                if (event.get("severity") not in SEVERITIES
+                        or not isinstance(event.get("message"), str)
+                        or not event["message"].strip()
+                        or len(event["message"]) > MAX_DESCRIPTION
+                        or type(event.get("recorded_ns")) is not int):
+                    raise ReviewError("Ugyldig manuell avvikshendelse")
+                yield event
+    except OSError as exc:
+        raise ReviewError("Kan ikke lese komplett manuelt avviksregister") from exc
+
+
+def _read_manual(work: Path) -> list[dict]:
+    """Compatibility API: chronological results, unbounded in event count.
+
+    The iterator above is the streaming path for large Work directories.
+    Existing callers of this API retain their original ordering.
+    """
+    return sorted(_iter_manual_events(work),
+                  key=lambda event: (event["recorded_ns"], event["event_id"]))
+
+
+def manual_ledger_state(work: str | Path, *, job_uid: str = "",
+                        depot_sha256: str = "") -> dict:
+    """Verified, compact provenance for A12 index caching and export checks.
+
+    Includes *all* manual events from the Work directory, even older ones.
+    File hashes detect changes to physical evidence bytes, not just changed
+    canonical fields. Also return the fingerprint of events belonging to the
+    exact Work job and depot report; no list of file paths is published.
+    """
+    folder = _manual_dir(Path(work))
+    files: list[tuple[str, str]] = []
+    current: list[str] = []
+    for event in _iter_manual_events(work):
+        event_id = str(event["event_id"])
+        # The event and the physical file have already been checked. Hash the
+        # original bytes as well: JSON reformatting must invalidate the cache.
+        files.append((event_id, _hash(folder / (event_id + ".json"))))
+        if (event.get("job_uid") == job_uid
+                and event.get("depot_report_sha256") == depot_sha256):
+            current.append(event_id)
+    digest = sha256()
+    for eid, file_hash in sorted(files):
+        digest.update((eid + ":" + file_hash + "\n").encode("utf-8"))
+    identifiers = sha256()
+    for eid in sorted(current):
+        identifiers.update((eid + "\n").encode("utf-8"))
+    return {"count": len(files), "sha256": digest.hexdigest(),
+            "current_count": len(current),
+            "current_ids_sha256": identifiers.hexdigest()}
 
 
 def _as_finding(event: dict, report_path: str) -> dict:
@@ -108,6 +156,7 @@ def _as_finding(event: dict, report_path: str) -> dict:
         "requires_review": True,
         "manual_event_id": event["event_id"],
         "created_utc": event.get("created_utc", ""),
+        "manual_event_sha256": event.get("event_sha256", ""),
     }
 
 
@@ -159,8 +208,6 @@ def record_manual_finding(work: str | Path, snapshot: dict, *,
     if len(raw.encode("utf-8")) > MAX_BYTES:
         raise ReviewError("Avviksdata er for store")
     folder = _manual_dir(root, create=True)
-    if len(list(folder.iterdir())) >= MAX_MANUAL:
-        raise ReviewError("For mange manuelle avvik")
     with (folder / (event_id + ".json")).open("x", encoding="utf-8") as handle:
         handle.write(raw)
         handle.flush()
@@ -192,7 +239,10 @@ def _verified_raf_candidates(work: Path, snapshot: dict) -> list[dict]:
     if doc.get("evidence_type") != "arkade5_pronom_format_statistics":
         return []
     rows = (doc.get("csv") or {}).get("rows") or []
-    if not isinstance(rows, list) or len(rows) > 2500:
+    # The containing JSON already has a separately enforced size bound.
+    # Its row count is not a validity criterion; legitimate large PRONOM
+    # statistics must not be discarded at an arbitrary 2,500 rows.
+    if not isinstance(rows, list):
         raise ReviewError("Ugyldig lagret PRONOM-statistikk")
     results = []
     for item in rows:
