@@ -157,7 +157,7 @@ class ExternalImportTests(unittest.TestCase):
         self.assertEqual(self.path.read_bytes(), before)
 
     def test_source_limit_boundaries_and_context(self):
-        with patch.object(mod, 'MAX_SOURCE_NORMALIZED', 100):
+        with patch.object(mod, 'MAX_SOURCE_ARKADE', 100):
             for size in (99, 100, 101):
                 self.path.write_bytes(b'{}' + b' ' * (size - 2))
                 if size <= 100:
@@ -228,6 +228,28 @@ class ExternalImportTests(unittest.TestCase):
         self.assertEqual(analysis['reported_total_files'], 100_000)
         self.assertEqual(analysis['formats'][0]['reported_raf_220301'], 'Uavklart')
         self.assertIsNone(analysis['depot_approval'])
+
+    def test_streaming_arkade_matches_small_file_semantics(self):
+        from noark5_workflow.analysis.streaming_arkade import inspect_arkade_stream
+        source = {'format_version': 2, 'evidence_type': 'external_validation_report',
+                  'source_system': 'Arkade 5', 'source_version': '2.13',
+                  'summary': {'number_of_tests_run': 1, 'number_of_errors': 1,
+                              'number_of_warnings': 0, 'archive_type': 'Noark 5',
+                              'system_name': 'Test', 'archival_period': '2020-2021'},
+                  'tests': [{'test_id': 'N5.01', 'test_name': 'Kontroll',
+                             'test_type': 'Noark', 'source_status': 'error',
+                             'number_of_errors': 1,
+                             'results': [{'result_type': 'Success', 'message': 'ok'},
+                                         {'result_type': 'Error', 'message': 'Feil',
+                                          'result_set_path': ['Arkivdel'],
+                                          'location': {'file_name': 'arkiv.xml'}}],
+                             'source_raw': {'duplicate': ['x'] * 100}}]}
+        self.path.write_text(json.dumps(source), encoding='utf-8')
+        relative = self.path.relative_to(self.work).as_posix()
+        expected = mod._arkade_entries(source, relative)
+        actual = inspect_arkade_stream(self.path, relative, max_items=mod.MAX_ITEMS,
+                                       max_output=mod.MAX_ANALYSIS_OUTPUT)
+        self.assertEqual(actual, expected)
 
     def test_native_malformed_record_and_count_limits_fail_without_output(self):
         path = self.work / 'external_evidence/siegfried/run/native.json'

@@ -28,8 +28,8 @@ class EvidenceError(ValueError):
     pass
 
 
-def _read(path: Path) -> dict:
-    if path.is_symlink() or not path.is_file() or path.stat().st_size > MAX_JSON:
+def _read(path: Path, *, limit: int = MAX_JSON) -> dict:
+    if path.is_symlink() or not path.is_file() or path.stat().st_size > limit:
         raise EvidenceError('Utrygg, manglende eller for stor evidensfil: ' + path.name)
     data = json.loads(path.read_text(encoding='utf-8-sig'))
     if not isinstance(data, dict):
@@ -128,10 +128,16 @@ def _select_external_sources(root: Path, identity: dict) -> dict[str, dict]:
         if str(by.get('job_id') or '') != identity['job_id']:
             continue
         normalized = _within(root, str(m.get('normalized_file') or ''))
-        doc = _read(normalized)
-        if (str(doc.get('source_system') or '') != 'Arkade 5' or
-                not isinstance(doc.get('tests'), list)):
-            continue
+        from noark5_workflow.analysis.canonical_external_import_v0115_a10 import MAX_SOURCE_NORMALIZED
+        if normalized.stat().st_size > MAX_SOURCE_NORMALIZED:
+            from noark5_workflow.analysis.streaming_arkade import has_normalized_arkade_tests
+            if not has_normalized_arkade_tests(normalized):
+                continue
+        else:
+            doc = _read(normalized)
+            if (str(doc.get('source_system') or '') != 'Arkade 5' or
+                    not isinstance(doc.get('tests'), list)):
+                continue
         s = m.get('source') or {}
         original = _within(root, str(s.get('preserved_file') or ''))
         if str(s.get('sha256') or '') != _hash(original):
@@ -321,7 +327,8 @@ def audit_evidence(work: str | Path, *, job_id: str = '') -> dict:
     external = root / ROOT_NAME / 'canonical-external-analysis.json'
     status = 'not_analyzed'
     if external.is_file() and not external.is_symlink():
-        data = _read(external)
+        from noark5_workflow.analysis.canonical_external_import_v0115_a10 import MAX_ANALYSIS_OUTPUT
+        data = _read(external, limit=MAX_ANALYSIS_OUTPUT)
         ref = data.get('canonical_reference') or {}
         if data.get('extraction_stable_id') != identity['job_uid'] or \
            ref.get('sha256') != _hash(root / ROOT_NAME / 'canonical-results.json'):

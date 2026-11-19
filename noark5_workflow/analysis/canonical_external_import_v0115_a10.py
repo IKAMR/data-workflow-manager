@@ -19,8 +19,9 @@ OUT = 'noark5_evidence/canonical-external-analysis.json'
 # Native Siegfried is streamed; normalized JSON is decoded as one document.
 MAX_SOURCE_STREAM = 512 * 1024 * 1024
 MAX_SOURCE_NORMALIZED = 48 * 1024 * 1024
+MAX_SOURCE_ARKADE = MAX_SOURCE_STREAM
 MAX_CANONICAL_REFERENCE = 100_000_000
-MAX_ANALYSIS_OUTPUT = 64 * 1024 * 1024
+MAX_ANALYSIS_OUTPUT = 128 * 1024 * 1024
 MAX_FILES = 100
 MAX_ITEMS = 100_000
 MAX_TOTAL_ITEMS = 200_000
@@ -58,8 +59,11 @@ def _inside(work: Path, source: str | Path) -> tuple[Path, str]:
     if not candidate.is_file() or candidate.is_symlink():
         raise ExternalImportError('Valgt kildefil finnes ikke')
     size = candidate.stat().st_size
-    limit = (MAX_SOURCE_NORMALIZED if _is_normalized_json(relative) or
-             candidate.suffix.lower() != '.json' else MAX_SOURCE_STREAM)
+    if relative.lower().endswith('/normalized/arkade5_results.json'):
+        limit = MAX_SOURCE_ARKADE
+    else:
+        limit = (MAX_SOURCE_NORMALIZED if _is_normalized_json(relative) or
+                 candidate.suffix.lower() != '.json' else MAX_SOURCE_STREAM)
     if size > limit:
         raise ExternalImportError(f'Ekstern kilde {relative}: {size} bytes '
                                   f'({size / 1048576:.1f} MiB) overstiger kildegrensen '
@@ -210,6 +214,14 @@ def inspect_selected_external(path: Path, relative: str) -> dict[str, Any]:
     if path.suffix.lower() != '.json':
         return {'source_format': 'unknown', 'interpretation': 'not_parsed',
                 'reason': 'Filtypen er ikke stoettet av a10-adapteren'}
+    if (relative.lower().endswith('/normalized/arkade5_results.json') and
+            path.stat().st_size > MAX_SOURCE_NORMALIZED):
+        from noark5_workflow.analysis.streaming_arkade import inspect_arkade_stream
+        try:
+            return inspect_arkade_stream(path, relative, max_items=MAX_ITEMS,
+                                         max_output=MAX_ANALYSIS_OUTPUT)
+        except ValueError as exc:
+            raise ExternalImportError(f'Ekstern kilde {relative}: {exc}') from exc
     if not _is_normalized_json(relative):
         from noark5_workflow.analysis.streaming_siegfried import inspect_siegfried_stream
         try:

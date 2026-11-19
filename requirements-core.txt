@@ -4,3 +4,5 @@ psutil>=5.9.0
 # Noark 5 a7: PDF text extraction for the local source-specification matrix.
 # Pure Python; no separate PDF install or native-wheel requirement.
 pypdf>=5.0.0
+# Incremental JSON events for large normalized Arkade evidence.
+ijson>=3.6.0,<4
