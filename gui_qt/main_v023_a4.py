@@ -82,7 +82,7 @@ class DwmMainWindow(_A3Window):
                            'effective_work_operations', None)
             if not work or not Path(work).is_dir():
                 raise ValueError('Valgt jobb har ikke en tilgjengelig Work-mappe')
-            from gui_qt.ks_guided_v023_a4 import KsWorkshopDialog
+            from gui_qt.ks_paged_v023_a12 import KsWorkshopDialog
             KsWorkshopDialog(work, self).exec()
         except (OSError, ValueError, RuntimeError) as exc:
             QMessageBox.warning(self, 'Kvalitetssikring',
