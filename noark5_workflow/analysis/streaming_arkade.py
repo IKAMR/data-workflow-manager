@@ -19,6 +19,7 @@ import ijson
 MAX_STRING = 8 * 1024 * 1024
 MAX_FIELD = 2 * 1024 * 1024
 MAX_PROJECTED_RECORD = 64 * 1024 * 1024
+ISSUE_PREVIEW_LIMIT = 250  # inline DISPLAY limit; all source events still parsed
 SUMMARY_FIELDS = ('number_of_tests_run', 'number_of_errors', 'number_of_warnings',
                   'archive_type', 'system_name', 'archival_period')
 CONTENT_SUMMARY_FIELDS = ('archive_creators', 'system_name', 'system_type',
@@ -67,7 +68,7 @@ def has_normalized_arkade_tests(path: Path) -> bool:
     return source_system == 'Arkade 5' and tests_list
 
 
-def inspect_arkade_stream(path: Path, relative: str, *, max_items: int,
+def inspect_arkade_stream(path: Path, relative: str, *, max_items: int | None,
                           max_output: int) -> dict[str, Any]:
     """Read Arkade records as events and retain only bounded projections.
 
@@ -137,7 +138,8 @@ def inspect_arkade_stream(path: Path, relative: str, *, max_items: int,
                     if event == 'start_map':
                         current = {'prefix': prefix, 'fields': {}, 'result_list': False,
                                    'invalid_result': False, 'result_counts': Counter(),
-                                   'results_count': 0, 'issues': [], 'issues_bytes': 0}
+                                   'results_count': 0, 'issues': [], 'issues_bytes': 0,
+                                   'issues_total': 0, 'preview_limit_reached': False}
                     elif event == 'end_map' and current is not None:
                         arrays[array_name].append(current)
                         projected_bytes += len(json.dumps(current['fields'], ensure_ascii=False).encode('utf-8'))
@@ -145,12 +147,12 @@ def inspect_arkade_stream(path: Path, relative: str, *, max_items: int,
                                                for issue in current['issues'])
                         if projected_bytes > max_output:
                             raise ArkadeStreamError(f'Projiserte testposter overstiger {max_output} bytes')
-                        if len(arrays[array_name]) > max_items:
+                        if max_items is not None and len(arrays[array_name]) > max_items:
                             raise ArkadeStreamError(f'Antall testposter overstiger {max_items}')
                         current = None
                     elif event in ('start_array', 'string', 'number', 'boolean', 'null'):
                         arrays[array_name].append(None)
-                        if len(arrays[array_name]) > max_items:
+                        if max_items is not None and len(arrays[array_name]) > max_items:
                             raise ArkadeStreamError(f'Antall testposter overstiger {max_items}')
                     continue
                 if current is not None:
@@ -164,20 +166,29 @@ def inspect_arkade_stream(path: Path, relative: str, *, max_items: int,
                             result = {}
                         elif event == 'end_map' and result is not None:
                             current['results_count'] += 1
-                            if current['results_count'] > max_items:
+                            if max_items is not None and current['results_count'] > max_items:
                                 raise ArkadeStreamError(f'Resultatposter per test overstiger {max_items}')
                             kind = result.get('result_type')
                             current['result_counts'][kind if isinstance(kind, str) and kind in
                                                      ('Success', 'Error', 'Warning', 'Other') else 'Other'] += 1
                             if kind in ('Error', 'Warning'):
-                                issue = {'index': current['results_count'] - 1, 'result_type': kind,
-                                         'message': result.get('message') if isinstance(result.get('message'), str) else None,
-                                         'result_set_path': result.get('result_set_path') if isinstance(result.get('result_set_path'), list) else [],
-                                         'location': result.get('location') if isinstance(result.get('location'), dict) else None}
-                                current['issues'].append(issue)
-                                current['issues_bytes'] += len(json.dumps(issue, ensure_ascii=False).encode('utf-8'))
-                                if current['issues_bytes'] > MAX_PROJECTED_RECORD:
-                                    raise ArkadeStreamError(f'Testpostens rapporterte funn overstiger {MAX_PROJECTED_RECORD} bytes')
+                                current['issues_total'] += 1
+                                # No finding is discarded from source evidence. Only
+                                # the *inline* A220 preview has a bounded size.
+                                if (not current['preview_limit_reached'] and
+                                        len(current['issues']) < ISSUE_PREVIEW_LIMIT):
+                                    issue = {'index': current['results_count'] - 1, 'result_type': kind,
+                                             'message': result.get('message') if isinstance(result.get('message'), str) else None,
+                                             'result_set_path': result.get('result_set_path') if isinstance(result.get('result_set_path'), list) else [],
+                                             'location': result.get('location') if isinstance(result.get('location'), dict) else None}
+                                    size = len(json.dumps(issue, ensure_ascii=False).encode('utf-8'))
+                                    if (current['issues_bytes'] + size <= MAX_PROJECTED_RECORD and
+                                            projected_bytes + current['issues_bytes'] + size
+                                            <= max_output // 2):
+                                        current['issues'].append(issue)
+                                        current['issues_bytes'] += size
+                                    else:
+                                        current['preview_limit_reached'] = True
                             result = None
                         elif event not in ('map_key', 'start_array', 'end_array'):
                             current['invalid_result'] = True
@@ -241,6 +252,13 @@ def inspect_arkade_stream(path: Path, relative: str, *, max_items: int,
             record.update({'test_name': fields.get('test_name'), 'test_type': fields.get('test_type'),
                            'source_number_of_errors': count, 'reported_result_counts': counts,
                            'reported_issues': entry['issues']})
+            if entry['issues_total'] > len(entry['issues']):
+                # Downstream A260 reads *all* findings from the SHA-bound
+                # original; legacy HTML must not mistake this preview for all.
+                record.update({'reported_issues_total': entry['issues_total'],
+                               'reported_issues_preview_count': len(entry['issues']),
+                               'reported_issues_complete': False,
+                               'complete_evidence_work_relative_path': relative})
             status_counts[status] += 1
         records[index] = record
     response = {'source_format': 'arkade_normalized_v2' if is_dwm else 'arkade_normalized_candidate',

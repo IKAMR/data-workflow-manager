@@ -1,0 +1,35 @@
+{
+  "version": "0.2.3-a7",
+  "branch": "a220-a260-taa",
+  "base": "0.2.3-a6",
+  "packaged_files": [
+    "tools/apply_v023_a7.py",
+    "tools/audit_v023_a7_caps.py",
+    "tests/test_v023_a7_apply.py",
+    "tests/test_v023_a7_preview_logic.py",
+    "tests/test_v023_a7_capacity.py",
+    "docs/V023-A7.md",
+    "docs/V023-A7-DELTA-MANIFEST.json",
+    "README_A7.txt",
+    "docs/test-results/v0.2.3-a7-development.md"
+  ],
+  "modified_in_repo_by_apply": [
+    "noark5_workflow/analysis/canonical_external_import_v0115_a10.py",
+    "noark5_workflow/analysis/streaming_arkade.py",
+    "noark5_workflow/analysis/canonical_qa_report_v0115_a12.py",
+    "version.py",
+    "pyproject.toml"
+  ],
+  "unmodified": [
+    "Source",
+    "Work",
+    ".n5jobs",
+    "settings",
+    "A260 export"
+  ],
+  "integrity": "Refuse unknown source variants; AST-validate and atomic local writes with rollback",
+  "commit_and_push": false,
+  "installer_fix": "fix1_windows_crlf_checkout",
+  "installer_fix_base": "a220-a260-taa@fc99411; app version stays 0.2.3-a7",
+  "installer_qa": "9 passed, 8 skipped (missing full DWM + ijson); verified A6 GitHub anchors"
+}

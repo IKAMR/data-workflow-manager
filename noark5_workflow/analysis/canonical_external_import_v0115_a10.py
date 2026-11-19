@@ -22,9 +22,9 @@ MAX_SOURCE_NORMALIZED = 48 * 1024 * 1024
 MAX_SOURCE_ARKADE = MAX_SOURCE_STREAM
 MAX_CANONICAL_REFERENCE = 100_000_000
 MAX_ANALYSIS_OUTPUT = 128 * 1024 * 1024
-MAX_FILES = 100
-MAX_ITEMS = 100_000
-MAX_TOTAL_ITEMS = 200_000
+MAX_FILES = None  # a7: no arbitrary selected-source count limit
+MAX_ITEMS = None  # a7: stream records, retain only bounded inline preview
+MAX_TOTAL_ITEMS = None  # a7: no hard stop at 200,000 records
 MAX_ELEMENT = 2 * 1024 * 1024
 
 class ExternalImportError(ValueError):
@@ -150,7 +150,7 @@ def _arkade_entries(doc: Any, relative: str) -> dict[str, Any]:
         return {'source_format': 'arkade_normalized_candidate', 'interpretation': 'not_parsed',
                 'reason': 'Fant ikke eksplisitt tests/results-liste; trenger ekte eksempel'}
     entries = doc[key]
-    if len(entries) > MAX_ITEMS:
+    if MAX_ITEMS is not None and len(entries) > MAX_ITEMS:
         raise ExternalImportError('For mange testposter')
     # DWM's normalized Arkade v2 report has a typed envelope and source_status.
     # Other normalized records continue to be accepted as opaque source status text.
@@ -177,7 +177,8 @@ def _arkade_entries(doc: Any, relative: str) -> dict[str, Any]:
         if is_dwm_report:
             result_entries = entry.get('results')
             count = entry.get('number_of_errors')
-            if (not isinstance(result_entries, list) or len(result_entries) > MAX_ITEMS
+            if (not isinstance(result_entries, list) or
+                    (MAX_ITEMS is not None and len(result_entries) > MAX_ITEMS)
                     or type(count) is not int or count < 0):
                 return {'source_format': 'arkade_normalized_v2', 'interpretation': 'not_parsed',
                         'reason': 'Ugyldig resultatliste eller feiltall i Arkade v2'}
@@ -224,7 +225,7 @@ def _pronom_statistics(doc: Any, relative: str) -> dict[str, Any] | None:
         return {'source_format': 'arkade_pronom_statistics_v1', 'interpretation': 'not_parsed',
                 'reason': 'Mangler rader i PRONOM-statistikk'}
     rows = csv['rows']
-    if len(rows) > MAX_ITEMS:
+    if MAX_ITEMS is not None and len(rows) > MAX_ITEMS:
         raise ExternalImportError('For mange formatrader')
     output = []
     total = 0
@@ -251,12 +252,50 @@ def _pronom_statistics(doc: Any, relative: str) -> dict[str, Any] | None:
             'note': 'RAF-220301 er en kildeverdi fra Arkade, ikke en godkjenning i DWM.'}
 
 
+def _siegfried_signature_in_normalized_path(path: Path) -> bool:
+    """Use source structure rather than filename to recognize native Siegfried.
+
+    The A7 Arkade streaming reader is the default for normalized Arkade data.
+    A source wrongly named arkade5_results.json may, however, contain a native
+    Siegfried report. Inspect only streaming JSON events and never materialize
+    a potentially large tests/files array just to detect the format.
+    """
+    import ijson
+    try:
+        with path.open('rb') as stream:
+            for prefix, event, value in ijson.parse(stream):
+                if prefix == 'siegfried' and event == 'string':
+                    return bool(value.strip())
+                # Explicit Arkade source markers take precedence. No filename
+                # based assumption is promoted into a validation verdict.
+                if prefix == 'source_system' and event == 'string' and value == 'Arkade 5':
+                    return False
+                if prefix in ('tests', 'results') and event == 'start_array':
+                    return False
+    except (OSError, UnicodeError, ValueError, ijson.JSONError):
+        # The format-specific reader below must validate/report bad JSON.
+        return False
+    return False
+
+
 def inspect_selected_external(path: Path, relative: str) -> dict[str, Any]:
     if path.suffix.lower() != '.json':
         return {'source_format': 'unknown', 'interpretation': 'not_parsed',
                 'reason': 'Filtypen er ikke stoettet av a10-adapteren'}
-    if (relative.lower().endswith('/normalized/arkade5_results.json') and
-            path.stat().st_size > MAX_SOURCE_NORMALIZED):
+    if relative.lower().endswith('/normalized/arkade5_results.json'):
+        # A misleading filename must not hide real Siegfried format evidence.
+        if _siegfried_signature_in_normalized_path(path):
+            from noark5_workflow.analysis.streaming_siegfried import inspect_siegfried_stream
+            try:
+                siegfried = inspect_siegfried_stream(path)
+            except (OSError, UnicodeError, ValueError) as exc:
+                raise ExternalImportError(f'Ekstern kilde {relative}: {exc}') from exc
+            if siegfried.get('format') == 'siegfried_json':
+                return {'source_format': 'siegfried_json',
+                        **{k: v for k, v in siegfried.items() if k != 'format'}}
+            return {'source_format': 'unknown', 'interpretation': 'not_parsed',
+                    'reason': 'Ukjent Siegfried-resultatstruktur for valgt kilde'}
+        # Always stream actual Arkade data, even in small source files.
         from noark5_workflow.analysis.streaming_arkade import inspect_arkade_stream
         try:
             return inspect_arkade_stream(path, relative, max_items=MAX_ITEMS,
@@ -297,8 +336,8 @@ def analyze_external_results(work: str | Path, selected_files: tuple[str | Path,
     """Analyze *only* operator-selected Work files; writes isolated result projection."""
     from noark5_workflow.analysis.canonical_results import _validate_work
     root, identity = _validate_work(Path(work))
-    if not selected_files or len(selected_files) > MAX_FILES:
-        raise ExternalImportError('Velg 1-100 eksterne resultatfiler')
+    if not selected_files or (MAX_FILES is not None and len(selected_files) > MAX_FILES):
+        raise ExternalImportError('Velg minst én ekstern resultatfil; kontrollert ressursgrense nådd')
     canonical, _ = _canonical_reference(root, identity)
     sources = []
     seen = set()
@@ -309,8 +348,8 @@ def analyze_external_results(work: str | Path, selected_files: tuple[str | Path,
             raise ExternalImportError('Samme fil er valgt flere ganger')
         seen.add(relative.casefold())
         source_size = path.stat().st_size
-        if (relative.lower().endswith('/normalized/arkade5_results.json') and
-                source_size > MAX_SOURCE_NORMALIZED):
+        if relative.lower().endswith('/normalized/arkade5_results.json'):
+            # UTF-8 string preflight applies to all normalized Arkade files.
             from noark5_workflow.analysis.streaming_arkade import MAX_STRING
             try:
                 source_hash = _sha(path, max_string_bytes=MAX_STRING)
@@ -325,7 +364,7 @@ def analyze_external_results(work: str | Path, selected_files: tuple[str | Path,
         if path.stat().st_size != source_size or _sha(path) != source_hash:
             raise ExternalImportError(f'Ekstern kilde {relative} ble endret under analysen; velg kilden på nytt')
         total_records += result.get('record_count', 0)
-        if total_records > MAX_TOTAL_ITEMS:
+        if MAX_TOTAL_ITEMS is not None and total_records > MAX_TOTAL_ITEMS:
             raise ExternalImportError(f'Ekstern kilde {relative}: samlet antall testposter '
                                       f'{total_records} overstiger {MAX_TOTAL_ITEMS}')
         sources.append({'evidence': {'work_relative_path': relative, 'sha256': source_hash,
