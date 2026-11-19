@@ -32,7 +32,7 @@ Det er altså fortsatt fritt å endre rekkefølge mellom de tekniske kontrollene
 ## Fire nye deljobber
 
 - **A210:** Lager `noark5_evidence/canonical-results.json` fra riktig Work-jobbs kontrollerte XPath-master. Inneholder kildebelagte referanser til eksisterende Arkade/Siegfried-evidens, uten å gjøre dem til DWM-mastertester.
-- **A220:** Kobler eksplisitt de normaliserte eksterne Work-resultatene til riktig kanonisk SHA-256 og lagrer `canonical-external-analysis.json`. DWMs `pronom_statistics.json` fra Siegfried tolkes som formatstatistikk med identifiserte/uidentifiserte filer, aldri som arkivgodkjenning. Manglende resultater blir ikke fremstilt som null tester.
+- **A220:** Kobler eksplisitt de normaliserte eksterne Work-resultatene til riktig kanonisk SHA-256 og lagrer `canonical-external-analysis.json`. DWMs `pronom_statistics.json` fra Siegfried tolkes som formatstatistikk med identifiserte/uidentifiserte filer, aldri som arkivgodkjenning. Manglende resultater blir ikke fremstilt som null tester. Se [ressursgrenser og feilbehandling for store kilder](NOARK5-A220-STORE-EKSTERNE-KILDER.md).
 - **A230:** Kontrollerer jobbidentitet, hash og dekning og lagrer `evidence-audit.json` inkludert en liste over avhengighetsnummer og deres forutsetninger. Mangler det evidens for en kontroll som faktisk ble valgt, feiler deljobben.
 - **A260:** Lager `qa-basis-draft.json` og `qa-basis-draft.html` i Work. Begge er tydelig utkast; dette er ikke den separat publiserte fullstendige a3 KS/depotrapportpakken, og ikke depotgodkjenning.
 

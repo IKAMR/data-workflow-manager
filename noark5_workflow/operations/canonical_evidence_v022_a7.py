@@ -30,10 +30,10 @@ class EvidenceError(ValueError):
 
 def _read(path: Path) -> dict:
     if path.is_symlink() or not path.is_file() or path.stat().st_size > MAX_JSON:
-        raise EvidenceError('Utrygg, manglende eller for stor evidensfil: ' + str(path))
+        raise EvidenceError('Utrygg, manglende eller for stor evidensfil: ' + path.name)
     data = json.loads(path.read_text(encoding='utf-8-sig'))
     if not isinstance(data, dict):
-        raise EvidenceError('Evidensfilen er ikke et JSON-objekt: ' + str(path))
+        raise EvidenceError('Evidensfilen er ikke et JSON-objekt: ' + path.name)
     return data
 
 
@@ -195,6 +195,14 @@ def _publish_json(root: Path, relative: str, document: dict) -> Path:
         raise EvidenceError('Resultatmappen er en symbolsk lenke.')
     parent.mkdir(parents=True, exist_ok=True)
     data = (json.dumps(document, ensure_ascii=False, indent=2, allow_nan=False) + '\n').encode('utf-8')
+    if relative.endswith('/canonical-external-analysis.json'):
+        from noark5_workflow.analysis.canonical_external_import_v0115_a10 import MAX_ANALYSIS_OUTPUT
+        if len(data) > MAX_ANALYSIS_OUTPUT:
+            selected = ', '.join((item.get('evidence') or {}).get('work_relative_path', '')
+                                 for item in (document.get('sources') or [])[:3])
+            raise EvidenceError(f'Generert ekstern analyse er {len(data)} bytes; '
+                                f'grensen er {MAX_ANALYSIS_OUTPUT} bytes. '
+                                f'Valgte kilder: {selected}. Reduser kildeutvalget.')
     if target.is_file():
         prior = target.read_bytes()
         if prior == data:
@@ -253,49 +261,12 @@ def build_evidence(work: str | Path, *, job_id: str = '', run_id: str = '') -> d
 
 
 def _dwm_siegfried_statistics(doc: dict) -> dict | None:
-    """Interpret only DWM's native, bounded Siegfried PRONOM summary.
-
-    The statistics are format-identification evidence, not verified file
-    integrity, an accepted-format decision, or Noark 5 test compliance.
-    """
-    if (doc.get('evidence_type') != 'dwm_siegfried_pronom_identification' or
-            doc.get('source_system') != 'DWM / Siegfried' or
-            doc.get('format_version') != 1):
-        return None
-    counters = ('files_total', 'identified', 'unidentified', 'ambiguous')
-    if any(type(doc.get(key)) is not int or not 0 <= doc[key] <= 1_000_000_000_000
-           for key in counters):
-        raise EvidenceError('Siegfried-statistikk har ugyldige filantall.')
-    total, identified, unidentified, ambiguous = (doc[key] for key in counters)
-    if identified + unidentified != total or ambiguous > identified:
-        raise EvidenceError('Siegfried-statistikk har selvmotsigende filantall.')
-    rows = doc.get('format_groups')
-    if not isinstance(rows, list) or len(rows) > 100_000:
-        raise EvidenceError('Siegfried-statistikk har ugyldige formatgrupper.')
-    formats = []
-    for item in rows:
-        if not isinstance(item, dict) or type(item.get('count')) is not int or not 0 <= item['count'] <= 1_000_000_000_000:
-            raise EvidenceError('Siegfried-statistikk har ugyldig formatantall.')
-        puid = item.get('puid')
-        if not isinstance(puid, str) or len(puid) > 150:
-            raise EvidenceError('Siegfried-statistikk har ugyldig PRONOM-ID.')
-        formats.append({'puid': puid, 'format': str(item.get('format') or '')[:400],
-                        'version': str(item.get('version') or '')[:80],
-                        'reported_count': item['count']})
-    return {
-        'source_format': 'dwm_siegfried_pronom_statistics_v1',
-        'interpretation': 'format_statistics_only',
-        'reported_total_files': total,
-        'reported_identified_files': identified,
-        'reported_unidentified_files': unidentified,
-        'reported_ambiguous_files': ambiguous,
-        'format_rows': len(formats),
-        'formats': formats,
-        'technical_validation_verified': False,
-        'archive_creator_acceptance': None,
-        'depot_approval': None,
-        'note': 'PRONOM-formatidentifikasjon, ingen Noark 5- eller depotgodkjenning.',
-    }
+    """Compatibility wrapper for callers that handle ``EvidenceError``."""
+    from noark5_workflow.analysis.siegfried_statistics import summarize_dwm_siegfried_statistics
+    try:
+        return summarize_dwm_siegfried_statistics(doc)
+    except ValueError as exc:
+        raise EvidenceError(str(exc)) from exc
 
 
 def analyze_external(work: str | Path, *, job_id: str = '') -> dict:
@@ -321,10 +292,6 @@ def analyze_external(work: str | Path, *, job_id: str = '') -> dict:
             rel = reference.get('work_relative_path')
             if not rel or not any(rel == selected_path for selected_path in selected):
                 raise EvidenceError('Ekstern analyse har returnert en ukjent Work-kilde.')
-            if rel == (expected.get('siegfried_pronom') or {}).get('file'):
-                interpreted = _dwm_siegfried_statistics(_read(_within(root, rel)))
-                if interpreted is not None:
-                    item['analysis'] = interpreted
         counted_unparsed = sum((src.get('analysis') or {}).get('interpretation') == 'not_parsed'
                                for src in external.get('sources') or ())
         external['summary']['unparsed_files'] = counted_unparsed

@@ -13,7 +13,7 @@ from typing import Any
 
 from noark5_workflow.analysis.canonical_outcomes_v0115_a8 import evaluate_recorded_outcomes
 from noark5_workflow.analysis.canonical_control_requirements_v0115_a7 import load_control_profile
-from noark5_workflow.analysis.canonical_external_import_v0115_a10 import OUT as EXTERNAL_OUT, MAX_FILE
+from noark5_workflow.analysis.canonical_external_import_v0115_a10 import OUT as EXTERNAL_OUT, MAX_ANALYSIS_OUTPUT
 
 
 def _hash(path: Path) -> str:
@@ -32,7 +32,7 @@ def load_external_status(work: str | Path) -> dict[str, Any]:
     from noark5_workflow.analysis.canonical_results import _validate_work
     root, identity = _validate_work(Path(work))
     target = root / EXTERNAL_OUT
-    if not target.is_file() or target.is_symlink() or target.stat().st_size > MAX_FILE:
+    if not target.is_file() or target.is_symlink() or target.stat().st_size > MAX_ANALYSIS_OUTPUT:
         return {'state': 'not_analyzed', 'sources': {}, 'analysis': None}
     try:
         doc = json.loads(target.read_text(encoding='utf-8-sig'))
@@ -48,8 +48,12 @@ def load_external_status(work: str | Path) -> dict[str, Any]:
         for item in doc['sources']:
             ref = item['evidence']
             rel = ref['work_relative_path']
-            candidate = (root / rel).resolve()
-            if not candidate.is_relative_to(root.resolve()) or not candidate.is_file() or candidate.is_symlink():
+            raw = root / rel
+            candidate = raw.resolve()
+            linked = any(part.is_symlink() for part in (raw, *raw.parents)
+                         if part.is_relative_to(root))
+            if (linked or not candidate.is_relative_to(root.resolve())
+                    or not candidate.is_file()):
                 entries[rel] = 'source_missing_or_changed'
             elif _hash(candidate) != ref['sha256']:
                 entries[rel] = 'source_missing_or_changed'
