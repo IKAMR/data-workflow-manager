@@ -1,0 +1,52 @@
+{
+  "version": "0.2.3-a1",
+  "base_version": "0.2.2",
+  "baseline_git_commit": "a5b78aab9fdf3479470a91b654efb21a1228789c",
+  "delta_type": "replace-files",
+  "scope": "Read-only Arkade 5 occurrences and XML inspection in shared Basic/Advanced KS",
+  "files": {
+    "app/ks_inspector_v023_a1.py": {
+      "sha256": "8cd8c758886e20a6172d6132210007078fc229c250d827b50ca118dfd645b966",
+      "size_bytes": 14891
+    },
+    "gui_qt/ks_inspector_v023_a1.py": {
+      "sha256": "2ea73019c5295a8a38416ed33843e53e7960fe608b7c012cf105329e34222ec6",
+      "size_bytes": 14245
+    },
+    "gui_qt/main_v023_a1.py": {
+      "sha256": "54645967d4026c280bfb0505982de6293ec86e05f4cff6d807d3668a78c26ea0",
+      "size_bytes": 1708
+    },
+    "gui_qt/__main__.py": {
+      "sha256": "3a33597bc3c9f62b6949e7ebd886171ab3bacba878d9492ff8de2e573cede3fc",
+      "size_bytes": 5273
+    },
+    "version.py": {
+      "sha256": "cf05df6956787b6682854c81492602bf51b6f65217d36fc522ee4903980b1ade",
+      "size_bytes": 56
+    },
+    "pyproject.toml": {
+      "sha256": "f68b72d4a5d47191222cf04f8bde4cd074fd4c73e56b0fcbfe0e44a45aa4b843",
+      "size_bytes": 473
+    },
+    "tests/test_v023_a1_arkade_inspector.py": {
+      "sha256": "cf22f77d5991dec9ca7183669600c9bfbb90fa36fee913d9a78acf45136276ae",
+      "size_bytes": 10001
+    },
+    "tests/test_v022_a9_run_profiles.py": {
+      "sha256": "5d5c4dfa067562ea173b40442943e1edef6adadaf92a9f544f1e99971b4a86de",
+      "size_bytes": 8887
+    },
+    "tests/test_v022_release_version.py": {
+      "sha256": "e6fcdb4cdb6200c16b8b350a072522dbf02cc67035b68f95665df0cbf7cb21b6",
+      "size_bytes": 2289
+    },
+    "docs/V023-A1.md": {
+      "sha256": "a6d060bc0362d3c6c94c1f767440a36651e7981d82364c4b5df9ab2950b4ece3",
+      "size_bytes": 4489
+    }
+  },
+  "source_archives_included": false,
+  "work_jobs_included": false,
+  "test_status": "16 new unit tests + 5 release regression tests passed locally; full Windows test.bat pending"
+}
