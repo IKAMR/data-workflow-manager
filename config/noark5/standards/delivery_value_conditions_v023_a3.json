@@ -1,0 +1,19 @@
+{
+  "format_version": 1,
+  "model": "dwm.noark5.delivery-value-commentary.v1",
+  "reference_version": "5.0",
+  "purpose": "Read-only presentation of explicitly documented delivery restrictions; not a new Noark validator or automatic approval",
+  "source": {
+    "title": "Noark 5, versjon 5.0, vedlegg 1 - Metadatakatalog",
+    "publisher": "Riksarkivet",
+    "document_date": "2018-12-06",
+    "url": "https://www.nasjonalarkivet.no/content/uploads/2025/11/Noark-5-v-5-vedl1-Metadatakatalog.pdf"
+  },
+  "rules": [
+    {"metadata_id": "M051", "xml_field": "arkivdelstatus", "delivery_values": ["Avsluttet periode"], "page": 11, "applies_to": "arkivdeler som avleveres"},
+    {"metadata_id": "M052", "xml_field": "saksstatus", "delivery_values": ["Avsluttet", "Utgår"], "page": 12, "applies_to": "saksmapper som avleveres"},
+    {"metadata_id": "M053", "xml_field": "journalstatus", "delivery_values": ["Arkivert", "Utgår"], "page": 12, "applies_to": "journalposter som avleveres"},
+    {"metadata_id": "M054", "xml_field": "dokumentstatus", "delivery_values": ["Dokumentet er ferdigstilt"], "page": 13, "applies_to": "dokumentbeskrivelser som avleveres"}
+  ],
+  "warning": "Dette er en kildehenvisning til krav ved avlevering, ikke en faglig beslutning eller ny test. Kontroller Noark-versjon og avleveringsavtale."
+}

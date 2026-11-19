@@ -201,7 +201,7 @@ class MetadataTests(unittest.TestCase):
         entry=(ROOT/'gui_qt/__main__.py').read_text(encoding='utf-8')
         main=(ROOT/'gui_qt/main_v023_a2.py').read_text(encoding='utf-8')
         ui=(ROOT/'gui_qt/ks_metadata_v023_a2.py').read_text(encoding='utf-8')
-        self.assertIn('from gui_qt.main_v023_a2 import DwmMainWindow',entry)
+        self.assertRegex(entry, r'from gui_qt\.main_v023_a[0-9]+ import DwmMainWindow')
         self.assertIn('from gui_qt.main_v023_a1 import DwmMainWindow',main)
         for text in ('M-felt, verdier og XPath','M-feltoppslag','_MetadataReferenceWorker',
                      '_show_inspector','_reader_completed','_close_reader'):
@@ -212,7 +212,7 @@ class MetadataTests(unittest.TestCase):
         from tests.version_assertions import assert_release_at_least
         assert_release_at_least(self, f'VERSION = "{VERSION}"', '0.2.3', 2)
         with (ROOT/'pyproject.toml').open('rb') as file:
-            self.assertEqual(tomllib.load(file)['project']['version'],'0.2.3a2')
+            self.assertEqual(tomllib.load(file)['project']['version'],VERSION.replace('-a', 'a'))
 
 
 if __name__=='__main__':

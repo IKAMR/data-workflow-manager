@@ -1,0 +1,60 @@
+{
+  "version": "0.2.3-a3",
+  "base_version": "0.2.3-a2",
+  "baseline_git_commit": "ae48c10f1ada253a978090bc2eccd8fe00d40798",
+  "delta_type": "replace-files",
+  "scope": "Read-only actual XML value census + documented Noark 5.0 delivery conditions M051-M054 + reconciled external/inner/label period sources",
+  "files": {
+    "app/ks_value_inspection_v023_a3.py": {
+      "sha256": "f812753c0c94b32e68501c1b3db4cfcaaf8f64fa9351270c457bb0f3994b2068",
+      "size_bytes": 24924
+    },
+    "config/noark5/standards/delivery_value_conditions_v023_a3.json": {
+      "sha256": "1d232244c82888eff17b892a2f9ae7ed221a0f7e2cfc381bd262a11af51c4dbc",
+      "size_bytes": 1320
+    },
+    "gui_qt/ks_value_inspection_v023_a3.py": {
+      "sha256": "67f7ed550797462e4808437d2bee6464529d0d9b83cb0abba323093f13d773de",
+      "size_bytes": 19995
+    },
+    "gui_qt/main_v023_a3.py": {
+      "sha256": "4a0ee6c35246dd743c2dc372803a4c8bb74ac9e81d1c98784097647b7be8d149",
+      "size_bytes": 1546
+    },
+    "gui_qt/__main__.py": {
+      "sha256": "4a39c3440630a42c3dfa099980cf3ebc1ee342e98b6c76c5e5d5932bc77a378d",
+      "size_bytes": 5286
+    },
+    "version.py": {
+      "sha256": "4d336a62ce8c73c37557b820bf8372c0f6c24ae0781faa1b11f0b1e8191978fd",
+      "size_bytes": 56
+    },
+    "pyproject.toml": {
+      "sha256": "ce1f47357dce402c734558d3d76db55943ae7c4dd32a6cca76fc946070bde1d0",
+      "size_bytes": 473
+    },
+    "tests/test_v023_a1_arkade_inspector.py": {
+      "sha256": "ff838d32d4440c9781010e574f90a5054c256a279822db116f454b4d9b749aa9",
+      "size_bytes": 10129
+    },
+    "tests/test_v023_a2_metadata_inspection.py": {
+      "sha256": "3ec1269e8b454f5b54df8a2bbaeeb6a94642fd9fd82d5155c883c93f7b5f5bc0",
+      "size_bytes": 11694
+    },
+    "tests/test_v023_a3_values_periods.py": {
+      "sha256": "bb224256d4b201c43fbb8f028262c90632f79105cac986b0efcf51cedfff4afe",
+      "size_bytes": 12310
+    },
+    "tests/test_v023_a3_integration.py": {
+      "sha256": "478829d5f62033a626f537641934ce1481bd0017b503278be0ccd72dad277560",
+      "size_bytes": 2836
+    },
+    "docs/V023-A3.md": {
+      "sha256": "72fb761c3a0bbc5ca18f90b15c2d5fef42a2de6715f88eef2f4eb7011db0a198",
+      "size_bytes": 6960
+    }
+  },
+  "source_archives_included": false,
+  "work_jobs_included": false,
+  "test_status": "65 targeted local tests passed; full Windows/PySide6 test.bat pending"
+}

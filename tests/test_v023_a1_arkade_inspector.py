@@ -174,7 +174,7 @@ class InspectorTests(unittest.TestCase):
         entry=(ROOT/'gui_qt/__main__.py').read_text(encoding='utf-8')
         main=(ROOT/'gui_qt/main_v023_a1.py').read_text(encoding='utf-8')
         gui=(ROOT/'gui_qt/ks_inspector_v023_a1.py').read_text(encoding='utf-8')
-        self.assertIn('from gui_qt.main_v023_a2 import DwmMainWindow',entry)
+        self.assertRegex(entry, r'from gui_qt\.main_v023_a[0-9]+ import DwmMainWindow')
         self.assertIn('from gui_qt.main_v022_a12 import DwmMainWindow',main)
         self.assertIn('self._a12_open_ks_workshop', (ROOT/'gui_qt/main_v022_a12.py').read_text('utf-8'))
         for token in ('Inspiser valgt funn','Inspiser Arkade-test','Vis XML-kontekst',
