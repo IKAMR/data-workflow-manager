@@ -488,7 +488,7 @@ def export_complete_reports(work: str | Path, snapshot: dict, index: dict,
                     'published_files': published, 'generated_utc': generated,
                     'limitations': ['Utkast; ingen formell godkjenning',
                                     'Faglige vurderinger endrer ikke teknisk teststatus',
-                                    'Eldre append-only-register støtter foreløpig maksimalt 2000 hendelser']}
+                                    'Alle historiske vurderingshendelser i Work verifiseres ved eksport; tidsbruk avhenger av filsystem og antall hendelser']}
         (stage / 'evidensmanifest.json').write_text(
             json.dumps(manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
         _check_cancel(cancelled)

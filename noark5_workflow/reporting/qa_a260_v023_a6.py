@@ -447,11 +447,27 @@ def _manual_and_depot_findings(work: Path, identity: dict, depot_path: Path,
 
 
 def _reviews(work: Path, identity: dict, depot_hash: str) -> dict[str, dict]:
-    from noark5_workflow.reporting.qa_review_v021_a13 import _read_events
+    """Latest verified event per fingerprint, streamed from the original ledger.
+
+    A14 handles unlimited historic events without an in-memory history list.
+    Sorting by the original immutable timestamp prevents filesystem order
+    from changing an already recorded professional assessment.
+    """
+    import importlib
+    review_api = importlib.import_module('.qa_review_v021_a13', __package__)
+    reader = getattr(review_api, '_iter_events', None) or review_api._read_events
     selected: dict[str, dict] = {}
-    for ev in _read_events(work):
-        if ev.get('job_uid') == identity['job_uid'] and ev.get('depot_report_sha256') == depot_hash:
-            selected[str(ev.get('finding_key'))] = ev
+    ranks: dict[str, tuple[int, str, int]] = {}
+    for sequence, ev in enumerate(reader(work), 1):
+        if ev.get('job_uid') != identity['job_uid'] or ev.get('depot_report_sha256') != depot_hash:
+            continue
+        key = str(ev.get('finding_key') or '')
+        stamp = ev.get('recorded_ns')
+        rank = ((stamp, str(ev.get('event_id') or ''), 0)
+                if type(stamp) is int else (0, '', sequence))
+        if key not in ranks or rank > ranks[key]:
+            selected[key] = ev
+            ranks[key] = rank
     return selected
 
 

@@ -273,9 +273,15 @@ class CompleteReportTests(unittest.TestCase):
         import re
         namespace={}
         exec((ROOT/'version.py').read_text('utf-8'),namespace)
-        self.assertEqual(namespace['VERSION'],'0.2.3-a13')
+        version = namespace['VERSION']
+        # A13 introduced the complete report. Later a-stages must still be
+        # accepted while application and distribution versions remain identical.
+        stage = re.fullmatch(r'0\.2\.3-a([0-9]+)', version)
+        self.assertIsNotNone(stage, 'Forventer v0.2.3-aN som utviklingsversjon')
+        self.assertGreaterEqual(int(stage.group(1)), 13)
         project=(ROOT/'pyproject.toml').read_text('utf-8')
-        self.assertRegex(project, r'(?m)^version\s*=\s*"0\.2\.3a13"\s*$')
+        distributions = re.findall(r'(?m)^version\s*=\s*"([^"]+)"\s*$', project)
+        self.assertEqual(distributions, [version.replace('-a', 'a')])
 
     def test_selected_csv_formula_comment_protected(self):
         self.prepare(1,0)

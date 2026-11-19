@@ -405,22 +405,38 @@ def _open_index(work: str | Path, metadata: dict, *, digest: bool = False):
 
 
 def load_review_events(work: str | Path, metadata: dict) -> dict[str, dict]:
-    """Read existing a13 append-only reviews for this *exact* depot revision.
+    """Stream all immutable a13 events, selecting the latest for each indexed finding.
 
-    Does not turn technical errors into PASS. The existing a13 2000-event cap
-    is preserved; the general event-cap redesign is tracked separately.
+    No 2,000-event cap and no full-history list in memory. Every historic event
+    is independently checksum-verified, including obsolete source revisions.
+    The original per-finding chronology is respected even when scandir is
+    unordered. This never interprets a professional remark as technical PASS.
     """
     root, db = _open_index(work, metadata, digest=True)
-    from .qa_review_v021_a13 import _read_events
+    import importlib
+    review_api = importlib.import_module('.qa_review_v021_a13', __package__)
+    reader = getattr(review_api, '_iter_events', None) or review_api._read_events
     events: dict[str, dict] = {}
+    ranks: dict[str, tuple[int, str, int]] = {}
     with closing(sqlite3.connect(db.as_uri() + '?mode=ro', uri=True)) as conn:
-        for ev in _read_events(root):
+        conn.execute('PRAGMA query_only=ON')
+        for sequence, ev in enumerate(reader(root), 1):
             if (ev.get('job_uid') != metadata['job_uid'] or
                     ev.get('depot_report_sha256') != metadata['depot_sha256']):
                 continue
             key = str(ev.get('finding_key') or '')
-            if conn.execute('SELECT 1 FROM findings WHERE finding_key=?', (key,)).fetchone():
+            stamp = ev.get('recorded_ns')
+            # All real events have a signed integer recorded_ns. Preserve
+            # legacy test-double compatibility for unversioned mock events.
+            rank = ((stamp, str(ev.get('event_id') or ''), 0)
+                    if type(stamp) is int else (0, '', sequence))
+            if key in ranks:
+                if rank > ranks[key]:
+                    events[key] = ev
+                    ranks[key] = rank
+            elif conn.execute('SELECT 1 FROM findings WHERE finding_key=?', (key,)).fetchone():
                 events[key] = ev
+                ranks[key] = rank
     return events
 
 

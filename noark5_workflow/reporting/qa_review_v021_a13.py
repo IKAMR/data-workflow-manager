@@ -1,9 +1,9 @@
-"""v0.2.1-a13: explicit, append-only professional annotations for a12 findings.
+"""Append-only professional review events, source-bound to the original DWM report.
 
-These are *annotations*, never validation results, producer acceptance, formal
-approval, or rules. Every entry binds to the exact original DWM depot report
-revision and to a stable fingerprint of the source finding. Old report revisions
-remain in Work history but must not silently appear in a new report.
+A14 removes the historic 2,000-event ceiling. Every immutable JSON event remains
+in Work, including earlier revisions of the same finding. Event enumeration is
+streaming and revalidates each signed payload; it never trusts a stale cache or
+modifies Source, technical test results, or formal decision state.
 """
 from __future__ import annotations
 
@@ -14,14 +14,14 @@ import json
 import os
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 from uuid import uuid4
 
 from .qa_decision_v021_a12 import _hash, _json, _rel, ReportInputError
 
 REVIEW_DIR = "noark5_evidence/qa_review_events_v021_a13"
 EVENT_MODEL = "ikamr.dwm.noark5.finding-review-event.a13.v1"
-MAX_EVENTS = 2000
+MAX_EVENTS = None  # Deprecated compatibility name: no cumulative event-count ceiling.
 MAX_EVENT_BYTES = 20000
 MAX_COMMENT = 5000
 STATUSES = {
@@ -37,7 +37,7 @@ class ReviewError(ValueError):
 
 
 def finding_key(finding: dict[str, Any]) -> str:
-    """Fingerprint a single original source finding, including its context."""
+    """Fingerprint the actual source observation, not its professional status."""
     if not isinstance(finding, dict):
         raise ReviewError("Funn er ikke et objekt")
     fields = ("source", "test_id", "severity", "message", "context", "file", "source_ref", "lines")
@@ -88,47 +88,65 @@ def _events_directory(work: Path, *, create: bool = False) -> Path:
     return folder
 
 
-def _read_events(work: Path) -> list[dict]:
-    folder = _events_directory(work)
+def _event_order(event: dict) -> tuple[int, str]:
+    """Same total order as the legacy sorted reader, independent of scandir order."""
+    return event["recorded_ns"], str(event.get("event_id") or "")
+
+
+def _iter_events(work: str | Path) -> Iterator[dict]:
+    """Validate every historic event in O(1) enumeration memory.
+
+    Files are deliberately not sorted: consumers choosing the latest event
+    compare (_event_order), so an arbitrary filesystem order cannot regress a
+    previously saved assessment. Any unknown/symlink/corrupt file fails closed.
+    """
+    folder = _events_directory(Path(work))
     if not folder.exists():
-        return []
-    paths = list(folder.iterdir())
-    if len(paths) > MAX_EVENTS:
-        raise ReviewError("For mange vurderingshendelser; gjennomgå historikken")
-    result = []
-    for path in paths:
-        if path.suffix != ".json" or not path.is_file() or path.is_symlink():
-            raise ReviewError("Ukjent fil i vurderingshistorikken")
-        if path.stat().st_size > MAX_EVENT_BYTES:
-            raise ReviewError("Vurderingshendelse er for stor")
-        event = _json(path, MAX_EVENT_BYTES)
-        if event.get("model_id") != EVENT_MODEL or path.stem != event.get("event_id"):
-            raise ReviewError("Ukjent eller endret vurderingshendelse")
-        checksum = event.get("event_sha256")
-        unsigned = {k: v for k, v in event.items() if k != "event_sha256"}
-        expected = sha256(json.dumps(unsigned, ensure_ascii=False, sort_keys=True,
-                                     separators=(",", ":")).encode("utf-8")).hexdigest()
-        if checksum != expected or type(event.get("recorded_ns")) is not int:
-            raise ReviewError("Vurderingshendelsens integritet kunne ikke bekreftes")
-        if event.get("status") not in STATUSES or not isinstance(event.get("comment"), str):
-            raise ReviewError("Ugyldig faglig vurderingsstatus eller kommentar")
-        if len(event["comment"]) > MAX_COMMENT or not event["comment"].strip():
-            raise ReviewError("Ugyldig kommentar i vurderingshistorikken")
-        if not all(type(event.get(flag)) is bool for flag in ("include_in_ks", "include_in_depot")):
-            raise ReviewError("Ukjent rapportvalg i vurderingshistorikken")
-        result.append(event)
-    result.sort(key=lambda row: (row["recorded_ns"], str(row.get("event_id"))))
-    return result
+        return
+    try:
+        with os.scandir(folder) as entries:
+            for entry in entries:
+                path = Path(entry.path)
+                if (path.suffix != ".json" or entry.is_symlink()
+                        or not entry.is_file(follow_symlinks=False)):
+                    raise ReviewError("Ukjent fil i vurderingshistorikken")
+                if entry.stat(follow_symlinks=False).st_size > MAX_EVENT_BYTES:
+                    raise ReviewError("Vurderingshendelse er for stor")
+                event = _json(path, MAX_EVENT_BYTES)
+                if event.get("model_id") != EVENT_MODEL or path.stem != event.get("event_id"):
+                    raise ReviewError("Ukjent eller endret vurderingshendelse")
+                checksum = event.get("event_sha256")
+                unsigned = {k: v for k, v in event.items() if k != "event_sha256"}
+                expected = sha256(json.dumps(unsigned, ensure_ascii=False, sort_keys=True,
+                                             separators=(",", ":")).encode("utf-8")).hexdigest()
+                if checksum != expected or type(event.get("recorded_ns")) is not int:
+                    raise ReviewError("Vurderingshendelsens integritet kunne ikke bekreftes")
+                if event.get("status") not in STATUSES or not isinstance(event.get("comment"), str):
+                    raise ReviewError("Ugyldig faglig vurderingsstatus eller kommentar")
+                if len(event["comment"]) > MAX_COMMENT or not event["comment"].strip():
+                    raise ReviewError("Ugyldig kommentar i vurderingshistorikken")
+                if not all(type(event.get(flag)) is bool for flag in ("include_in_ks", "include_in_depot")):
+                    raise ReviewError("Ukjent rapportvalg i vurderingshistorikken")
+                yield event
+    except OSError as exc:
+        raise ReviewError("Kan ikke lese komplett vurderingshistorikk") from exc
+
+
+def _read_events(work: Path) -> list[dict]:
+    """Legacy chronological list API; use _iter_events for large Work jobs."""
+    return sorted(_iter_events(work), key=_event_order)
 
 
 def latest_reviews(work: str | Path, snapshot: dict) -> dict[str, Any]:
-    """Only exact source revision + exact finding fingerprints are current."""
+    """Only exact job, source revision and finding keys are current.
+
+    Retains one latest event per key, not a list of the full historic ledger.
+    """
     uid, sha, _ = _binding(snapshot)
     allowed = {finding_key(x) for x in snapshot.get("findings") or []}
     state: dict[str, dict] = {}
-    older = 0
-    unrelated = 0
-    for event in _read_events(Path(work)):
+    older = unrelated = 0
+    for event in _iter_events(Path(work)):
         if event.get("job_uid") != uid:
             unrelated += 1
             continue
@@ -139,7 +157,9 @@ def latest_reviews(work: str | Path, snapshot: dict) -> dict[str, Any]:
         if key not in allowed:
             older += 1
             continue
-        state[key] = event
+        previous = state.get(key)
+        if previous is None or _event_order(event) > _event_order(previous):
+            state[key] = event
     return {"current": state, "older_or_changed": older, "other_job": unrelated}
 
 
@@ -147,7 +167,7 @@ def record_review(work: str | Path, snapshot: dict, finding: dict, *,
                   status: str, comment: str, user: Any,
                   include_in_ks: bool = True, include_in_depot: bool = True,
                   recorded_at: str | None = None) -> dict:
-    """Write one immutable Work event; never modify the existing original report."""
+    """Persist one immutable JSON event, with no arbitrary event-count ceiling."""
     if status not in STATUSES:
         raise ReviewError("Ukjent faglig vurderingsstatus")
     comment = str(comment or "").strip()
@@ -188,15 +208,13 @@ def record_review(work: str | Path, snapshot: dict, finding: dict, *,
         "author": author,
     }
     event["event_sha256"] = sha256(json.dumps(event, ensure_ascii=False, sort_keys=True,
-                                           separators=(",", ":")).encode("utf-8")).hexdigest()
-    directory = _events_directory(root, create=True)
-    path = directory / (event_id + ".json")
-    if len(list(directory.iterdir())) >= MAX_EVENTS:
-        raise ReviewError("For mange vurderingshendelser")
+                                            separators=(",", ":")).encode("utf-8")).hexdigest()
     raw = json.dumps(event, ensure_ascii=False, indent=2) + "\n"
     if len(raw.encode("utf-8")) > MAX_EVENT_BYTES:
         raise ReviewError("Vurderingshendelse overstiger størrelsesgrensen")
-    # O_EXCL guarantees that neither an existing event nor a symlink is replaced.
+    directory = _events_directory(root, create=True)
+    path = directory / (event_id + ".json")
+    # O_EXCL ensures existing events and symlinks are never overwritten.
     with path.open("x", encoding="utf-8") as handle:
         handle.write(raw)
         handle.flush()
@@ -205,11 +223,7 @@ def record_review(work: str | Path, snapshot: dict, finding: dict, *,
 
 
 def with_selected_reviews(work: str | Path, snapshot: dict) -> dict:
-    """Copy a12 evidence, adding only comments explicitly selected for a report.
-
-    Not-selected comments stay in Work and are not included in the exported
-    JSON or HTML. Original technical observations and a12 status remain intact.
-    """
+    """Attach only explicitly report-selected remarks to a copied snapshot."""
     details = latest_reviews(work, snapshot)
     current = details["current"]
     rows = []
