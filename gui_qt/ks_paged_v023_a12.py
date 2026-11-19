@@ -2,7 +2,7 @@
 
 Uses the a4 guided dialog, a8 Arkade index, a11 DWM source bridge and the
 existing a13 append-only review ledger. No new validators or approval states.
-Other tabs remain read-only previews if the original snapshot is incomplete.
+A13 exports complete recipient-specific reports from the verified A12 index.
 """
 from __future__ import annotations
 
@@ -39,6 +39,31 @@ class _IndexWorker(QThread):
                 self.complete.emit(data)
 
 
+class _CompleteReportWorker(QThread):
+    """Nonblocking complete report export; cancellation discards private stage."""
+    complete = Signal(dict)
+    failed = Signal(str)
+    advanced = Signal(int)
+
+    def __init__(self, work, snapshot, index, target, sections, recommendation, note, parent=None):
+        super().__init__(parent)
+        self.work, self.snapshot, self.index, self.target = work, snapshot, index, target
+        self.sections, self.recommendation, self.note = sections, recommendation, note
+
+    def run(self):
+        try:
+            from noark5_workflow.reporting.qa_complete_report_v023_a13 import export_complete_reports
+            result = export_complete_reports(
+                self.work, self.snapshot, self.index, self.target,
+                sections=self.sections, recommendation=self.recommendation,
+                recommendation_note=self.note, cancelled=self.isInterruptionRequested,
+                progress=self.advanced.emit)
+        except (OSError, ValueError, RuntimeError) as exc:
+            self.failed.emit(str(exc))
+        else:
+            self.complete.emit(result)
+
+
 class KsWorkshopDialog(_GuidedA4):
     """A4 review widgets, but selections and totals come from all indexed rows."""
 
@@ -46,6 +71,8 @@ class KsWorkshopDialog(_GuidedA4):
         self._a12_info = None
         self._a12_failed_flag = False
         self._a12_worker = None
+        self._a13_export_worker = None
+        self._a13_export_busy = False
         self._a12_page_no = 0
         self._a12_page_size = 100
         self._a12_page_data = None
@@ -114,8 +141,21 @@ class KsWorkshopDialog(_GuidedA4):
         self.a12_forward.setEnabled(False)
         self.a12_jump.setEnabled(False)
         self._a12_last_filters = self._a12_filter_state()
+        self.a13_export_status = QLabel('A13: Fullstendig KS-/depotrapport kan eksporteres fra Rapportutkast.')
+        self.a13_export_status.setWordWrap(True)
+        self.a13_cancel_export = QPushButton('Avbryt pågående rapporteksport')
+        self.a13_cancel_export.setObjectName('v023_a13_cancel_export')
+        self.a13_cancel_export.setEnabled(False)
+        self.a13_cancel_export.clicked.connect(self._a13_cancel_export)
+        report_page = self.preview_browser.parentWidget()
+        report_page.layout().addWidget(self.a13_export_status)
+        report_page.layout().addWidget(self.a13_cancel_export)
 
     def _reload(self, *, select_key: str = ''):
+        if getattr(self, '_a13_export_busy', False):
+            QMessageBox.warning(self, 'Eksport pågår',
+                                'Ikke oppdater KS-grunnlaget før fullstendig rapporteksport er ferdig.')
+            return
         self._a12_stop_index()
         self._a12_info = None
         self._a12_failed_flag = False
@@ -160,7 +200,7 @@ class KsWorkshopDialog(_GuidedA4):
             self.a12_status.setText(
                 'Kildeverifisert indeks: alle DWM-, Arkade- og andre KS-funn er med. '
                 'Teknisk status endres aldri ved faglig vurdering. '
-                'Eksport av komplett KS-vurderingsrapport følger i a13.')
+                'Komplett KS-/depotrapport kan genereres fra fanen Rapportutkast.')
             self._a12_refill()
         except (OSError, ValueError, RuntimeError) as exc:
             self._a12_failed(str(exc))
@@ -460,7 +500,7 @@ class KsWorkshopDialog(_GuidedA4):
         if note not in before:
             self.guided_comment.setPlainText(before+('\n\n' if before else '')+note)
 
-    def _guided_save_review(self, _checked=False, *, move_next=False):
+    def _a12_save_review(self, _checked=False, *, move_next=False):
         if not self._a12_info:
             QMessageBox.warning(self, 'Fullstendig KS ikke tilgjengelig',
                                 'Kildeverifisert sideindeks må være klar før faglig lagring.')
@@ -511,25 +551,128 @@ class KsWorkshopDialog(_GuidedA4):
             QMessageBox.warning(self,'Kunne ikke lagre vurdering',str(exc))
 
     def _preview(self):
-        if self.snapshot.get('findings_complete') is False:
-            QMessageBox.information(
-                self, 'Ufullstendig forhåndsvisning',
-                'Den gamle KS-funntabellen viser bare et utvalg. Veiledet KS viser '
-                'ALLE funn sidevis. Komplett kildebundet A260 CSV/JSONL er en egen eksportflyt '
-                'som kan kjøres når forutsetningene er oppfylt; samlet KS-rapport for store register kommer i a13.')
+        if not self._a12_info or self._a13_export_busy:
+            QMessageBox.warning(self, 'Rapportgrunnlag ikke klart',
+                                'Komplett og verifisert A12-indeks må være klar før rapportvisning.')
             return
-        return super()._preview()
+        if self._guided_dirty or self._unsaved:
+            QMessageBox.warning(self, 'Ulagret faglig vurdering',
+                                'Lagre eller forkast endringer før rapportvisning.')
+            return
+        try:
+            from noark5_workflow.reporting.qa_complete_report_v023_a13 import preview_complete_summary
+            summary = preview_complete_summary(
+                self.work, self.snapshot, self._a12_info,
+                sections=self._report_sections(),
+                recommendation=self.recommendation.currentData(),
+                recommendation_note=self.recommendation_note.toPlainText())
+            self.preview_browser.setHtml(summary)
+            self.a13_export_status.setText(
+                'Kildeverifisert totaloversikt. Alle enkeltfunn eksporteres først '
+                'ved «Generer KS-/godkjenningsrapport…»; oversikten er ikke et formelt vedtak.')
+        except (OSError, ValueError, RuntimeError) as exc:
+            QMessageBox.warning(self, 'Kan ikke vise komplett rapportgrunnlag', str(exc))
 
     def _export(self):
-        if self.snapshot.get('findings_complete') is False:
-            QMessageBox.warning(
-                self, 'Komplett KS-rapport ikke tilgjengelig',
-                'Dette snapshotet inneholder bare en forhåndsvisning. '
-                'Eksport av ufullstendig KS-/godkjenningsrapport er sperret. '
-                'Bruk A260 for komplett kildebundet funnregister. '
-                'Full faglig KS-rapport er planlagt i a13.')
+        if not self._a12_info or self._a13_export_busy:
+            QMessageBox.warning(self, 'Rapporteksport ikke klar',
+                                'Komplett A12-indeks må være tilgjengelig, og ingen annen eksport må kjøre.')
             return
-        return super()._export()
+        if self._guided_dirty or self._unsaved:
+            QMessageBox.warning(self, 'Ulagrede endringer',
+                                'Lagre eller forkast alle faglige endringer før eksport.')
+            return
+        if self.recommendation.currentData() != 'pending' and not self._recommendation_saved:
+            QMessageBox.warning(self, 'Innstilling er ikke lagret',
+                                'Lagre innstillingen som en dokumentert KS-observasjon før eksport.')
+            return
+        from pathlib import Path
+        from datetime import datetime
+        from PySide6.QtWidgets import QFileDialog
+        folder = QFileDialog.getExistingDirectory(
+            self, 'Velg overordnet mappe for fullstendig rapportpakke', str(Path.home()))
+        if not folder:
+            return
+        ident = self.snapshot.get('work_identity') or {}
+        safe = ''.join(c if c.isascii() and (c.isalnum() or c in '-_') else '_'
+                       for c in str(ident.get('job_id') or 'JOB'))
+        target = Path(folder) / ('KS_DEPOT_' + safe + '_' + datetime.now().strftime('%Y%m%d_%H%M%S_%f'))
+        reply = QMessageBox.question(
+            self, 'Fullstendig KS- og depotrapport – UTKAST',
+            f'Alle {self._a12_info["finding_count"]} verifiserte funn eksporteres i begge '
+            'rapporter. Faglige kommentarer vises bare der de er valgt. '
+            'Ingen formell depotgodkjenning eller nytt testresultat opprettes.\n\n'
+            + str(target),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No)
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        self._a13_export_busy = True
+        self.a13_cancel_export.setEnabled(True)
+        self.a13_export_status.setText('Eksporterer alle funn – rapporten publiseres først når den er komplett…')
+        self._a13_export_worker = _CompleteReportWorker(
+            self.work, self.snapshot, self._a12_info, target, self._report_sections(),
+            str(self.recommendation.currentData() or 'pending'),
+            self.recommendation_note.toPlainText(), self)
+        self._a13_export_worker.complete.connect(self._a13_report_ready)
+        self._a13_export_worker.failed.connect(self._a13_report_failed)
+        self._a13_export_worker.advanced.connect(self._a13_report_progress)
+        self._a13_export_worker.finished.connect(self._a13_report_finished)
+        self._a13_export_worker.start()
+
+    def _a13_report_progress(self, count):
+        self.a13_export_status.setText(
+            f'Komplett rapporteksport: {count} av {self._a12_info["finding_count"]} funn behandlet…')
+
+    def _a13_report_ready(self, report):
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+        self._report_path = report['index']
+        self.a13_export_status.setText(
+            f'Komplett rapportpakke ferdig: {report["finding_count"]} funn · '
+            f'{report["reviews_in_ks"]} KS-kommentarer · '
+            f'{report["reviews_in_depot"]} depotkommentarer. UTKAST.')
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(self._report_path)))
+        QMessageBox.information(
+            self, 'Komplett KS-/depotrapport generert',
+            'Hele det kildebundne registeret er eksportert til:\n'
+            + str(report['directory']) + '\n\nIngen formell godkjenning er registrert.')
+
+    def _a13_report_failed(self, error):
+        self.a13_export_status.setText('Eksport feilet eller ble avbrutt; ingen ufullstendig rapport publisert.')
+        QMessageBox.warning(self, 'Komplett rapporteksport feilet', error)
+
+    def _a13_report_finished(self):
+        self._a13_export_busy = False
+        self.a13_cancel_export.setEnabled(False)
+        self._a13_export_worker = None
+
+    def _a13_cancel_export(self, _checked=False):
+        worker = getattr(self, '_a13_export_worker', None)
+        if worker is not None and worker.isRunning():
+            worker.requestInterruption()
+            self.a13_export_status.setText('Avbryter eksport og rydder midlertidige filer…')
+
+    def _new_observation(self, context: str):
+        if self._a13_export_busy:
+            QMessageBox.warning(self, 'Eksport pågår',
+                                'Ingen nye observasjoner kan registreres under eksport.')
+            return
+        return super()._new_observation(context)
+
+    def _save_recommendation(self):
+        if self._a13_export_busy:
+            QMessageBox.warning(self, 'Eksport pågår',
+                                'Ikke endre den faglige innstillingen under eksport.')
+            return
+        return super()._save_recommendation()
+
+    def _guided_save_review(self, _checked=False, *, move_next=False):
+        if self._a13_export_busy:
+            QMessageBox.warning(self, 'Eksport pågår',
+                                'Ikke lagre en ny vurdering mens rapporten publiseres.')
+            return
+        return self._a12_save_review(_checked, move_next=move_next)
 
     def _a12_stop_index(self):
         worker = getattr(self,'_a12_worker',None)
@@ -539,5 +682,9 @@ class KsWorkshopDialog(_GuidedA4):
         self._a12_worker = None
 
     def _guided_stop_workers(self):
+        self._a13_cancel_export()
+        export_worker = getattr(self, '_a13_export_worker', None)
+        if export_worker is not None and export_worker.isRunning():
+            export_worker.wait()
         self._a12_stop_index()
         super()._guided_stop_workers()
