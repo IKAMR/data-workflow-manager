@@ -174,7 +174,7 @@ class InspectorTests(unittest.TestCase):
         entry=(ROOT/'gui_qt/__main__.py').read_text(encoding='utf-8')
         main=(ROOT/'gui_qt/main_v023_a1.py').read_text(encoding='utf-8')
         gui=(ROOT/'gui_qt/ks_inspector_v023_a1.py').read_text(encoding='utf-8')
-        self.assertIn('from gui_qt.main_v023_a1 import DwmMainWindow',entry)
+        self.assertIn('from gui_qt.main_v023_a2 import DwmMainWindow',entry)
         self.assertIn('from gui_qt.main_v022_a12 import DwmMainWindow',main)
         self.assertIn('self._a12_open_ks_workshop', (ROOT/'gui_qt/main_v022_a12.py').read_text('utf-8'))
         for token in ('Inspiser valgt funn','Inspiser Arkade-test','Vis XML-kontekst',
@@ -186,9 +186,10 @@ class InspectorTests(unittest.TestCase):
     def test_version_is_a1_and_distribution_matches(self):
         from version import VERSION
         import tomllib
-        self.assertEqual(VERSION,'0.2.3-a1')
+        from tests.version_assertions import assert_release_at_least
+        assert_release_at_least(self, f'VERSION = "{VERSION}"', '0.2.3', 1)
         with (ROOT/'pyproject.toml').open('rb') as f:
-            self.assertEqual(tomllib.load(f)['project']['version'],'0.2.3a1')
+            self.assertEqual(tomllib.load(f)['project']['version'], VERSION.replace('-a','a'))
 
 
 if __name__=='__main__':

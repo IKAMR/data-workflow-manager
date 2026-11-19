@@ -1,0 +1,52 @@
+{
+  "version": "0.2.3-a2",
+  "base_version": "0.2.3-a1",
+  "baseline_git_commit": "fdfff926240ee380375c92092195988a1804c51c",
+  "delta_type": "replace-files",
+  "scope": "Read-only XML field to versioned Noark M-number, standard values, and existing XPath catalogue references; optional unsaved KS comment evidence draft",
+  "files": {
+    "app/ks_inspector_v023_a1.py": {
+      "sha256": "23f1b6bc418cb5d6fec00ca700cf369a756e9c3bc54c62de6fd858676aadf5be",
+      "size_bytes": 16675
+    },
+    "app/ks_metadata_v023_a2.py": {
+      "sha256": "da547cd07420af353887fa6730ea5ce786a150e12a6ff96d034697018b2fd2c4",
+      "size_bytes": 11273
+    },
+    "gui_qt/ks_metadata_v023_a2.py": {
+      "sha256": "84ea57faf41eacdab42b00d061c33f29836fe7ddc58630e69cf432fdf7c183b1",
+      "size_bytes": 13956
+    },
+    "gui_qt/main_v023_a2.py": {
+      "sha256": "9e774345582d71f01def378c8cbf8e685038ed73f31decb344d46c5d1f075796",
+      "size_bytes": 1670
+    },
+    "gui_qt/__main__.py": {
+      "sha256": "44688c2e3a92aede266f16a858abd8c25609fd83dd7d7a7910b09a1a3bb5e8a4",
+      "size_bytes": 5273
+    },
+    "version.py": {
+      "sha256": "66f1c6580682f7780ba82b1ac25f90a17f8b2eefb44e98acbdb91b3d0ec76c2c",
+      "size_bytes": 56
+    },
+    "pyproject.toml": {
+      "sha256": "76bfe88349c9e400bc41642729a73ba24f8a1573127706bad5f30a24846d6684",
+      "size_bytes": 473
+    },
+    "tests/test_v023_a1_arkade_inspector.py": {
+      "sha256": "7d3be7651f7ba8dbe00c6c7a4664abd82316ab480171ee72eee1278e8a40a004",
+      "size_bytes": 10118
+    },
+    "tests/test_v023_a2_metadata_inspection.py": {
+      "sha256": "c1409f929e6d5425221968b9c4a1f92c12ec3a0b4a334708aad2e2b4e1e2c24a",
+      "size_bytes": 11666
+    },
+    "docs/V023-A2.md": {
+      "sha256": "ca584e65c78b2e69c9a3cfaf54804745abbc051afa2122f66d96d4081d6ffd9c",
+      "size_bytes": 5347
+    }
+  },
+  "source_archives_included": false,
+  "work_jobs_included": false,
+  "test_status": "42 targeted tests pass in partial local repo; full Windows/PySide6 test.bat pending"
+}

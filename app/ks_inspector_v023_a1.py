@@ -212,20 +212,26 @@ def _line_excerpt(source: Path, line: int, *, before: int = 12, after: int = 12,
 
 
 def _xml_metadata(source: Path, line: int, test_id: str, *,
-                  cancel: Callable[[], bool] | None = None) -> dict[str, str]:
-    """Resolve object identity/XPath with secure streaming XML events when possible.
+                  cancel: Callable[[], bool] | None = None) -> dict[str, Any]:
+    """Identify the exact Arkade line and bounded direct-child XML metadata.
 
-    No generic fallback system-ID guesses from a nearby different object.
+    a2 extends a1's on-demand streaming reader.  Only real, observed direct
+    child fields of the selected archive object are captured. A selected mappe
+    can contain many registrations; its descendants are never mistaken for its
+    own metadata.  A large object is marked incomplete rather than fabricated.
     """
-    field, object_tag = _XML_FIELDS.get(test_id, ("", ""))
+    field, object_tag = _XML_FIELDS.get(test_id, ('', ''))
     if not field:
         return {}
     from lxml import etree
     frames: list[dict] = []
-    found: dict[str, str] = {}
-    stream = source.open("rb")
+    found: dict[str, Any] = {}
+    chosen = None
+    seen_after = 0
+    max_after = 200_000
+    stream = source.open('rb')
     try:
-        context = etree.iterparse(stream, events=("start", "end"),
+        context = etree.iterparse(stream, events=('start', 'end'),
                                   resolve_entities=False, no_network=True,
                                   load_dtd=False, huge_tree=False)
     except BaseException:
@@ -237,55 +243,81 @@ def _xml_metadata(source: Path, line: int, test_id: str, *,
             events += 1
             if events % 8192 == 0:
                 _check_cancel(cancel)
+            if chosen is not None:
+                seen_after += 1
+                if seen_after > max_after:
+                    found['field_coverage'] = 'begrenset – objektet er stort'
+                    found['fields'] = tuple(chosen['fields'])
+                    break
             if not isinstance(element.tag, str):
                 continue
             tag = etree.QName(element).localname
             lineno = int(element.sourceline or 0)
-            if event == "start":
-                if lineno > line and found:
+            if event == 'start':
+                if lineno > line and found and chosen is None:
                     break
                 if frames:
-                    siblings = frames[-1]["children"]
+                    siblings = frames[-1]['children']
                     ordinal = siblings.get(tag, 0) + 1
                     siblings[tag] = ordinal
                 else:
                     ordinal = 1
-                frames.append({"tag": tag, "ordinal": ordinal, "children": {},
-                               "system_id": "", "title": "", "start_line": lineno})
+                frames.append({'tag': tag, 'ordinal': ordinal, 'children': {},
+                               'system_id': '', 'title': '', 'start_line': lineno,
+                               'fields': []})
                 continue
             if not frames:
                 continue
-            if tag == "systemID" and len(frames) > 1:
-                frames[-2]["system_id"] = (element.text or "").strip()[:500]
-            if tag in ("tittel", "mappeID", "offentligTittel") and len(frames) > 1:
-                if tag == "tittel":
-                    frames[-2]["title"] = (element.text or "").strip()[:500]
+            if tag == 'systemID' and len(frames) > 1:
+                frames[-2]['system_id'] = (element.text or '').strip()[:500]
+            if tag == 'tittel' and len(frames) > 1:
+                frames[-2]['title'] = (element.text or '').strip()[:500]
+            if len(frames) > 1:
+                parent = frames[-2]
+                if (parent['tag'] in ('arkivdel', 'klasse', 'mappe', 'registrering',
+                                      'dokumentbeskrivelse', 'dokumentobjekt')
+                        and not len(element) and (element.text or '').strip()
+                        and len(parent['fields']) < 96):
+                    parent['fields'].append({
+                        'field': tag, 'value': (element.text or '').strip()[:1000],
+                        'line': lineno,
+                        'xpath': '/' + '/'.join(
+                            f"{f['tag']}[{f['ordinal']}]" for f in frames),
+                    })
             if lineno == line and tag == field and not found:
                 ancestors = list(frames)
-                obj = next((x for x in reversed(ancestors[:-1]) if x["tag"] == object_tag), None)
+                obj = next((x for x in reversed(ancestors[:-1]) if x['tag'] == object_tag), None)
                 if obj is None:
-                    obj = next((x for x in reversed(ancestors[:-1]) if x["tag"] in
-                                ("mappe", "registrering", "journalpost", "dokumentbeskrivelse")), None)
-                found = {"xpath": "/" + "/".join(
+                    obj = next((x for x in reversed(ancestors[:-1]) if x['tag'] in
+                                ('mappe', 'registrering', 'journalpost', 'dokumentbeskrivelse')), None)
+                found = {'xpath': '/' + '/'.join(
                              f"{f['tag']}[{f['ordinal']}]" for f in ancestors),
-                         "element": tag, "xml_value": (element.text or "").strip()[:1000],
-                         "object_type": str(obj["tag"] if obj else ""),
-                         "system_id": str(obj["system_id"] if obj else ""),
-                         "title": str(obj["title"] if obj else "")}
+                         'element': tag, 'xml_value': (element.text or '').strip()[:1000],
+                         'object_type': str(obj['tag'] if obj else ''),
+                         'system_id': str(obj['system_id'] if obj else ''),
+                         'title': str(obj['title'] if obj else ''),
+                         'fields': (), 'field_coverage': 'ikke bestemt'}
+                chosen = obj
+                if chosen is None:
+                    found['fields'] = ({'field': tag, 'value': found['xml_value'],
+                                       'line': lineno, 'xpath': found['xpath']},)
+                    break
+            if chosen is not None and frames[-1] is chosen:
+                found['fields'] = tuple(chosen['fields'])
+                found['field_coverage'] = 'direkte XML-felt ferdig lest'
                 break
             frames.pop()
             element.clear()
             while element.getprevious() is not None:
                 del element.getparent()[0]
-            if lineno > line + 2048:
+            if lineno > line + 2048 and chosen is None:
                 break
     except etree.XMLSyntaxError as exc:
-        raise WorkshopError("Kunne ikke tolke original XML: " + str(exc)) from exc
+        raise WorkshopError('Kunne ikke tolke original XML: ' + str(exc)) from exc
     finally:
         del context
         stream.close()
     return found
-
 
 def inspect_xml_line(work: str | Path, row: dict, *,
                      cancel: Callable[[], bool] | None = None) -> dict:
