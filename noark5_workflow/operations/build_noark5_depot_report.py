@@ -7,7 +7,8 @@ from noark5_workflow.analysis.depot_report_builder import build_depot_report_mod
 from noark5_workflow.analysis.archive_parts_summary import build_all_archive_parts_summary
 from noark5_workflow.analysis.period_reconciliation import build_period_reconciliation
 from noark5_workflow.analysis.delivery_validator_v023_a9 import (
-    DeliveryValidationError, inject_delivery_html, validate_delivery_values,
+    DeliveryValidationError, attach_delivery_to_depot_model,
+    inject_delivery_html, validate_delivery_values,
 )
 from noark5_workflow.core.artifact_identity import artifact_belongs_to_context, artifact_run_dir, write_artifact_manifest
 from noark5_workflow.core.context import OperationContext
@@ -24,7 +25,7 @@ class BuildNoark5DepotReportOperation(BaseOperation):
         description=(
             "Bygger depotets valideringsrapport fra siste materialiserte depot-presentasjon. "
             "Perioder og årsserier krysskontrolleres fra samme materialiserte XPath-kjøring. "
-            "DWM kontrollerer M051-M054 mot avleveringsverdier ved bekreftet XSD v5.0. "
+            "DWM kontrollerer M051-M054 mot versjonsspesifikke avleveringsverdier ved bekreftet XSD v3.1/4.0/5.0, og registrerer periodekonsistens separat. "
             "Importert Arkade 5-evidens legges til separat uten ny XML/XPath-analyse. "
             "Valgt KDRS Query-evidens legges til i separate, sporbare rapportfiler."
         ),
@@ -109,33 +110,7 @@ class BuildNoark5DepotReportOperation(BaseOperation):
         except (DeliveryValidationError, OSError) as exc:
             return OperationResult(False, "DWM avleveringskontroll kunne ikke fullføres: " + str(exc),
                                    data={"output_dir": str(out), "source_presentation": str(source)})
-        model["delivery_validation"] = delivery
-        if delivery.get("complete"):
-            for check in delivery.get("rules") or []:
-                amount = int(check.get("delivery_deviations") or 0)
-                if amount:
-                    model.setdefault("deviations", []).append({
-                        "category": "delivery_value_" + check["metadata_id"],
-                        "severity": "serious", "summary": (
-                            f"{amount} observerte {check['xml_field']}-verdier avviker fra "
-                            f"registrerte avleveringsverdier (Noark 5.0, {check['metadata_id']})."),
-                        "requires_review": True,
-                        "delivery_evidence": {
-                            "test_id": check["test_id"],
-                            "count": amount, "finding_file": delivery["findings_relative"],
-                            "finding_file_sha256": delivery["finding_file_sha256"],
-                            "source_xml_sha256": delivery["source_sha256"],
-                        },
-                    })
-            total = int(delivery.get("finding_count") or 0)
-            model["technical_validation"]["summary"]["delivery_value_deviations"] = total
-            if total:
-                model["technical_validation"]["status"] = "error"
-        else:
-            # Historical/unknown-version workflows keep their prior technical
-            # status unchanged. The new report section explicitly says that
-            # delivery requirements were NOT assessed; never claim a pass.
-            pass
+        model = attach_delivery_to_depot_model(model, delivery)
         ctx.log("DWM AVLEVERING: " + str(delivery.get("status")) +
                 ", funn=" + str(delivery.get("finding_count")) +
                 ", krav=" + str(delivery.get("rules_checked")))
@@ -163,7 +138,8 @@ class BuildNoark5DepotReportOperation(BaseOperation):
             "all_archive_parts_year_findings": int((model.get("all_archive_parts_summary") or {}).get("review_finding_count") or 0),
             "arkade5_imports": int(arkade_summary.get("imports") or 0),
             "arkade5_covered_by_arkade": int(arkade_summary.get("covered_by_arkade") or 0),
-            "delivery_value_findings": delivery.get("finding_count"),
+            "delivery_value_findings": delivery.get("delivery_value_findings"),
+            "delivery_period_review_findings": delivery.get("period_review_findings"),
             "delivery_value_status": delivery.get("status"),
             "external_evidence": external,
         })
