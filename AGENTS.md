@@ -25,6 +25,41 @@
 7. Respekter Source/Work-grensene, og skriv aldri om depotets originaldata.
    Brukeren håndterer Git commit og push; lever deltaer uten å committe.
 
+## ⛔ ABSOLUTTE REGLER FOR DELTA-ZIP (SKAL ALLTID FØLGES)
+
+**EN DELTA SKAL VÆRE FERDIG TIL Å PAKKES UT DIREKTE I REPOROTEN.**
+
+1. **IKKE LEGG `README_A<n>.md`, `README.A<n>.md`, `README_A<n>.txt`,
+   tilsvarende engangs-README eller annen forklaring inne i delta-ZIP.**
+   Dette gjelder uansett versjon og skrivemåte.
+2. Delta-ZIP skal ha korrekte relative stier og inneholde **kun nødvendige
+   nye eller endrede filer som skal beholdes i repoet**. Ikke pakk inn en
+   ekstra toppmappe, dokumentasjonsstøy, genererte filer, `__pycache__`, lokale
+   testresultater, tilfeldige audit-artefakter eller midlertidige verktøy.
+3. **Lever ferdige fullstendige erstatningsfiler.** Standardprosedyren er å
+   pakke ut ZIP med overskriving. **Ikke krev `apply_v...py`, patcher eller
+   etterfølgende Python-kommandoer for å aktivere endringene.** Unntak kan
+   bare gjøres når direkte filutskifting er teknisk uforsvarlig eller klart
+   mer tungvint; forklar årsaken *før* leveransen.
+4. Hvis unntaket i punkt 3 brukes, skal det oppgis nøyaktig hvilke engangs-
+   skript, hjelpefiler og tilhørende tester som kan slettes etter vellykket
+   kjøring. Slike filer skal **aldri** ukritisk følge med til neste commit.
+5. Lever eventuelle installasjonsinstruksjoner, endringsliste, teststatus,
+   forbehold og oppfølgingspunkter **som egen Markdown-fil i samtalen utenfor
+   delta-ZIP**. Informasjonsfilen skal ikke bli en ekstra fil i repoet.
+6. En oppdatering av `AGENTS.md` eller annen faktisk repo-regel kan ligge i
+   deltaen **kun når den er en tilsiktet varig repoendring**; dette er ikke en
+   README for hver delta.
+7. Skill mellom **produksjonskode**, **varige regresjonstester** og **engangs-
+   installasjonshjelp**. Behold nødvendige produksjonsfiler og reelle tester.
+   Slett ikke kode som er i bruk uten å kontrollere import/avhengigheter.
+8. Deltaer må bygge på avtalt commit/branch, ha riktig versjonsnummer, bevare
+   kollegaers endringer og kontrolleres med fil-/syntakstester så langt mulig.
+   Ved usikker lokal kode må behovet for brukerens filer avklares; ikke
+   overskriv fremmed kode på antakelser.
+9. **Ingen commit, push, merge eller release utføres av AI.** Brukeren utfører
+   Git-operasjoner etter kontroll med `test.bat` og praktisk verifisering.
+
 ## Obligatorisk format for foreslått Git commit-tekst
 
 - Foreslå alltid **én kort, konkret og innholdsrik beskrivende setning på norsk**.
