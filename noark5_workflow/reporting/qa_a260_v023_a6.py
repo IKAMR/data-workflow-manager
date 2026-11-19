@@ -382,8 +382,13 @@ def _manual_and_depot_findings(work: Path, identity: dict, depot_path: Path,
     and independently recorded manual observations.  RAF-specific candidates
     are not reinterpreted here; keep source families separate in the manifest.
     """
+    from .qa_delivery_v023_a11 import AGGREGATE_CATEGORIES
+    complete_delivery = bool((depot.get('delivery_validation') or {}).get('complete'))
     for dev in depot.get('deviations') or ():
         if not isinstance(dev, dict):
+            continue
+        if complete_delivery and dev.get('category') in AGGREGATE_CATEGORIES:
+            # Full individual records are streamed separately by the a11 bridge.
             continue
         yield {'source': 'DWM depotvalidering',
                'test_id': str(dev.get('category') or 'unknown'),
@@ -505,15 +510,23 @@ def build_qa_basis_a6(work: str | Path, *, job_id: str = '') -> dict:
         raise A260CapacityError('A220-valgt Arkade-evidens er ikke koblet til depotrapporten')
     depot_sha = _sha(depot_path)
     reviews = _reviews(root, identity, depot_sha)
+    from .qa_delivery_v023_a11 import (
+        DELIVERY_SOURCES, AGGREGATE_CATEGORIES,
+        _binding as _delivery_binding, iter_verified_delivery,
+    )
+    delivery_binding = _delivery_binding(root, depot_rel, depot, identity['job_uid'])
 
     # Use all normal DWM/manual/RAF findings when its existing bounded snapshot
     # is available.  For huge Arkade inputs, rebuild the DWM-only components
     # without materializing tens of thousands of Arkade findings in RAM.
     snapshot = None
-    # Do not ask the legacy in-memory KS snapshot to decode a huge JSON file.
+    # Avoid re-reading large source registers just to create an A260 preview.
+    # The full DWM stream below remains mandatory and is verified to EOF.
     small_arkade = arkade_path is None or arkade_path.stat().st_size <= 4 * 1024 * 1024
+    small_delivery = (delivery_binding is None or not delivery_binding.get('complete')
+                      or delivery_binding['count'] <= 250)
     try:
-        if small_arkade:
+        if small_arkade and small_delivery:
             snapshot = build_review_snapshot_v022_a3(work=root)
     except Exception as exc:
         message = str(exc)
@@ -523,9 +536,16 @@ def build_qa_basis_a6(work: str | Path, *, job_id: str = '') -> dict:
                  'Ingen kanonisk Arkade-analyse')
         if not any(piece in message for piece in known):
             raise
+    # A preview may never be mistaken for full A260 evidence.
+    if snapshot is not None and snapshot.get('findings_complete') is False:
+        snapshot = None
     if snapshot is not None:
         extras = (r for r in snapshot.get('findings') or ()
-                  if arkade_path is None or r.get('source') != 'Arkade 5')
+                  if (arkade_path is None or r.get('source') != 'Arkade 5')
+                  and r.get('source') not in DELIVERY_SOURCES
+                  and not (delivery_binding and delivery_binding.get('complete')
+                           and r.get('source') == 'DWM depotvalidering'
+                           and r.get('test_id') in AGGREGATE_CATEGORIES))
         depot_rel = str(snapshot.get('dwm_report_source') or depot_rel)
     else:
         extras = _manual_and_depot_findings(
@@ -553,6 +573,11 @@ def build_qa_basis_a6(work: str | Path, *, job_id: str = '') -> dict:
                     writer.add(row)
             if _sha(arkade_path) != declared:
                 raise A260CapacityError('Arkade-kilden ble endret under A260')
+        # Complete, separately source-bound DWM records, never the report
+        # aggregates. Exhaust the stream so late SHA/count errors abort staging.
+        for row in iter_verified_delivery(root, depot_rel, depot,
+                                          job_uid=identity['job_uid']):
+            writer.add(row)
         for item in extras:
             writer.add(item)
         summary = writer.summary()
@@ -569,6 +594,16 @@ def build_qa_basis_a6(work: str | Path, *, job_id: str = '') -> dict:
                         'funn.jsonl': {'sha256': _sha(stage/'funn.jsonl'), 'bytes': (stage/'funn.jsonl').stat().st_size},
                         'funn.csv': {'sha256': _sha(stage/'funn.csv'), 'bytes': (stage/'funn.csv').stat().st_size}},
                     'source_families_separate': True, 'automatic_approval': False}
+        if delivery_binding and delivery_binding.get('complete'):
+            manifest['source_delivery'] = {
+                'findings': delivery_binding['jsonl_relative'],
+                'findings_sha256': delivery_binding['jsonl_sha256'],
+                'csv': delivery_binding['csv_relative'],
+                'csv_sha256': delivery_binding['csv_sha256'],
+                'source_xml_sha256': delivery_binding['source_xml_sha256'],
+                'noark_version': delivery_binding['version'],
+                'finding_count': delivery_binding['count'],
+            }
         (stage / 'manifest.json').write_text(json.dumps(manifest, ensure_ascii=False,
                                                  indent=2) + '\n', encoding='utf-8')
         # Destination is a uniquely named new directory, never overwrite an old export.

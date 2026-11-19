@@ -17,6 +17,7 @@ from uuid import uuid4
 
 from .qa_decision_v021_a12 import _hash, _json, _rel, build_snapshot, MAX_DEPO, MAX_JSON, ReportInputError
 from .qa_work_snapshot_v022_a3 import build_saved_work_snapshot
+from .qa_delivery_v023_a11 import attach_delivery_to_snapshot
 from .qa_review_v021_a13 import (
     ReviewError, _binding, _check_work_and_source, finding_key,
     latest_reviews, with_selected_reviews,
@@ -266,6 +267,8 @@ def attach_a3_findings(work: str | Path, snapshot: dict) -> dict:
             existing.append(finding)
             keys.add(key)
     merged["findings"] = existing
+    if "full_finding_count" in merged:
+        merged["full_finding_count"] += len(existing) - len(snapshot.get("findings") or [])
     merged["a3_finding_summary"] = {
         "original_findings": len(snapshot.get("findings") or []),
         "manual_findings": sum("manual_event_id" in f for f in added),
@@ -292,7 +295,7 @@ def build_review_snapshot_v022_a3(*, work: str | Path, depot_report: str | None 
     base = builder(work=work, depot_report=depot_report,
                    kdrs_qa=Path(kdrs_qa) if kdrs_qa else None,
                    arkade_evidence=arkade_evidence)
-    extended = attach_a3_findings(work, base)
+    extended = attach_a3_findings(work, attach_delivery_to_snapshot(work, base))
     reviewed = with_selected_reviews(work, extended)
     enriched = enrich_snapshot(work, reviewed)
     return attach_checklist(work, enriched)
