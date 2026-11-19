@@ -1,0 +1,62 @@
+{
+  "version": "0.2.3-a4",
+  "base_version": "0.2.3-a3",
+  "base_commit": "c0e14685edceb3a6864e6a9672752fa0c8222225",
+  "package_type": "delta_only",
+  "contains_user_source_or_work": false,
+  "contains_original_archive_data": false,
+  "contains_git_patch": false,
+  "notes": "Pre-existing files overlay a3. No commit or push performed.",
+  "files": [
+    {
+      "path": "app/ks_guided_v023_a4.py",
+      "bytes": 6189,
+      "sha256": "ff683705e60fde7a3abe6c43420cc34dc8fda8d14f05563cad04452b4b6e5748"
+    },
+    {
+      "path": "app/basic_selection_guard_v023_a4.py",
+      "bytes": 2596,
+      "sha256": "5d8837391adb5dc2f996097591d0b38cf9f6ea7e273315742cbe20c33a1ef2ce"
+    },
+    {
+      "path": "gui_qt/ks_guided_v023_a4.py",
+      "bytes": 28454,
+      "sha256": "8b81ba58d44dae766052366d82b22e4e3cd29df162b37523dee7e9ce59cd9326"
+    },
+    {
+      "path": "gui_qt/main_v023_a4.py",
+      "bytes": 4974,
+      "sha256": "7f3ce63af28920b1a4be18290a7293d4071f48400e9c754dca21af51db7ff1d7"
+    },
+    {
+      "path": "gui_qt/__main__.py",
+      "bytes": 5290,
+      "sha256": "67752532680fdc7e56146cf49deb7066abfd22cb809f4b9e82f36fdfa7159425"
+    },
+    {
+      "path": "version.py",
+      "bytes": 56,
+      "sha256": "f221162be7a4bb41b67c70aebf42e683b7677c3e396a214076cbef52669d4689"
+    },
+    {
+      "path": "pyproject.toml",
+      "bytes": 473,
+      "sha256": "81721d4e075be483cb66c281543bb82ca64f5d0643e69ae5f029eb25c37c9828"
+    },
+    {
+      "path": "tests/test_v023_a4_guided_review.py",
+      "bytes": 13843,
+      "sha256": "a5127848385ce4bd631f6202b8acfa920d2c3206d3da4a5c548b0fb92735881e"
+    },
+    {
+      "path": "tests/test_v023_a3_integration.py",
+      "bytes": 3011,
+      "sha256": "7fdd7b92df1e830914ba01e3870dcdc9f622594a76bc59e236ff123fd75c4e1b"
+    },
+    {
+      "path": "docs/V023-A4.md",
+      "bytes": 6032,
+      "sha256": "5112be1e89ec8f75ec997364066d4bed3e46ec9c9ef257ab26d94b133f842554"
+    }
+  ]
+}

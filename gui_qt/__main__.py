@@ -1,4 +1,4 @@
-"""Qt desktop entry point with v0.2.3-a3 KS value/period inspection over the shared multi-job controller."""
+"""Qt desktop entry point with v0.2.3-a4 guided KS and multi-job safety over the shared multi-job controller."""
 from __future__ import annotations
 
 import sys
@@ -28,7 +28,7 @@ def main() -> int:
     from gui_qt.main_v022_a10 import DwmMainWindow as _A10DwmMainWindow
     from gui_qt.main_v022_a11 import DwmMainWindow as _A11DwmMainWindow
     from gui_qt.main_v022_a12 import DwmMainWindow as _A12DwmMainWindow
-    from gui_qt.main_v023_a3 import DwmMainWindow
+    from gui_qt.main_v023_a4 import DwmMainWindow
     if (not issubclass(DwmMainWindow, _StableDwmMainWindow)
             or not issubclass(DwmMainWindow, _MultiJobDwmMainWindow)
             or not issubclass(DwmMainWindow, _A10DwmMainWindow)

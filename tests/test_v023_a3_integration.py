@@ -20,7 +20,9 @@ class A3ReleaseWiring(unittest.TestCase):
         entry = (ROOT / 'gui_qt/__main__.py').read_text('utf-8')
         main = (ROOT / 'gui_qt/main_v023_a3.py').read_text('utf-8')
         gui = (ROOT / 'gui_qt/ks_value_inspection_v023_a3.py').read_text('utf-8')
-        self.assertIn('from gui_qt.main_v023_a3 import DwmMainWindow', entry)
+        self.assertRegex(entry, r'from gui_qt\.main_v023_a[3-9][0-9]* import DwmMainWindow')
+        self.assertIn('from gui_qt.main_v023_a3 import DwmMainWindow as _A3Window',
+                      (ROOT / 'gui_qt/main_v023_a4.py').read_text('utf-8'))
         self.assertIn('from gui_qt.main_v023_a2 import DwmMainWindow as _A2Window', main)
         self.assertIn('from gui_qt.ks_value_inspection_v023_a3 import KsWorkshopDialog', main)
         self.assertIn('class KsWorkshopDialog(_A2KsWorkshopDialog)', gui)
