@@ -161,6 +161,14 @@ def export_review_bundle_v022_a3(*, work: str | Path, output_dir: str | Path,
     snapshot = build_review_snapshot_v022_a3(
         work=work, depot_report=depot_report, kdrs_qa=kdrs_qa,
         arkade_evidence=arkade_evidence)
+    # a8: the legacy HTML/CSV builders enumerate only snapshot["findings"].
+    # A bounded preview must NEVER be published as a complete issue register.
+    # A260 continues to publish full source-bound CSV/JSONL independently.
+    if snapshot.get("findings_complete") is False:
+        raise ReportInputError(
+            "KS-utkastet inneholder bare en forhåndsvisning av Arkade-funn. "
+            "Bruk komplett A260 CSV/JSONL-eksport, eller fullfør sidevis KS-eksport "
+            "før publisering. Ingen ufullstendig avviksrapport er skrevet.")
     _safe_destination(target, work, _json(work / "job.json"), jobs)
     _validate_a20_job(jobs, work, snapshot)
     formats = tuple(dict.fromkeys(str(f).lower() for f in a20_formats))
