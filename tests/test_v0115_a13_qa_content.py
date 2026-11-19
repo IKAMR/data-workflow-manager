@@ -84,5 +84,30 @@ class QaContentTests(unittest.TestCase):
         self.assertFalse(summary['pronom_statistics_present'])
         self.assertNotIn('fmt/354',html)
 
+    def test_large_arkade_source_is_streamed_into_content_annex(self):
+        path = self.work / self.arkade
+        with path.open('w', encoding='utf-8') as stream:
+            stream.write('{"format_version":2,"evidence_type":"external_validation_report",'
+                         '"summary":{"archive_creators":"Example arkivskaper"},'
+                         '"tests":[{"test_id":"N5.06","results":[{"result_type":"Success",'
+                         '"message":"Status for '+self.parts+': Avsluttet periode",'
+                         '"result_set_path":[]}],"source_raw":[')
+            item='{"Message":"'+'x'*4000+'"}'
+            for index in range(8_000):
+                if index:
+                    stream.write(',')
+                stream.write(item)
+            stream.write(']}]}')
+        self.assertGreater(path.stat().st_size,30_000_000)
+        digest=hashlib.sha256()
+        with path.open('rb') as stream:
+            for block in iter(lambda: stream.read(1024*1024),b''):
+                digest.update(block)
+        self.external['analysis']['sources'][0]['evidence']['sha256']=digest.hexdigest()
+        html,summary=render_content_annex(self.work,self.external,self.canonical)
+        self.assertEqual(summary['archive_parts_listed'],1)
+        self.assertIn('Elektronisk 1',html)
+        self.assertIn('Avsluttet periode',html)
+
 if __name__ == '__main__':
     unittest.main()

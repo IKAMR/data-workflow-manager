@@ -72,11 +72,52 @@ def _inside(work: Path, source: str | Path) -> tuple[Path, str]:
     return candidate, relative
 
 
-def _sha(path: Path) -> str:
+def _sha(path: Path, *, max_string_bytes: int | None = None) -> str:
     h = hashlib.sha256()
+    in_string = False
+    escaped = False
+    string_bytes = 0
     with path.open('rb') as stream:
         for chunk in iter(lambda: stream.read(1024 * 1024), b''):
             h.update(chunk)
+            if max_string_bytes is None:
+                continue
+            # Preflight JSON string lengths in the same pass as the source hash.
+            # This bounds memory before an event parser yields a long string.
+            position = 0
+            while position < len(chunk):
+                if not in_string:
+                    quote = chunk.find(34, position)
+                    if quote < 0:
+                        break
+                    in_string = True
+                    string_bytes = 0
+                    position = quote + 1
+                    continue
+                if escaped:
+                    string_bytes += 1
+                    escaped = False
+                    position += 1
+                quote = chunk.find(34, position)
+                slash = chunk.find(92, position)
+                special = min(x for x in (quote, slash) if x >= 0) if quote >= 0 or slash >= 0 else -1
+                if special < 0:
+                    string_bytes += len(chunk) - position
+                    position = len(chunk)
+                elif special == quote:
+                    string_bytes += special - position
+                    in_string = False
+                    position = special + 1
+                else:
+                    string_bytes += special - position + 1
+                    position = special + 1
+                    if position < len(chunk):
+                        string_bytes += 1
+                        position += 1
+                    else:
+                        escaped = True
+                if string_bytes > max_string_bytes:
+                    raise ExternalImportError(f'JSON-teksttoken overstiger {max_string_bytes} bytes')
     return h.hexdigest()
 
 
@@ -268,7 +309,15 @@ def analyze_external_results(work: str | Path, selected_files: tuple[str | Path,
             raise ExternalImportError('Samme fil er valgt flere ganger')
         seen.add(relative.casefold())
         source_size = path.stat().st_size
-        source_hash = _sha(path)
+        if (relative.lower().endswith('/normalized/arkade5_results.json') and
+                source_size > MAX_SOURCE_NORMALIZED):
+            from noark5_workflow.analysis.streaming_arkade import MAX_STRING
+            try:
+                source_hash = _sha(path, max_string_bytes=MAX_STRING)
+            except ExternalImportError as exc:
+                raise ExternalImportError(f'Ekstern kilde {relative}: {exc}') from exc
+        else:
+            source_hash = _sha(path)
         try:
             result = inspect_selected_external(path, relative)
         except ExternalImportError as exc:

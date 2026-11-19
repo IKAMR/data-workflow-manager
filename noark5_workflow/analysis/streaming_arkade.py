@@ -21,6 +21,10 @@ MAX_FIELD = 2 * 1024 * 1024
 MAX_PROJECTED_RECORD = 64 * 1024 * 1024
 SUMMARY_FIELDS = ('number_of_tests_run', 'number_of_errors', 'number_of_warnings',
                   'archive_type', 'system_name', 'archival_period')
+CONTENT_SUMMARY_FIELDS = ('archive_creators', 'system_name', 'system_type',
+                          'archival_period', 'date_of_testing')
+CONTENT_TESTS = frozenset(('N5.06', 'N5.10', 'N5.15', 'N5.22'))
+MAX_CONTENT_PROJECTION = 32 * 1024 * 1024
 
 
 class ArkadeStreamError(ValueError):
@@ -120,9 +124,16 @@ def inspect_arkade_stream(path: Path, relative: str, *, max_items: int,
                     root_is_map = True
                 if prefix in arrays and event == 'start_array':
                     present.add(prefix)
+                    if prefix == 'tests':
+                        # The established adapter gives tests precedence over
+                        # a separate top-level results array.
+                        arrays['results'].clear()
+                        projected_bytes = 0
                     continue
                 if prefix in ('tests.item', 'results.item'):
                     array_name = prefix.split('.')[0]
+                    if array_name == 'results' and 'tests' in present:
+                        continue
                     if event == 'start_map':
                         current = {'prefix': prefix, 'fields': {}, 'result_list': False,
                                    'invalid_result': False, 'result_counts': Counter(),
@@ -139,6 +150,8 @@ def inspect_arkade_stream(path: Path, relative: str, *, max_items: int,
                         current = None
                     elif event in ('start_array', 'string', 'number', 'boolean', 'null'):
                         arrays[array_name].append(None)
+                        if len(arrays[array_name]) > max_items:
+                            raise ArkadeStreamError(f'Antall testposter overstiger {max_items}')
                     continue
                 if current is not None:
                     test_prefix = current['prefix']
@@ -239,3 +252,92 @@ def inspect_arkade_stream(path: Path, relative: str, *, max_items: int,
         response['reported_summary'] = {key: summary.get(key) for key in SUMMARY_FIELDS}
         response['reported_status_counts'] = dict(sorted(status_counts.items()))
     return response
+
+
+def content_projection(path: Path) -> dict[str, Any]:
+    """Read only the source fields used by the optional QA content annex.
+
+    All JSON is parsed, including omitted raw duplicates. Selected test result
+    fields are built one result at a time and kept under a separate bound.
+    """
+    summary: dict[str, Any] = {}
+    tests: list[dict[str, Any]] = []
+    envelope: dict[str, Any] = {}
+    current: dict[str, Any] | None = None
+    result: dict[str, Any] | None = None
+    capture: tuple[str, ijson.ObjectBuilder, int] | None = None
+    projected = 0
+
+    def assign(prefix: str, value: Any) -> None:
+        nonlocal projected
+        value = _bounded(value, prefix)
+        if prefix in ('format_version', 'evidence_type'):
+            envelope[prefix] = value
+        elif prefix.startswith('summary.') and prefix[8:] in CONTENT_SUMMARY_FIELDS:
+            summary[prefix[8:]] = value
+        elif current is not None and prefix == 'tests.item.test_id':
+            current['test_id'] = value
+        elif current is not None and result is not None and prefix in (
+                'tests.item.results.item.result_type', 'tests.item.results.item.message',
+                'tests.item.results.item.result_set_path'):
+            result[prefix.rsplit('.', 1)[-1]] = value
+
+    try:
+        with path.open('rb') as stream:
+            for prefix, event, value in ijson.parse(stream):
+                if event == 'string' and len(value.encode('utf-8')) > MAX_STRING:
+                    raise ArkadeStreamError(f'JSON-tekstfelt overstiger {MAX_STRING} bytes')
+                if capture is not None:
+                    name, builder, depth = capture
+                    builder.event(event, value)
+                    depth += (event in ('start_map', 'start_array')) - (event in ('end_map', 'end_array'))
+                    if depth == 0:
+                        assign(name, builder.value)
+                        capture = None
+                    else:
+                        capture = (name, builder, depth)
+                    continue
+                if prefix == 'tests.item' and event == 'start_map':
+                    current = {'test_id': None, 'results': [], 'results_before_id': False}
+                    continue
+                if prefix == 'tests.item' and event == 'end_map' and current is not None:
+                    if current['test_id'] in CONTENT_TESTS:
+                        if current['results_before_id']:
+                            raise ArkadeStreamError('test_id følger etter results; innhold kan ikke projiseres trygt')
+                        tests.append({'test_id': current['test_id'], 'results': current['results']})
+                    current = None
+                    continue
+                if current is not None and prefix == 'tests.item.results.item':
+                    if event == 'start_map':
+                        result = {}
+                        if current['test_id'] is None:
+                            current['results_before_id'] = True
+                    elif event == 'end_map' and result is not None:
+                        if current['test_id'] in CONTENT_TESTS:
+                            projected += len(json.dumps(result, ensure_ascii=False).encode('utf-8'))
+                            if projected > MAX_CONTENT_PROJECTION:
+                                raise ArkadeStreamError(f'QA-innholdsuttrekk overstiger {MAX_CONTENT_PROJECTION} bytes')
+                            current['results'].append(result)
+                        result = None
+                    continue
+                selected = (prefix in ('format_version', 'evidence_type') or
+                            prefix.startswith('summary.') and prefix[8:] in CONTENT_SUMMARY_FIELDS or
+                            current is not None and prefix == 'tests.item.test_id' or
+                            current is not None and result is not None and
+                            current['test_id'] in CONTENT_TESTS and prefix in (
+                                'tests.item.results.item.result_type',
+                                'tests.item.results.item.message',
+                                'tests.item.results.item.result_set_path'))
+                if selected and event in ('start_map', 'start_array'):
+                    builder = ijson.ObjectBuilder()
+                    builder.event(event, value)
+                    capture = (prefix, builder, 1)
+                elif selected and event in ('string', 'number', 'boolean', 'null'):
+                    assign(prefix, value)
+    except (OSError, UnicodeError, ValueError, ijson.JSONError) as exc:
+        if isinstance(exc, ArkadeStreamError):
+            raise
+        raise ArkadeStreamError(f'Ugyldig normalisert Arkade JSON: {exc}') from exc
+    return {'format_version': envelope.get('format_version'),
+            'evidence_type': envelope.get('evidence_type'),
+            'summary': summary, 'tests': tests}

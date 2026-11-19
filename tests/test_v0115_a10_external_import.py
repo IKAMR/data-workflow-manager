@@ -251,6 +251,37 @@ class ExternalImportTests(unittest.TestCase):
                                        max_output=mod.MAX_ANALYSIS_OUTPUT)
         self.assertEqual(actual, expected)
 
+    def test_streaming_arkade_rejects_malformed_and_excess_without_output(self):
+        from noark5_workflow.analysis import streaming_arkade
+        malformed = '{"format_version":2,"evidence_type":"external_validation_report",'
+        excessive = json.dumps({'format_version':2,
+            'evidence_type':'external_validation_report','source_system':'Arkade 5',
+            'tests':[{'test_id':'N5.01','source_status':'warning','number_of_errors':0,
+                      'results':[{'result_type':'Warning'},{'result_type':'Success'}]}]})
+        long_text = json.dumps({'format_version':2,
+            'evidence_type':'external_validation_report','source_system':'Arkade 5',
+            'tests':[{'test_id':'N5.01','source_status':'ok','number_of_errors':0,
+                      'results':[], 'source_raw':'x'*101}]})
+        with patch.object(mod,'MAX_SOURCE_NORMALIZED',0), \
+             patch.object(mod,'MAX_ITEMS',1), \
+             patch.object(streaming_arkade,'MAX_STRING',100):
+            for payload, fragment in ((malformed,'Ugyldig normalisert Arkade JSON'),
+                                      (excessive,'Resultatposter per test'),
+                                      (long_text,'JSON-teksttoken overstiger')):
+                with self.subTest(fragment=fragment):
+                    self.path.write_text(payload,encoding='utf-8')
+                    with self.assertRaisesRegex(mod.ExternalImportError,fragment) as caught:
+                        mod.analyze_external_results(self.work,(self.path,),write=True)
+                    self.assertIn(self.path.relative_to(self.work).as_posix(),str(caught.exception))
+                    self.assertFalse((self.work/mod.OUT).exists())
+
+    def test_string_preflight_counts_escaped_quotes(self):
+        self.path.write_bytes(b'{"v":"a\\\"b"}')
+        expected = hashlib.sha256(self.path.read_bytes()).hexdigest()
+        self.assertEqual(mod._sha(self.path, max_string_bytes=4), expected)
+        with self.assertRaisesRegex(mod.ExternalImportError, 'JSON-teksttoken'):
+            mod._sha(self.path, max_string_bytes=3)
+
     def test_native_malformed_record_and_count_limits_fail_without_output(self):
         path = self.work / 'external_evidence/siegfried/run/native.json'
         path.parent.mkdir(parents=True)

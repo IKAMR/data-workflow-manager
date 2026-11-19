@@ -165,7 +165,7 @@ class EvidenceTests(unittest.TestCase):
             for index in range(100_000):
                 if index:
                     stream.write(',')
-                stream.write(json.dumps({'test_id':str(index)+'x'*60,
+                stream.write(json.dumps({'test_id':str(index)+'x'*100,
                     'source_status':'WARNING','results':[],'number_of_errors':0,
                     'unused':'x'*250}))
             stream.write(']}')
@@ -177,7 +177,11 @@ class EvidenceTests(unittest.TestCase):
         }):
             result=analyze_external(self.work,job_id=self.job_id)
             linked=load_external_status(self.work)
+            audit=audit_evidence(self.work,job_id=self.job_id)
         self.assertEqual(result['sources'],3)
+        self.assertGreater((self.work/'noark5_evidence/canonical-external-analysis.json').stat().st_size,
+                           64*1024*1024)
+        self.assertEqual(audit['linked'],3)
         self.assertEqual(linked['state'],'linked')
         relative=normalized.relative_to(self.work).as_posix()
         self.assertEqual(linked['sources'][relative],'analyzed')
@@ -199,13 +203,11 @@ class EvidenceTests(unittest.TestCase):
                          '"tests":[{"test_id":"N5.01","source_status":"warning",'
                          '"number_of_errors":0,"results":[{"result_type":"Warning",'
                          '"message":"Kildeadvarsel","result_set_path":["Arkivdel"],'
-                         '"location":{"file_name":"arkiv.xml"}}],"source_raw":{"Results":[')
-            padding='{"Message":"'+'x'*4000+'"}'
+                         '"location":{"file_name":"arkiv.xml"}}')
+            padding=',{"result_type":"Success","message":"ok","source_raw":{"Message":"'+'x'*4000+'"}}'
             for index in range(25_000):
-                if index:
-                    stream.write(',')
                 stream.write(padding)
-            stream.write(']}}]}')
+            stream.write(']}]}')
         original_size=normalized.stat().st_size
         self.assertGreater(original_size,95_287_457)
         original_hash=sha256()
@@ -237,6 +239,7 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(source['evidence']['sha256'],original_hash.hexdigest())
         self.assertEqual(source['analysis']['record_count'],1)
         self.assertEqual(source['analysis']['records'][0]['reported_status'],'warning')
+        self.assertEqual(source['analysis']['records'][0]['reported_result_counts']['Success'],25_000)
         self.assertEqual(qa['findings'][0]['message'],'Kildeadvarsel')
         self.assertIsNone(linked['analysis']['summary']['depot_approval'])
 
