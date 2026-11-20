@@ -14,6 +14,7 @@ from pathlib import Path, PureWindowsPath
 from typing import Any
 
 from .qa_xpath_master_v023_a16 import project_xpath_master
+from .qa_depot_stream_v023_a17 import project_depot_report
 
 from .qa_decision_v021_a12 import (
     MODEL, MAX_DEPO, MAX_ISSUES, MAX_JSON, ReportInputError, _assessments,
@@ -243,7 +244,16 @@ def build_saved_work_snapshot(work: str | Path, *, depot_report: str | None = No
     report_path, depot_rel = _find_depot(root, depot_report)
     if not report_path.parent.name.startswith(job_id + "__"):
         raise ReportInputError("Depot report belongs to a different job")
-    depot = _json(report_path, MAX_DEPO)
+    # A17: the established small-report path remains unchanged. For a large
+    # original report, stream *all* JSON and retain precisely the fields used
+    # by the KS projection. Compare the parser's byte digest with the Work
+    # manifest's independent SHA-256 to prevent a mixed source revision.
+    large_depot = report_path.stat().st_size > MAX_DEPO
+    if large_depot:
+        depot, parsed_depot_sha = project_depot_report(report_path)
+    else:
+        depot = _json(report_path, MAX_DEPO)
+        parsed_depot_sha = None
     if depot.get("report_type") != "noark5_depot_validation":
         raise ReportInputError("Selected report is not a DWM depot validation report")
     evidence = depot.get("evidence") or {}
@@ -274,11 +284,15 @@ def build_saved_work_snapshot(work: str | Path, *, depot_report: str | None = No
     if any(str(t.get("status") or "").casefold() != master_states[t["test_id"]]
            for t in reported_tests):
         raise ReportInputError("Depot validation disagrees with the saved XPath master status")
+    depot_record = _source(root, depot_rel,
+                           limit=(1 << 63) - 1 if large_depot else MAX_DEPO)
+    if parsed_depot_sha is not None and depot_record['sha256'] != parsed_depot_sha:
+        raise ReportInputError('Depotrapporten ble endret mellom lesing og SHA-256-kontroll')
     manifest = [
         {"kind": "work_job", **_source(root, "job.json")},
         {"kind": "dwm_xpath_master", **_source(
             root, master_rel, limit=(1 << 63) - 1)},
-        {"kind": "dwm_depot", **_source(root, depot_rel, limit=MAX_DEPO)},
+        {"kind": "dwm_depot", **depot_record},
     ]
     arkade = _linked_arkade(root, depot, job_id, manifest, arkade_evidence,
                              job_uid=uid)
@@ -350,6 +364,10 @@ def build_saved_work_snapshot(work: str | Path, *, depot_report: str | None = No
             "Source evidence and original Work results are unchanged.",
             "No canonical result index was generated or inferred.",
             "Technical OK, historical RAF and professional approval remain separate.",
+            *(["A17: Stor depotrapport er fullstendig validert og SHA-kontrollert, "
+                "men KS-snapshotet gjengir bare relevante felter og teststatus. "
+                "Originale testdetaljer leses fra uendret Work-evidens."]
+              if large_depot else []),
             "No archive acceptance or formal depot decision has been registered.",
             *(["A8: preview only; all Arkade findings are in a source-verified "
                 "paged index. Do not publish legacy KS bundles from this snapshot; "
