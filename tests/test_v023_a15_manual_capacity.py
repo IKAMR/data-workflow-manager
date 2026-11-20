@@ -211,9 +211,8 @@ class A15ManualCapacity(unittest.TestCase):
     def test_version_and_distribution_metadata_match(self):
         import re
         from version import VERSION
-        match = re.fullmatch(r'0\.2\.3-a([0-9]+)', VERSION)
-        self.assertIsNotNone(match)
-        self.assertGreaterEqual(int(match.group(1)), 15)
+        from tests.version_assertions import assert_release_at_least
+        assert_release_at_least(self, f'VERSION = "{VERSION}"', '0.2.3', 15)
         metadata = (ROOT/'pyproject.toml').read_text(encoding='utf-8')
         self.assertRegex(metadata, r'(?m)^version\s*=\s*"' +
                          re.escape(VERSION.replace('-a', 'a')) + r'"\s*$')

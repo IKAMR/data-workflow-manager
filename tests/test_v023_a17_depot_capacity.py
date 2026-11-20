@@ -355,9 +355,8 @@ class A17Version(unittest.TestCase):
         namespace = {}
         exec((root / 'version.py').read_text(encoding='utf-8'), namespace)
         version = namespace['VERSION']
-        match = re.fullmatch(r'0\.2\.3-a([0-9]+)', version)
-        self.assertIsNotNone(match)
-        self.assertGreaterEqual(int(match.group(1)), 17)
+        from tests.version_assertions import assert_release_at_least
+        assert_release_at_least(self, f'VERSION = "{version}"', '0.2.3', 17)
         project = (root / 'pyproject.toml').read_text(encoding='utf-8')
         versions = re.findall(r'(?m)^version\s*=\s*"([^"]+)"\s*$', project)
         self.assertEqual(versions, [version.replace('-a', 'a')])

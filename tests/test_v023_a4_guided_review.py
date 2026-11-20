@@ -156,7 +156,8 @@ class A4IntegrationContract(unittest.TestCase):
     def test_entrypoint_and_release_metadata(self):
         import tomllib
         from version import VERSION
-        self.assertGreaterEqual(int(VERSION.rsplit('-a', 1)[1]), 4)
+        from tests.version_assertions import assert_release_at_least
+        assert_release_at_least(self, f'VERSION = "{VERSION}"', '0.2.3', 4)
         with (ROOT / 'pyproject.toml').open('rb') as f:
             self.assertEqual(tomllib.load(f)['project']['version'], VERSION.replace('-a', 'a'))
         entry = (ROOT / 'gui_qt/__main__.py').read_text('utf-8')

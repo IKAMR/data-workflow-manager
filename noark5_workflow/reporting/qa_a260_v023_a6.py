@@ -61,6 +61,17 @@ def _secure_work_file(work: Path, relative: str) -> Path:
     return result
 
 
+def _same_imported_work_path(imported: Any, selected: str) -> bool:
+    """Compare one *literal* Work-relative Arkade source across OS separators.
+
+    The A220-selected path is independently validated by _secure_work_file and
+    matched against its SHA-256 before this check.  Do not resolve, case-fold,
+    or collapse path segments here: different imports remain different files.
+    """
+    return (isinstance(imported, str) and isinstance(selected, str)
+            and imported.replace('\\', '/') == selected)
+
+
 def _text(value: Any) -> str:
     result = str(value) if value is not None else ''
     if len(result.encode('utf-8')) > MAX_TEXT_TOKEN:
@@ -529,7 +540,8 @@ def build_qa_basis_a6(work: str | Path, *, job_id: str = '') -> dict:
         raise A260CapacityError('Depotrapporten tilhører en annen jobb')
     imports = ((depot.get('external_validation') or {}).get('arkade5') or {}).get('imports') or []
     if arkade_rel and imports and not any(
-            isinstance(item, dict) and item.get('normalized_file') == arkade_rel
+            isinstance(item, dict) and
+            _same_imported_work_path(item.get('normalized_file'), arkade_rel)
             for item in imports):
         raise A260CapacityError('A220-valgt Arkade-evidens er ikke koblet til depotrapporten')
     depot_sha = _sha(depot_path)

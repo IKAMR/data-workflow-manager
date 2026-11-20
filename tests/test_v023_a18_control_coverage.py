@@ -274,9 +274,8 @@ class A18Coverage(unittest.TestCase):
         repo = Path(__file__).resolve().parents[1]
         space = {}
         exec((repo / 'version.py').read_text(encoding='utf-8'), space)
-        num = re.fullmatch(r'0\.2\.3-a(\d+)', space['VERSION'])
-        self.assertIsNotNone(num)
-        self.assertGreaterEqual(int(num.group(1)), 18)
+        from tests.version_assertions import assert_release_at_least
+        assert_release_at_least(self, f'VERSION = "{space["VERSION"]}"', '0.2.3', 18)
         proj = (repo / 'pyproject.toml').read_text(encoding='utf-8')
         self.assertRegex(proj, '(?m)^version\\s*=\\s*"' + re.escape(space['VERSION'].replace('-a','a')) + '"\\s*$')
 

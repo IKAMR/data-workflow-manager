@@ -274,11 +274,10 @@ class CompleteReportTests(unittest.TestCase):
         namespace={}
         exec((ROOT/'version.py').read_text('utf-8'),namespace)
         version = namespace['VERSION']
-        # A13 introduced the complete report. Later a-stages must still be
-        # accepted while application and distribution versions remain identical.
-        stage = re.fullmatch(r'0\.2\.3-a([0-9]+)', version)
-        self.assertIsNotNone(stage, 'Forventer v0.2.3-aN som utviklingsversjon')
-        self.assertGreaterEqual(int(stage.group(1)), 13)
+        # A13 was the first complete-report milestone. A completed 0.2.3
+        # release and all later versions must retain the same contract.
+        from tests.version_assertions import assert_release_at_least
+        assert_release_at_least(self, f'VERSION = "{version}"', '0.2.3', 13)
         project=(ROOT/'pyproject.toml').read_text('utf-8')
         distributions = re.findall(r'(?m)^version\s*=\s*"([^"]+)"\s*$', project)
         self.assertEqual(distributions, [version.replace('-a', 'a')])
