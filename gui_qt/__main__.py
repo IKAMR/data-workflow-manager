@@ -1,4 +1,4 @@
-"""Qt desktop entry point with v0.2.3-a4 guided KS and multi-job safety over the shared multi-job controller."""
+"""Qt desktop entry point with v0.2.4-a1 safe Siegfried/Basic run UX."""
 from __future__ import annotations
 
 import sys
@@ -29,6 +29,8 @@ def main() -> int:
     from gui_qt.main_v022_a11 import DwmMainWindow as _A11DwmMainWindow
     from gui_qt.main_v022_a12 import DwmMainWindow as _A12DwmMainWindow
     from gui_qt.main_v023_a4 import DwmMainWindow
+    from gui_qt.main_v024_a1 import DwmMainWindow as _A1Window
+    DwmMainWindow = _A1Window
     if (not issubclass(DwmMainWindow, _StableDwmMainWindow)
             or not issubclass(DwmMainWindow, _MultiJobDwmMainWindow)
             or not issubclass(DwmMainWindow, _A10DwmMainWindow)
@@ -44,7 +46,6 @@ def main() -> int:
     from gui_qt.qt_startup_policy_v022_a1_14 import select_qt_startup_features
 
     _boot_phase("04 Imports complete, before QApplication")
-    # Keep app-wide event filters disabled by default after earlier Windows faults.
     features = select_qt_startup_features(os.environ)
     _boot_phase(
         "Qt startup profile: "
