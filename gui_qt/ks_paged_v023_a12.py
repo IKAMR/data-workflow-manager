@@ -64,6 +64,27 @@ class _CompleteReportWorker(QThread):
             self.complete.emit(result)
 
 
+class _A19XmlReader(QThread):
+    """Read one documented XML line from the selected job's Source on demand."""
+    completed = Signal(dict)
+    failed = Signal(str)
+
+    def __init__(self, work, anchor, parent=None):
+        super().__init__(parent)
+        self.work, self.anchor = work, anchor
+
+    def run(self):
+        try:
+            from app.ks_xml_evidence_v023_a19 import inspect_xml_anchor
+            result = inspect_xml_anchor(
+                self.work, self.anchor, cancelled=self.isInterruptionRequested)
+        except (OSError, ValueError, RuntimeError) as exc:
+            self.failed.emit(str(exc))
+        else:
+            if not self.isInterruptionRequested():
+                self.completed.emit(result)
+
+
 class KsWorkshopDialog(_GuidedA4):
     """A4 review widgets, but selections and totals come from all indexed rows."""
 
@@ -371,44 +392,116 @@ class KsWorkshopDialog(_GuidedA4):
             self._a12_go_page(-1, select_last=True)
 
     def _a12_anchors(self, row):
-        """Use original *documented* line numbers; don't materialize full Arkade JSON."""
-        import re
-        source = str(row.get('source') or '')
-        if source not in DELIVERY_SOURCES and source != 'Arkade 5':
+        """Only observed XML file/line pairs, never derived from aggregate counts.
+
+        A source-report SHA (Arkade) is NOT the XML's SHA. An XML SHA is
+        attached to the selected anchor only if documented separately.
+        """
+        from app.ks_xml_evidence_v023_a19 import documented_anchors
+        data = documented_anchors(row)
+        anchors = data['rows']
+        if not anchors:
+            self._guided_occurrences = None
+            self.guided_occurrences.clear()
+            self.guided_open_xml.setEnabled(False)
+            self.guided_source.setText(str(data.get('message') or 'Ingen dokumentert XML-forekomst.'))
+            self.guided_insert_source.setEnabled(bool(row.get('source_ref')))
             return
-        lines = [n for n in row.get('lines') or () if type(n) is int and n > 0]
-        source_sha = str(row.get('source_xml_sha256') or '')
-        if source == 'Arkade 5':
-            source_sha = str((self._a12_info or {}).get('arkade_source_sha256') or '')
-        anchors = []
-        parts = str(row.get('context') or '')
-        match = re.search(r'arkivdel[^\n]*?systemID[^\w]*([A-Za-z0-9_.-]+)', parts, flags=re.I)
-        part = str(row.get('archive_part_id') or (match.group(1) if match else ''))
-        filename = str(row.get('file') or '')
-        # 1000 is a per-*selected finding* visual anchor limit. The full list
-        # remains in the source-bound row and full evidence exports.
-        for n in lines[:1000]:
-            anchors.append({'test_id':row.get('test_id') or '',
-                            'file':filename,'line':n,'archive_part_id':part,
-                            'archive_part_title':'','source_ref':row.get('source_ref') or ''})
-        self._guided_occurrences = {'rows':anchors,'groups':[],
-                                    'source_sha256':source_sha}
+        source = str(row.get('source') or '')
+        xml_sha = str(row.get('source_xml_sha256') or '')
+        arkade_sha = (str((self._a12_info or {}).get('arkade_source_sha256') or '')
+                      if source == 'Arkade 5' else '')
+        self._guided_occurrences = {
+            'rows': anchors, 'groups': [], 'source_sha256': xml_sha or arkade_sha,
+            'source_sha256_role': ('source_xml' if xml_sha else
+                                   'arkade_report' if arkade_sha else 'not_attested'),
+        }
         self.guided_occurrences.clear()
         for i, anchor in enumerate(anchors):
-            item = QTreeWidgetItem([str(i+1),part,filename,str(anchor['line']),
-                                    str(row.get('object_id') or 'Ikke undersøkt')])
-            item.setData(0,Qt.ItemDataRole.UserRole,i)
+            item = QTreeWidgetItem([
+                str(i + 1), str(anchor.get('archive_part_id') or ''),
+                str(anchor['file']), str(anchor['line']),
+                ('Rapportert: ' + str(anchor['object_id']) if anchor.get('object_id')
+                 else 'Ikke undersøkt'),
+            ])
+            item.setData(0, Qt.ItemDataRole.UserRole, i)
             self.guided_occurrences.addTopLevelItem(item)
-        if anchors:
-            self.guided_occurrences.setCurrentItem(self.guided_occurrences.topLevelItem(0))
-        self.guided_open_xml.setEnabled(bool(anchors))
+        self.guided_occurrences.setCurrentItem(self.guided_occurrences.topLevelItem(0))
+        self.guided_open_xml.setEnabled(True)
         self.guided_insert_source.setEnabled(True)
+        hash_text = (('Dokumentert XML-SHA-256: ' + xml_sha[:20] + '…') if xml_sha else
+                     ('Arkade-kilderapport SHA-256: ' + arkade_sha[:20] + '… (ikke XML-hash)')
+                     if arkade_sha else 'XML-byteidentitet mot opprinnelig kontroll er ikke attestert')
         self.guided_source.setText(
-            source + ': ' + str(len(lines)) + ' dokumenterte XML-linjer, '
-            + str(len(anchors)) + ' vist som ankre. '
-            + ('Kildeidentitet: ' + source_sha[:20] + '… ' if source_sha else '')
-            + ('XML-ankrene er en avgrenset visning; alle linjer er bevart.'
-               if len(lines)>len(anchors) else 'Kildeverdien er ikke en automatisk godkjenning.'))
+            f'{source}: {data["total"]} dokumenterte XML-linjer; '
+            f'{len(anchors)} vist som ankre. {hash_text}. '
+            + ('Flere linjer finnes i full evidens; dette er en avgrenset visning.'
+               if data.get('truncated_preview') else
+               'Valgt XML leses fra Source først ved inspeksjon.'))
+
+    def _guided_inspect_xml(self):
+        """Reuse the existing Guided KS widgets; read Source off the GUI thread."""
+        if self._guided_reader is not None or self._guided_anchor is None:
+            return
+        self._guided_reader = _A19XmlReader(self.work, self._guided_anchor, self)
+        self._guided_reader.completed.connect(self._guided_xml_ready)
+        self._guided_reader.failed.connect(self._guided_xml_failed)
+        self._guided_reader.finished.connect(self._guided_xml_finished)
+        self.guided_open_xml.setEnabled(False)
+        self.guided_occurrences.setEnabled(False)
+        self.guided_choice.setEnabled(False)
+        self.guided_scope.setEnabled(False)
+        self.guided_next.setEnabled(False)
+        self.guided_previous.setEnabled(False)
+        self.guided_xml_view.setPlainText('Leser faktisk XML-hierarki fra Source (kun lesing)…')
+        self._guided_reader.start()
+
+    def _guided_xml_ready(self, result):
+        self._guided_xml = result if result.get('available') else None
+        if not result.get('available'):
+            self.guided_xml_view.setPlainText(str(result.get('message') or
+                                                 'XML er ikke tilgjengelig i registrert Source.'))
+            self._guided_rule_text()
+            return
+        meta = result.get('metadata') or {}
+        chain = meta.get('hierarchy') or ()
+        hierarchy = []
+        for depth, level in enumerate(chain):
+            label = f"{level['element']}[{level['position']}]"
+            ident = str(level.get('system_id') or '')
+            title = str(level.get('title') or '')
+            if ident:
+                label += ' · systemID: ' + ident
+            if title:
+                label += ' · tittel: ' + title
+            hierarchy.append('  ' * depth + label)
+        current_id = next((str(level['system_id']) for level in reversed(chain)
+                           if level.get('system_id')), '')
+        actual_xpath = str(meta.get('xpath') or '')
+        text = [
+            'KILDE: ' + str(result.get('source_path') or '') +
+            ' · linje ' + str(result.get('line') or ''),
+            'Kildeidentitet: ' + ('SHA-256 verifisert' if result.get('source_identity') ==
+                                'sha256_verified' else 'Ikke attestert'),
+            str(result.get('provenance_note') or ''),
+            'Faktisk XPath fra XML: ' + (actual_xpath or 'Ikke entydig bestemt'),
+            'Rapportert XPath fra funn: ' + str(result.get('reported_xpath') or '(ikke oppgitt)'),
+            'Rapportert arkivdel-ID: ' + str(result.get('reported_archive_part_id') or '(ikke oppgitt)'),
+            'Rapportert objekt-ID: ' + str(result.get('reported_object_id') or '(ikke oppgitt)'),
+            'Faktisk systemID i valgt XML-hierarki: ' + (current_id or '(ikke funnet)'),
+            'Faktisk XML-felt/verdi: ' + str(meta.get('element') or '(ikke bestemt)') +
+            ' = ' + str(meta.get('xml_value') or ''),
+            'Faktisk observert hierarki (ordinal, søskentotal ukjent):',
+            *([*hierarchy] if hierarchy else ['Ingen entydig XML-starttagg på angitt linje.']),
+            str(meta.get('note') or ''),
+            '', str(result.get('excerpt') or ''),
+        ]
+        self.guided_xml_view.setPlainText('\n'.join(text))
+        item = self.guided_occurrences.currentItem()
+        if (item is not None and self._guided_anchor and
+                item.text(3) == str(result.get('line')) and current_id):
+            item.setText(4, current_id)
+        self._guided_rule_text()
 
     def _a12_select_indexed(self, key, row):
         """Avoid old Arkade inspector's >20 MiB full-file JSON parse per click."""
@@ -453,7 +546,7 @@ class KsWorkshopDialog(_GuidedA4):
             self._a12_select_indexed(key,row)
         else:
             super()._guided_select(key)
-            if row is not None and row.get('source') in DELIVERY_SOURCES:
+            if row is not None and (row.get('file') and row.get('lines')):
                 self._a12_anchors(row)
                 self._guided_rule_text()
         if self._a12_page_data:
@@ -489,7 +582,34 @@ class KsWorkshopDialog(_GuidedA4):
 
     def _guided_add_source_note(self):
         row = self._guided_current
-        if not self._a12_info or not row or row.get('source') not in DELIVERY_SOURCES:
+        if not self._a12_info or not row:
+            return super()._guided_add_source_note()
+        # The inherited helper is Arkade-specific; never label an unrelated
+        # DWM finding as an Arkade control in a saved human note.
+        if row.get('source') not in DELIVERY_SOURCES and row.get('source') != 'Arkade 5':
+            if not self._guided_occurrences or not self._guided_anchor:
+                return
+            anchor = self._guided_anchor
+            xml = self._guided_xml if isinstance(self._guided_xml, dict) else None
+            metadata = (xml or {}).get('metadata') or {}
+            note = ('KILDEHENVISNING FOR FAGLIG VURDERING – IKKE VEDTAK\n'
+                    'Funnkilde: ' + str(row.get('source') or '') + '\n'
+                    'Test: ' + str(row.get('test_id') or '') + '\n'
+                    'Evidens i Work: ' + str(row.get('source_ref') or '') + '\n'
+                    'Dokumentert XML-anker: ' + str(anchor.get('file') or '') +
+                    ' linje ' + str(anchor.get('line') or '') + '\n'
+                    'Rapportert XPath: ' + str(anchor.get('reported_xpath') or '(ikke oppgitt)') + '\n'
+                    'Faktisk XPath i nåværende XML: ' +
+                    str(metadata.get('xpath') or '(ikke inspisert eller ikke entydig)') + '\n'
+                    'Kildeidentitet XML: ' + ('SHA-256 verifisert' if xml and
+                        xml.get('source_identity') == 'sha256_verified' else
+                        'ikke attestert mot opprinnelig kontroll'))
+            before = self.guided_comment.toPlainText().rstrip()
+            if note not in before:
+                self.guided_comment.setPlainText(before + ('\n\n' if before else '') + note)
+                self.guided_comment.setFocus()
+            return
+        if row.get('source') == 'Arkade 5':
             return super()._guided_add_source_note()
         note = ('DWM-kilde: '+str(row.get('source_ref') or '')+'\n'
                 'Funn-ID: '+str(row.get('finding_uid') or '')+'\n'
