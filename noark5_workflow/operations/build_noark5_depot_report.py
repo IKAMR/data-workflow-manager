@@ -6,6 +6,10 @@ from pathlib import Path
 from noark5_workflow.analysis.depot_report_builder import build_depot_report_model, write_depot_report_html
 from noark5_workflow.analysis.archive_parts_summary import build_all_archive_parts_summary
 from noark5_workflow.analysis.period_reconciliation import build_period_reconciliation
+from noark5_workflow.analysis.delivery_validator_v023_a9 import (
+    DeliveryValidationError, attach_delivery_to_depot_model,
+    inject_delivery_html, validate_delivery_values,
+)
 from noark5_workflow.core.artifact_identity import artifact_belongs_to_context, artifact_run_dir, write_artifact_manifest
 from noark5_workflow.core.context import OperationContext
 from noark5_workflow.core.operation import BaseOperation, ExecutionTarget, OperationDefinition
@@ -21,6 +25,7 @@ class BuildNoark5DepotReportOperation(BaseOperation):
         description=(
             "Bygger depotets valideringsrapport fra siste materialiserte depot-presentasjon. "
             "Perioder og årsserier krysskontrolleres fra samme materialiserte XPath-kjøring. "
+            "DWM kontrollerer M051-M054 mot versjonsspesifikke avleveringsverdier ved bekreftet XSD v3.1/4.0/5.0, og registrerer periodekonsistens separat. "
             "Importert Arkade 5-evidens legges til separat uten ny XML/XPath-analyse. "
             "Valgt KDRS Query-evidens legges til i separate, sporbare rapportfiler."
         ),
@@ -94,10 +99,27 @@ class BuildNoark5DepotReportOperation(BaseOperation):
         model = attach_arkade5_to_depot_model(model, work_operations=work)
         out = artifact_run_dir(ctx, "noark5_reports", "depot_validation", operation_id=self.definition.operation_id)
         write_artifact_manifest(ctx, out, operation_id=self.definition.operation_id, definition_id="noark5-depot-validation-report")
+
+        # a9: run registered delivery-value checks on the actual extraction XML.
+        # The stream writes to Work, never to the original Source. No Noark rule
+        # is inferred from a production value or an Arkade test status.
+        try:
+            relative_evidence = (out.relative_to(work) / "delivery-funn.jsonl").as_posix()
+            delivery = validate_delivery_values(
+                ctx.extraction_root, out, source_ref=relative_evidence, cancel=ctx.cancelled)
+        except (DeliveryValidationError, OSError) as exc:
+            return OperationResult(False, "DWM avleveringskontroll kunne ikke fullføres: " + str(exc),
+                                   data={"output_dir": str(out), "source_presentation": str(source)})
+        model = attach_delivery_to_depot_model(model, delivery)
+        ctx.log("DWM AVLEVERING: " + str(delivery.get("status")) +
+                ", funn=" + str(delivery.get("finding_count")) +
+                ", krav=" + str(delivery.get("rules_checked")))
+
         model_file = out / "depot_validation_report.json"
         html_file = out / "depot_validation_report.html"
         model_file.write_text(json.dumps(model, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         write_depot_report_html(model, html_file)
+        inject_delivery_html(html_file, delivery)
         inject_arkade5_html(html_file, model)
         try:
             external = write_depot_evidence_outputs(model_file, work)
@@ -116,5 +138,8 @@ class BuildNoark5DepotReportOperation(BaseOperation):
             "all_archive_parts_year_findings": int((model.get("all_archive_parts_summary") or {}).get("review_finding_count") or 0),
             "arkade5_imports": int(arkade_summary.get("imports") or 0),
             "arkade5_covered_by_arkade": int(arkade_summary.get("covered_by_arkade") or 0),
+            "delivery_value_findings": delivery.get("delivery_value_findings"),
+            "delivery_period_review_findings": delivery.get("period_review_findings"),
+            "delivery_value_status": delivery.get("status"),
             "external_evidence": external,
         })

@@ -1,16 +1,21 @@
-"""Read-only a3 bridge from a completed, ordinary DWM Noark 5 Work.
+"""a3 bridge plus a8 source-bound paged findings from an ordinary DWM Work.
 
 The historic a12 builder assumes an opt-in canonical-results projection exists.
 The ordinary ten-operation workflow does not produce that projection.  This
 adapter uses only the specifically selected job/report, the corresponding
 normal XPath master and explicitly linked Arkade imports.  It neither scans
-other jobs nor writes/infers a canonical result model or changes a test result.
+other jobs nor changes source evidence, test results or review decisions. On
+large imports it writes ONLY a derived, integrity-bound SQLite index inside Work.
 """
 from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path, PureWindowsPath
 from typing import Any
+
+from .qa_xpath_master_v023_a16 import project_xpath_master
+from .qa_depot_stream_v023_a17 import project_depot_report
+from .qa_control_coverage_v023_a18 import ControlCoverageError, reconcile_controls
 
 from .qa_decision_v021_a12 import (
     MODEL, MAX_DEPO, MAX_ISSUES, MAX_JSON, ReportInputError, _assessments,
@@ -86,7 +91,7 @@ def _arkade_findings(tests: list, source_ref: str) -> list[dict]:
 
 
 def _linked_arkade(work: Path, depot: dict, job_id: str, manifest: list[dict],
-                   selected: str | None) -> dict:
+                   selected: str | None, job_uid: str = '') -> dict:
     ext = depot.get("external_validation") or {}
     ark = ext.get("arkade5") or {}
     if not isinstance(ark, dict):
@@ -132,11 +137,29 @@ def _linked_arkade(work: Path, depot: dict, job_id: str, manifest: list[dict],
     if len(expected_hash) != 64 or expected_hash != declared_hash:
         raise ReportInputError("Arkade source SHA-256 differs from selected depot report")
     source_rel = _within_work_relative(work, (meta.get("source") or {}).get("preserved_file"))
+    from noark5_workflow.analysis.canonical_external_import_v0115_a10 import (
+        MAX_SOURCE_ARKADE, MAX_SOURCE_NORMALIZED,
+    )
     manifest.append({"kind": "external_manifest", **_source(work, manifest_rel)})
-    manifest.append({"kind": "external_original", **_source(work, source_rel, expected_hash)})
-    manifest.append({"kind": "external", **_source(work, normalized_rel)})
-    normalized = _json(_rel(work, normalized_rel), MAX_JSON)
-    if (normalized.get("format_version") != 2 or
+    manifest.append({"kind": "external_original", **_source(
+        work, source_rel, expected_hash, limit=MAX_SOURCE_ARKADE)})
+    # a8: a source above 20 MiB is valid if its preserved original is verified.
+    # Never force a full JSON decode just to populate an interactive KS view.
+    manifest.append({"kind": "external", **_source(work, normalized_rel,
+                                                    limit=MAX_SOURCE_ARKADE)})
+    normalized_path = _rel(work, normalized_rel)
+    indexed = None
+    if normalized_path.stat().st_size <= MAX_JSON:
+        normalized = _json(normalized_path, MAX_JSON)
+    else:
+        normalized = None
+    if normalized is None:
+        from .qa_paged_v023_a8 import build_arkade_index
+        indexed = build_arkade_index(work, normalized_rel,
+                                     original_sha256=expected_hash,
+                                     job_uid=job_uid or job_id,
+                                     preserved_relative=source_rel)
+    if normalized is not None and (normalized.get("format_version") != 2 or
             normalized.get("evidence_type") != "arkade5_normalized_results"):
         # DWM normalized data evolved.  Accept an explicit normalized source
         # marker, never an arbitrary JSON file posing as Arkade.
@@ -144,12 +167,25 @@ def _linked_arkade(work: Path, depot: dict, job_id: str, manifest: list[dict],
                 str(normalized.get("source_system") or "").lower() == "arkade 5" and
                 isinstance(normalized.get("tests"), list)):
             raise ReportInputError("Unrecognized normalized Arkade report")
-    norm_hash = str((normalized.get("source") or {}).get("sha256") or "")
-    if norm_hash != expected_hash:
-        raise ReportInputError("Arkade normalized report is not bound to preserved source")
-    tests = normalized.get("tests")
-    if not isinstance(tests, list):
-        raise ReportInputError("Arkade tests must be a list")
+    if normalized is not None:
+        norm_hash = str((normalized.get("source") or {}).get("sha256") or "")
+        if norm_hash != expected_hash:
+            raise ReportInputError("Arkade normalized report is not bound to preserved source")
+        tests = normalized.get("tests")
+        if not isinstance(tests, list):
+            raise ReportInputError("Arkade tests must be a list")
+        try:
+            found_rows = _arkade_findings(tests, normalized_rel)
+        except ReportInputError as exc:
+            if str(exc) != "Too many Arkade findings for this report":
+                raise
+            from .qa_paged_v023_a8 import build_arkade_index
+            indexed = build_arkade_index(work, normalized_rel,
+                                         original_sha256=expected_hash,
+                                         job_uid=job_uid or job_id,
+                                         preserved_relative=source_rel)
+    else:
+        found_rows = []
     # PRONOM is a separate historical classification, not a Noark result.
     pronom = (meta.get("pronom_evidence") or {}).get("statistics") or {}
     if pronom.get("imported"):
@@ -158,14 +194,33 @@ def _linked_arkade(work: Path, depot: dict, job_id: str, manifest: list[dict],
             raise ReportInputError("Unexpected PRONOM import reference")
         original = _within_work_relative(work, pronom.get("preserved_file"))
         manifest.append({"kind": "external_original", **_source(
-            work, original, str(pronom.get("sha256") or ""))})
-        manifest.append({"kind": "external", **_source(work, p_rel)})
-        p_doc = _json(_rel(work, p_rel))
-        if p_doc.get("evidence_type") != "arkade5_pronom_format_statistics":
+            work, original, str(pronom.get("sha256") or ""),
+            limit=MAX_SOURCE_ARKADE)})
+        manifest.append({"kind": "external", **_source(
+            work, p_rel, limit=MAX_SOURCE_NORMALIZED)})
+        p_path = _rel(work, p_rel)
+        if p_path.stat().st_size <= MAX_JSON:
+            pronom_type = _json(p_path).get("evidence_type")
+        else:
+            from .qa_paged_v023_a8 import streamed_json_marker
+            pronom_type = streamed_json_marker(p_path, 'evidence_type')
+        if pronom_type != "arkade5_pronom_format_statistics":
             raise ReportInputError("Invalid normalized PRONOM statistics")
+    if indexed is not None:
+        # All rows live in a SHA-bound SQLite index. The ordinary KS snapshot
+        # receives a *labelled preview*, not an invented complete findings list.
+        meta = {key: val for key, val in indexed.items() if key != 'preview'}
+        return {"status": "reported_unverified", "source": normalized_rel,
+                "summary": indexed.get('reported_summary') or {},
+                "test_count": indexed['test_count'],
+                "findings": indexed['preview'],
+                "finding_count": indexed['finding_count'],
+                "findings_complete": indexed['finding_count'] == len(indexed['preview']),
+                "a8_paged_index": meta}
     return {"status": "reported_unverified", "source": normalized_rel,
             "summary": normalized.get("summary") or {}, "test_count": len(tests),
-            "findings": _arkade_findings(tests, normalized_rel)}
+            "findings": found_rows, "finding_count": len(found_rows),
+            "findings_complete": True, "a8_paged_index": None}
 
 
 def build_saved_work_snapshot(work: str | Path, *, depot_report: str | None = None,
@@ -188,9 +243,32 @@ def build_saved_work_snapshot(work: str | Path, *, depot_report: str | None = No
     if not job_id or not uid or (props.get("job_uid") and props["job_uid"] != uid):
         raise ReportInputError("Missing or contradictory Work job identity")
     report_path, depot_rel = _find_depot(root, depot_report)
+    # Windows can spell the same directory as a long user name or as its
+    # short 8.3 alias (e.g. TORBJO~1.AAS).  Path.relative_to() compares
+    # spelling, not filesystem identity.  Anchor the selected report to the
+    # already verified Work-relative path before calling older QA helpers.
+    # Do not treat two files with the same filename/content as interchangeable:
+    # samefile() must confirm that they are the *same* on-disk file.
+    work_report_path = _rel(root, depot_rel)
+    try:
+        if (report_path.is_symlink() or not work_report_path.is_file() or
+                not work_report_path.samefile(report_path)):
+            raise ReportInputError('Valgt depotrapport tilhører ikke angitt Work-evidens')
+    except OSError as exc:
+        raise ReportInputError('Kan ikke verifisere valgt depotrapport i Work') from exc
+    report_path = work_report_path
     if not report_path.parent.name.startswith(job_id + "__"):
         raise ReportInputError("Depot report belongs to a different job")
-    depot = _json(report_path, MAX_DEPO)
+    # A17: the established small-report path remains unchanged. For a large
+    # original report, stream *all* JSON and retain precisely the fields used
+    # by the KS projection. Compare the parser's byte digest with the Work
+    # manifest's independent SHA-256 to prevent a mixed source revision.
+    large_depot = report_path.stat().st_size > MAX_DEPO
+    if large_depot:
+        depot, parsed_depot_sha = project_depot_report(report_path)
+    else:
+        depot = _json(report_path, MAX_DEPO)
+        parsed_depot_sha = None
     if depot.get("report_type") != "noark5_depot_validation":
         raise ReportInputError("Selected report is not a DWM depot validation report")
     evidence = depot.get("evidence") or {}
@@ -199,7 +277,10 @@ def build_saved_work_snapshot(work: str | Path, *, depot_report: str | None = No
     if not run_ref or run_leaf != report_path.parent.name:
         raise ReportInputError("Depot report and its XPath run do not agree")
     master_rel = "noark5_tests/xpath/" + run_leaf + "/master-results.json"
-    master = _json(_rel(root, master_rel), MAX_JSON)
+    # A16: read every byte of the exact normal XPath master while retaining
+    # only the small test identity/state projection required by this bridge.
+    # No 20 MiB cutoff and no unbounded JSON materialization.
+    master = project_xpath_master(_rel(root, master_rel))
     if (master.get("format_version") != 1 or
             str((master.get("source") or {}).get("execution_profile")) != "normal" or
             not isinstance(master.get("tests"), list)):
@@ -218,14 +299,18 @@ def build_saved_work_snapshot(work: str | Path, *, depot_report: str | None = No
     if any(str(t.get("status") or "").casefold() != master_states[t["test_id"]]
            for t in reported_tests):
         raise ReportInputError("Depot validation disagrees with the saved XPath master status")
+    depot_record = _source(root, depot_rel,
+                           limit=(1 << 63) - 1 if large_depot else MAX_DEPO)
+    if parsed_depot_sha is not None and depot_record['sha256'] != parsed_depot_sha:
+        raise ReportInputError('Depotrapporten ble endret mellom lesing og SHA-256-kontroll')
     manifest = [
         {"kind": "work_job", **_source(root, "job.json")},
-        {"kind": "dwm_xpath_master", **_source(root, master_rel)},
-        {"kind": "dwm_depot", **_source(root, depot_rel, limit=MAX_DEPO)},
+        {"kind": "dwm_xpath_master", **_source(
+            root, master_rel, limit=(1 << 63) - 1)},
+        {"kind": "dwm_depot", **depot_record},
     ]
-    arkade = _linked_arkade(root, depot, job_id, manifest, arkade_evidence)
-    if len(arkade["findings"]) > MAX_ISSUES:
-        raise ReportInputError("Too many Arkade findings")
+    arkade = _linked_arkade(root, depot, job_id, manifest, arkade_evidence,
+                             job_uid=uid)
     kdrs = _kdrs(root, depot, Path(kdrs_qa) if kdrs_qa else None, manifest)
     human = _assessments(root, report_path, manifest)
     parts = _parts(depot)
@@ -251,15 +336,49 @@ def build_saved_work_snapshot(work: str | Path, *, depot_report: str | None = No
                 "file": "", "lines": [], "source_ref": depot_rel,
                 "requires_review": True,
             })
-    if len(findings) > MAX_ISSUES + len(parts) + len(deviation_rows):
-        raise ReportInputError("Too many review findings")
+    findings_complete = bool(arkade.get('findings_complete', True))
+    complete_count = len(findings) + max(0, int(arkade.get('finding_count',
+                            len(arkade['findings']))) - len(arkade['findings']))
     technical = depot.get("technical_validation") or {}
     if not isinstance(technical, dict):
         raise ReportInputError("Invalid technical validation block")
+    # A18: status belongs to the original test engine. Never add DWM and
+    # Arkade test totals into a fictitious compliance score; don't count
+    # PRONOM format statistics as Noark validation tests. The linked Arkade
+    # evidence is fully streamed and SHA-verified, even when the KS snapshot
+    # contains only its A8 paginated findings preview.
+    arkade_source = str(arkade.get('source') or '')
+    selected_norm = [item for item in manifest if item.get('kind') == 'external'
+                     and item.get('path') == arkade_source] if arkade_source else []
+    selected_import = [item for item in (
+        ((depot.get('external_validation') or {}).get('arkade5') or {}).get('imports') or [])
+        if isinstance(item, dict)
+        and str(item.get('normalized_file') or '').replace('\\', '/') == arkade_source
+    ] if arkade_source else []
+    if arkade_source and (len(selected_norm) != 1 or len(selected_import) != 1):
+        raise ReportInputError('A18 mangler entydig SHA-kobling til valgt Arkade Noark-kilde')
+    try:
+        control_coverage = reconcile_controls(
+            master=master, depot_tests=reported_tests,
+            depot_summary=depot.get('summary') or {}, parts=parts,
+            arkade_path=_rel(root, arkade_source) if arkade_source else None,
+            arkade_source_sha256=selected_norm[0]['sha256'] if arkade_source else None,
+            arkade_original_sha256=selected_import[0]['source_sha256'] if arkade_source else None,
+            pronom_imported=any(item.get('kind') == 'external' and
+                                str(item.get('path') or '').endswith('/pronom_statistics.json')
+                                for item in manifest),
+            depot_technical_status=str(technical.get('status') or ''),
+        )
+    except ControlCoverageError as exc:
+        raise ReportInputError('A18 kontrollstatus kan ikke verifiseres: ' + str(exc)) from exc
     return {
         "model_id": MODEL,
         "created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "report_status": "DRAFT_REVIEW_REQUIRED",
+        "report_status": ("DRAFT_REVIEW_REQUIRED" if findings_complete
+                          else "DRAFT_PARTIAL_PREVIEW_NOT_FOR_PUBLICATION"),
+        "findings_complete": findings_complete,
+        "full_finding_count": complete_count,
+        "a8_paged_index": arkade.get('a8_paged_index'),
         "work_identity": {
             "job_uid": uid, "job_id": job_id, "job_name": str(props.get("name") or ""),
             "extraction_label": _extraction_label(props),
@@ -278,6 +397,7 @@ def build_saved_work_snapshot(work: str | Path, *, depot_report: str | None = No
         },
         "archive_parts": parts, "dwm_report_source": depot_rel,
         "arkade": arkade, "kdrs_qa": kdrs, "human_context_events": [],
+        "control_coverage": control_coverage,
         "existing_depot_assessment": human, "findings": findings,
         "review_required": True,
         "acceptance_from_archive_creator_registered": False,
@@ -289,6 +409,13 @@ def build_saved_work_snapshot(work: str | Path, *, depot_report: str | None = No
             "Source evidence and original Work results are unchanged.",
             "No canonical result index was generated or inferred.",
             "Technical OK, historical RAF and professional approval remain separate.",
+            *(["A17: Stor depotrapport er fullstendig validert og SHA-kontrollert, "
+                "men KS-snapshotet gjengir bare relevante felter og teststatus. "
+                "Originale testdetaljer leses fra uendret Work-evidens."]
+              if large_depot else []),
             "No archive acceptance or formal depot decision has been registered.",
+            *(["A8: preview only; all Arkade findings are in a source-verified "
+                "paged index. Do not publish legacy KS bundles from this snapshot; "
+                "use complete A260 CSV/JSONL exports."] if not findings_complete else []),
         ],
     }

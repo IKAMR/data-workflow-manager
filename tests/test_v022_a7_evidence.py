@@ -13,7 +13,12 @@ from uuid import uuid4
 
 from noark5_workflow.operations.canonical_evidence_v022_a7 import (
     EvidenceError, build_evidence, analyze_external, audit_evidence, build_qa_basis,
+    _dwm_siegfried_statistics,
 )
+from noark5_workflow.analysis import canonical_external_import_v0115_a10 as real_external
+from noark5_workflow.analysis.canonical_matrix_v0115_a11 import load_external_status
+from noark5_workflow.core.context import OperationContext
+from noark5_workflow.operations.canonical_evidence_v022_a7 import AnalyzeNoark5ExternalEvidenceOperation
 
 
 def write_json(path: Path, doc: dict):
@@ -87,12 +92,20 @@ class EvidenceTests(unittest.TestCase):
         canonical._validate_work=validate_work
         canonical.build_canonical_results=make_canonical
         external=ModuleType('noark5_workflow.analysis.canonical_external_import_v0115_a10')
+        external.MAX_ANALYSIS_OUTPUT=128 * 1024 * 1024
+        external.MAX_SOURCE_NORMALIZED=48 * 1024 * 1024
         def make_external(work, selected_files=(), write=False):
             self.assertFalse(write)
+            sources=[]
+            for p in selected_files:
+                analysis={}
+                if p.endswith('siegfried/run1/pronom_statistics.json'):
+                    analysis=_dwm_siegfried_statistics(json.loads((work/p).read_text())) or {}
+                sources.append({'evidence':{'work_relative_path':p}, 'analysis':analysis})
             return {'model_id':'noark5.external-analysis.v1',
                     'extraction_stable_id':self.job_uid,
                     'canonical_reference':{'sha256':sha256((work/'noark5_evidence/canonical-results.json').read_bytes()).hexdigest()},
-                    'sources':[{'evidence':{'work_relative_path':p}} for p in selected_files],
+                    'sources':sources,
                     'summary':{'unparsed_files':0}}
         external.analyze_external_results=make_external
         qa=ModuleType('noark5_workflow.reporting.qa_workflow_v022_a3')
@@ -143,6 +156,113 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(stat['reported_total_files'],7)
         self.assertIsNone(stat['depot_approval'])
         self.assertFalse(stat['technical_validation_verified'])
+
+    def test_a220_links_large_arkade_and_downstream_status(self):
+        normalized=self.ark/'normalized/arkade5_results.json'
+        with normalized.open('w',encoding='utf-8') as stream:
+            stream.write('{"source_system":"Arkade 5","format_version":2,'
+                         '"evidence_type":"external_validation_report","tests":[')
+            for index in range(100_000):
+                if index:
+                    stream.write(',')
+                stream.write(json.dumps({'test_id':str(index)+'x'*100,
+                    'source_status':'WARNING','results':[],'number_of_errors':0,
+                    'unused':'x'*250}))
+            stream.write(']}')
+        self.assertGreater(normalized.stat().st_size,30_000_000)
+        original_hash=sha256(normalized.read_bytes()).hexdigest()
+        build_evidence(self.work,job_id=self.job_id)
+        with patch.dict(sys.modules, {
+            'noark5_workflow.analysis.canonical_external_import_v0115_a10':real_external,
+        }):
+            result=analyze_external(self.work,job_id=self.job_id)
+            linked=load_external_status(self.work)
+            audit=audit_evidence(self.work,job_id=self.job_id)
+        self.assertEqual(result['sources'],3)
+        self.assertGreater((self.work/'noark5_evidence/canonical-external-analysis.json').stat().st_size,
+                           64*1024*1024)
+        self.assertEqual(audit['linked'],3)
+        self.assertEqual(linked['state'],'linked')
+        relative=normalized.relative_to(self.work).as_posix()
+        self.assertEqual(linked['sources'][relative],'analyzed')
+        source=next(item for item in linked['analysis']['sources'] if
+                    item['evidence']['work_relative_path']==relative)
+        self.assertEqual(source['evidence']['sha256'],original_hash)
+        self.assertEqual(source['evidence']['bytes'],normalized.stat().st_size)
+        self.assertEqual(source['analysis']['record_count'],100_000)
+        self.assertEqual(source['analysis']['records'][0]['reported_status'],'WARNING')
+        self.assertIsNone(linked['analysis']['summary']['depot_approval'])
+
+    def test_a220_streams_arkade_above_reported_failure_size(self):
+        import tracemalloc
+        from noark5_workflow.reporting.qa_decision_v021_a12 import _external
+        normalized=self.ark/'normalized/arkade5_results.json'
+        with normalized.open('w',encoding='utf-8') as stream:
+            stream.write('{"format_version":2,"evidence_type":"external_validation_report",'
+                         '"source_system":"Arkade 5","summary":{"number_of_tests_run":1},'
+                         '"tests":[{"test_id":"N5.01","source_status":"warning",'
+                         '"number_of_errors":0,"results":[{"result_type":"Warning",'
+                         '"message":"Kildeadvarsel","result_set_path":["Arkivdel"],'
+                         '"location":{"file_name":"arkiv.xml"}}')
+            padding=',{"result_type":"Success","message":"ok","source_raw":{"Message":"'+'x'*4000+'"}}'
+            for index in range(25_000):
+                stream.write(padding)
+            stream.write(']}]}')
+        original_size=normalized.stat().st_size
+        self.assertGreater(original_size,95_287_457)
+        original_hash=sha256()
+        with normalized.open('rb') as stream:
+            for block in iter(lambda: stream.read(1024*1024),b''):
+                original_hash.update(block)
+        build_evidence(self.work,job_id=self.job_id)
+        tracemalloc.start()
+        try:
+            with patch.dict(sys.modules, {
+                'noark5_workflow.analysis.canonical_external_import_v0115_a10':real_external,
+            }):
+                result=analyze_external(self.work,job_id=self.job_id)
+                audit=audit_evidence(self.work,job_id=self.job_id)
+                linked=load_external_status(self.work)
+                qa=_external(self.work,linked['analysis'],[],None)
+            _,peak=tracemalloc.get_traced_memory()
+        finally:
+            tracemalloc.stop()
+        self.assertLess(peak,100*1024*1024)
+        self.assertEqual(result['sources'],3)
+        self.assertEqual(audit['linked'],3)
+        self.assertEqual(linked['state'],'linked')
+        relative=normalized.relative_to(self.work).as_posix()
+        self.assertEqual(linked['sources'][relative],'analyzed')
+        source=next(item for item in linked['analysis']['sources'] if
+                    item['evidence']['work_relative_path']==relative)
+        self.assertEqual(source['evidence']['bytes'],original_size)
+        self.assertEqual(source['evidence']['sha256'],original_hash.hexdigest())
+        self.assertEqual(source['analysis']['record_count'],1)
+        self.assertEqual(source['analysis']['records'][0]['reported_status'],'warning')
+        self.assertEqual(source['analysis']['records'][0]['reported_result_counts']['Success'],25_000)
+        self.assertEqual(qa['findings'][0]['message'],'Kildeadvarsel')
+        self.assertIsNone(linked['analysis']['summary']['depot_approval'])
+
+    def test_a220_over_limit_returns_failure_without_publishing(self):
+        build_evidence(self.work,job_id=self.job_id)
+        with patch.dict(sys.modules, {
+            'noark5_workflow.analysis.canonical_external_import_v0115_a10':real_external,
+        }), patch.object(real_external,'MAX_SOURCE_ARKADE',10):
+            context=OperationContext(extraction_root=self.work,work_operations=self.work,
+                                     metadata={'job_id':self.job_id})
+            result=AnalyzeNoark5ExternalEvidenceOperation().run(context)
+        self.assertFalse(result.ok)
+        self.assertIn('external_evidence/arkade5/one/normalized/arkade5_results.json',result.message)
+        self.assertIn('bytes',result.message)
+        self.assertFalse((self.work/'noark5_evidence/canonical-external-analysis.json').exists())
+
+    def test_a220_rejects_mutated_selected_evidence(self):
+        build_evidence(self.work,job_id=self.job_id)
+        normalized=self.ark/'normalized/arkade5_results.json'
+        normalized.write_text('{"source_system":"Arkade 5","tests":[]}',encoding='utf-8')
+        with self.assertRaisesRegex(EvidenceError,'endret siden kanonisering'):
+            analyze_external(self.work,job_id=self.job_id)
+        self.assertFalse((self.work/'noark5_evidence/canonical-external-analysis.json').exists())
 
     def test_conflicting_siegfried_statistics_cannot_be_published(self):
         write_json(self.sf/'pronom_statistics.json', {

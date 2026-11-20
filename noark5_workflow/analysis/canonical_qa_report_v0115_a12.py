@@ -64,10 +64,14 @@ def _issues(external: dict[str, Any]) -> tuple[list[dict[str, Any]], int]:
             if reported_status.casefold() not in ('error', 'warning') and not (counts.get('Error') or counts.get('Warning')):
                 continue
             if issue_rows:
+                declared_total = record.get('reported_issues_total')
+                if type(declared_total) is int and declared_total >= len(issue_rows):
+                    total += declared_total
+                else:
+                    total += len(issue_rows)
                 for issue in issue_rows:
                     if not isinstance(issue, dict) or issue.get('result_type') not in ('Error', 'Warning'):
                         continue
-                    total += 1
                     if len(findings) < MAX_ISSUES:
                         findings.append({
                             'test_id': record.get('external_test_id'),
@@ -78,7 +82,8 @@ def _issues(external: dict[str, Any]) -> tuple[list[dict[str, Any]], int]:
                             'source': rel,
                         })
             else:
-                total += 1
+                declared_total = record.get('reported_issues_total')
+                total += declared_total if type(declared_total) is int and declared_total > 0 else 1
                 if len(findings) < MAX_ISSUES:
                     findings.append({
                         'test_id': record.get('external_test_id'),
@@ -148,7 +153,15 @@ def _render(matrix: dict, external: dict, profile: Path, root: Path, generated_a
                  + _h(entry.get('archive_type')) + '.</p>')
     html += '<h2>2. Kontrolloversikt</h2><p>Påkrevde kontrollområder med registrert evidens: <b>' + _h(summary['required_with_registered_evidence']) + '/' + _h(summary['required_categories']) + '</b>. Arkade rapporterte tester med status error: <b>' + _h(summary['reported_arkade_errors']) + '</b>. Dette er ikke et mål på godkjent kontrolldekning.</p>'
     html += '<table><thead><tr><th>Område</th><th>Krav</th><th>Foreløpig status</th><th>DWM-observasjoner</th><th>Eksterne tester</th></tr></thead><tbody>' + control_rows + '</tbody></table>'
-    html += '<h2>3. Rapporterte feil og advarsler fra Arkade 5</h2><p>Detaljerte feilmeldinger er gjengitt fra kildeanalysen, uten ny faglig konklusjon. ' + _h(finding_count) + ' detaljerte feil-/advarselsposter registrert; maksimalt ' + str(MAX_ISSUES) + ' vises.</p>'
+    html += '<h2>3. Rapporterte feil og advarsler fra Arkade 5</h2><p>Detaljerte feilmeldinger er gjengitt fra kildeanalysen, uten ny faglig konklusjon. ' + _h(finding_count) + ' rapporterte feil-/advarselsposter; maksimalt ' + str(MAX_ISSUES) + ' vises.</p>'
+    if any(record.get('reported_issues_complete') is False
+           for source in (external.get('analysis') or {}).get('sources', [])
+           for record in (source.get('analysis') or {}).get('records', [])
+           if isinstance(record, dict)):
+        html += ('<p><b>Begrenset A220-forhåndsvisning:</b> Fullstendige '
+                 'detaljer ligger i den originale SHA-256-bundne Arkade-kilden '
+                 'og i A260s fullstendige funneksport (CSV/JSONL). '
+                 'Viste rader utgjør ikke alle forekomster.</p>')
     html += '<table><thead><tr><th>Test-ID</th><th>Kildestatus</th><th>Melding</th><th>Arkivdel / kontekst</th><th>Evidenskilde</th></tr></thead><tbody>' + finding_rows + '</tbody></table>'
     annex_html, annex_summary = render_content_annex(root, external, canonical)
     html += annex_html

@@ -191,6 +191,7 @@ def _parts(depot: dict) -> list[dict]:
 
 
 def _external(work: Path, external: dict, manifest: list[dict], selection: str | None) -> dict:
+    from noark5_workflow.analysis.canonical_external_import_v0115_a10 import MAX_SOURCE_ARKADE, MAX_SOURCE_NORMALIZED
     sources = external.get("sources") or []
     if not isinstance(sources, list):
         raise ReportInputError("Ugyldige eksterne kilder")
@@ -205,7 +206,9 @@ def _external(work: Path, external: dict, manifest: list[dict], selection: str |
         declared_hash = ev.get("sha256")
         if not isinstance(declared_hash, str) or not re.fullmatch(r"[a-fA-F0-9]{64}", declared_hash):
             raise ReportInputError("Ekstern evidens mangler kildebelagt SHA-256: " + relative)
-        record = _source(work, relative, declared_hash)
+        source_limit = (MAX_SOURCE_ARKADE if relative.lower().endswith('/normalized/arkade5_results.json')
+                        else MAX_SOURCE_NORMALIZED)
+        record = _source(work, relative, declared_hash, limit=source_limit)
         manifest.append({"kind": "external", **record})
         if (src.get("analysis") or {}).get("source_format") == "arkade_normalized_v2":
             arkade.append((relative, src.get("analysis") or {}))
@@ -364,7 +367,8 @@ def build_snapshot(*, work: Path, depot_report: str | None = None,
         raise ReportInputError("Depotrapportens XPath-kjøring stemmer ikke med rapportversjonen")
     ext_rel = "noark5_evidence/canonical-external-analysis.json"
     ext_path = _rel(work, ext_rel)
-    external = _json(ext_path) if ext_path.is_file() else None
+    from noark5_workflow.analysis.canonical_external_import_v0115_a10 import MAX_ANALYSIS_OUTPUT
+    external = _json(ext_path, MAX_ANALYSIS_OUTPUT) if ext_path.is_file() else None
     if external:
         if external.get("extraction_stable_id") != uid:
             raise ReportInputError("Ekstern analyse gjelder annen jobb")
@@ -372,7 +376,7 @@ def build_snapshot(*, work: Path, depot_report: str | None = None,
         if not canonical_ref.get("sha256"):
             raise ReportInputError("Ekstern analyse mangler versjonsbinding til kanonisk resultat")
         _source(work, canonical_path, canonical_ref.get("sha256"))
-        manifest.append({"kind": "external_analysis", **_source(work, ext_rel)})
+        manifest.append({"kind": "external_analysis", **_source(work, ext_rel, limit=MAX_ANALYSIS_OUTPUT)})
     arkade = _external(work, external or {"sources": []}, manifest, arkade_evidence)
     if not external and arkade_evidence:
         raise ReportInputError("Ingen kanonisk Arkade-analyse å velge fra")

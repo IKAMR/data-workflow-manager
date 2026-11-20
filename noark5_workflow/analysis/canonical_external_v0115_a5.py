@@ -23,6 +23,11 @@ def inspect_external(path: Path) -> dict[str, Any]:
         doc = json.loads(path.read_text(encoding='utf-8-sig'))
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         return {'format': 'unrecognized', 'interpretation': 'not_parsed', 'reason': f'Unreadable JSON: {type(exc).__name__}'}
+    return inspect_external_doc(doc)
+
+
+def inspect_external_doc(doc: Any) -> dict[str, Any]:
+    """Interpret a document already decoded by its caller exactly once."""
     if not isinstance(doc, dict):
         return {'format': 'unrecognized', 'interpretation': 'not_parsed', 'reason': 'JSON root is not object'}
     # Siegfried's official JSON output has `siegfried` signature metadata,

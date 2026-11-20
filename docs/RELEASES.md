@@ -9,6 +9,10 @@ Versjonene v0.1.0–v0.1.3 ble utgitt under navnet **Noark 5 Workflow Manager**.
 Nyeste ferdige versjon står øverst. Alpha-trinn dokumenteres ikke som egne
 permanente releaseversjoner.
 
+## v0.2.3
+
+Sidevis og komplett Veiledet KS for DWM-/Arkade-funn med kildebundet SHA-256-evidens, store JSON-/depotrapportlesere, individvise M051–M054-avleveringskontroller, revisjonssikker vurderingshistorikk uten de tidligere 2 000-grensene, fullstendige KS-/depotrapportutkast, kontrollstatusavstemming og XML-forekomsthierarki fra valgt Source. Ingen automatisk godkjenning, full Noark-normativ dekning eller AIP-pakking. Se `docs/RELEASE-v0.2.3.md`.
+
 ## v0.2.2
 
 Flere Noark 5-jobber i samme jobbliste, avhengighetsstyrte A100–A260-deljobber inkludert evidens og etterbehandling, sekvensiell kjøring, redigerbare kjøreprofiler, forbedret Windows-/Qt-arbeidsflate og samlet faglig KS-arbeidsflate med filtrering, kildebundne kommentarer og rapportutkast. Ingen automatisk faglig eller formell godkjenning. Se `docs/RELEASE-v0.2.2.md`.

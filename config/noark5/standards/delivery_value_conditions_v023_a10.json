@@ -1,0 +1,68 @@
+{
+  "format_version": 1,
+  "model": "dwm.noark5.delivery-value-conditions.a10.v1",
+  "purpose": "Version-specific source-bound transfer conditions, not whole-standard conformance or automatic depot acceptance",
+  "source_repository": "IKAMR/digital-archive-workflow",
+  "source_commit": "8d28e312e1e38af8cb93bfe05cecef11e09af34f",
+  "source_manifest": "docs/kilder/noark/SOURCE-MANIFEST.json",
+  "versions": {
+    "3.1": {
+      "source": {
+        "title": "Noark 5 versjon 3.1, Vedlegg nr. 1 – Metadatakatalog",
+        "publisher": "Riksarkivet",
+        "document_date": "2013-03-13",
+        "url": "https://www.kdrs.no/sites/default/files/2023-09/vedlegg_1_metadatakatalog_v._3.1.pdf",
+        "file": "docs/kilder/noark/noark5/v3.1/spesifikasjoner/Noark5_v3.1_vedl1_metadatakatalog.pdf",
+        "sha256": "152eeb31e3e0edde94677ea9290cde0fb3b4cea1f7c16b7b8b07a82374c31814",
+        "source_status": "not_documented"
+      },
+      "rules": [
+        {"metadata_id":"M051","xml_field":"arkivdelstatus","delivery_values":["Avsluttet periode"],"page":13,"applies_to":"arkivdeler som avleveres"},
+        {"metadata_id":"M052","xml_field":"saksstatus","delivery_values":["Avsluttet","Utgår"],"page":13,"applies_to":"saksmapper som avleveres"},
+        {"metadata_id":"M053","xml_field":"journalstatus","delivery_values":["Arkivert","Utgår"],"page":14,"applies_to":"journalposter som avleveres"},
+        {"metadata_id":"M054","xml_field":"dokumentstatus","delivery_values":["Dokumentet er ferdigstilt"],"page":14,"applies_to":"dokumentbeskrivelser som avleveres"}
+      ]
+    },
+    "4.0": {
+      "source": {
+        "title": "Noark 5 versjon 4.0, Vedlegg nr. 1 – Metadatakatalog",
+        "publisher": "Riksarkivet",
+        "document_date": "2016-12-01",
+        "url": "https://www.nasjonalarkivet.no/content/uploads/2025/11/Noark5v4-vedl1-Metadatakatalog.pdf",
+        "file": "docs/kilder/noark/noark5/v4.0/spesifikasjoner/Noark5v4 vedl1 Metadatakatalog.pdf",
+        "sha256": "77bd31a112c2f0d62d575d9e8843bc0ae59acf9bacaa60760795433d0f85954c",
+        "source_status": "not_documented"
+      },
+      "rules": [
+        {"metadata_id":"M051","xml_field":"arkivdelstatus","delivery_values":["Avsluttet periode"],"page":13,"applies_to":"arkivdeler som avleveres"},
+        {"metadata_id":"M052","xml_field":"saksstatus","delivery_values":["Avsluttet","Utgår"],"page":13,"applies_to":"saksmapper som avleveres"},
+        {"metadata_id":"M053","xml_field":"journalstatus","delivery_values":["Arkivert","Utgår"],"page":14,"applies_to":"journalposter som avleveres"},
+        {"metadata_id":"M054","xml_field":"dokumentstatus","delivery_values":["Dokumentet er ferdigstilt"],"page":14,"applies_to":"dokumentbeskrivelser som avleveres"}
+      ]
+    },
+    "5.0": {
+      "source": {
+        "title": "Noark 5 versjon 5.0, Vedlegg nr. 1 – Metadatakatalog",
+        "publisher": "Riksarkivet",
+        "document_date": "2018-12-06",
+        "url": "https://www.nasjonalarkivet.no/content/uploads/2025/11/Noark-5-v-5-vedl1-Metadatakatalog.pdf",
+        "file": "docs/kilder/noark/noark5/v5.0/spesifikasjoner/Noark 5 v 5 vedl1 Metadatakatalog.pdf",
+        "sha256": "e1f6b7caa24f869d82b21aa30b3452513029875e417b1e351b2b9298578ffd98",
+        "source_status": "not_documented"
+      },
+      "rules": [
+        {"metadata_id":"M051","xml_field":"arkivdelstatus","delivery_values":["Avsluttet periode"],"page":11,"applies_to":"arkivdeler som avleveres"},
+        {"metadata_id":"M052","xml_field":"saksstatus","delivery_values":["Avsluttet","Utgår"],"page":12,"applies_to":"saksmapper som avleveres"},
+        {"metadata_id":"M053","xml_field":"journalstatus","delivery_values":["Arkivert","Utgår"],"page":12,"applies_to":"journalposter som avleveres"},
+        {"metadata_id":"M054","xml_field":"dokumentstatus","delivery_values":["Dokumentet er ferdigstilt"],"page":13,"applies_to":"dokumentbeskrivelser som avleveres"}
+      ]
+    }
+  },
+  "period_cross_check": {
+    "field_start": "arkivperiodeStartDato",
+    "field_end": "arkivperiodeSluttDato",
+    "metadata_ids": ["M107", "M108"],
+    "meaning": "Sammenligning av observerte start-/sluttdatoer per arkivdel. Reversert rekkefølge er en REVIEW-observasjon, ikke en egen normativ Noark-tolking. Manglende valgfrie felt gir ikke avleveringsfeil."
+  },
+  "warning": "Kildefilens manifeststatus er not_documented. Full kildeproveniens og faglig godkjenning kreves før DWM kan hevde generell normativ kravdekning."
+}

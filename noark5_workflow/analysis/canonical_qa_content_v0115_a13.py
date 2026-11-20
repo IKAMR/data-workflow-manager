@@ -35,10 +35,28 @@ def _load_source(root: Path, source: dict, link_state: dict) -> dict | None:
     if target.is_symlink():
         return None
     target = target.resolve()
-    if not target.is_relative_to(base) or not target.is_file() or target.stat().st_size > MAX_BYTES:
+    if not target.is_relative_to(base) or not target.is_file():
         return None
-    if hashlib.sha256(target.read_bytes()).hexdigest() != evidence.get('sha256'):
+    from noark5_workflow.analysis.canonical_external_import_v0115_a10 import (
+        MAX_SOURCE_ARKADE, MAX_SOURCE_NORMALIZED,
+    )
+    is_arkade = rel.lower().endswith('/normalized/arkade5_results.json')
+    limit = MAX_SOURCE_ARKADE if is_arkade else MAX_SOURCE_NORMALIZED
+    size = target.stat().st_size
+    if size > limit:
+        raise ValueError(f'Ekstern kilde {rel}: {size} bytes overstiger {limit} bytes i KS-innholdsrapporten')
+    digest = hashlib.sha256()
+    with target.open('rb') as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+            digest.update(chunk)
+    if digest.hexdigest() != evidence.get('sha256'):
         return None
+    if is_arkade and size > MAX_BYTES:
+        from noark5_workflow.analysis.streaming_arkade import content_projection
+        try:
+            return content_projection(target)
+        except ValueError as exc:
+            raise ValueError(f'Ekstern kilde {rel}: {exc}') from exc
     try:
         result = json.loads(target.read_text(encoding='utf-8-sig'))
     except (OSError, UnicodeError, json.JSONDecodeError):

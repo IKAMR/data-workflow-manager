@@ -28,12 +28,12 @@ class EvidenceError(ValueError):
     pass
 
 
-def _read(path: Path) -> dict:
-    if path.is_symlink() or not path.is_file() or path.stat().st_size > MAX_JSON:
-        raise EvidenceError('Utrygg, manglende eller for stor evidensfil: ' + str(path))
+def _read(path: Path, *, limit: int = MAX_JSON) -> dict:
+    if path.is_symlink() or not path.is_file() or path.stat().st_size > limit:
+        raise EvidenceError('Utrygg, manglende eller for stor evidensfil: ' + path.name)
     data = json.loads(path.read_text(encoding='utf-8-sig'))
     if not isinstance(data, dict):
-        raise EvidenceError('Evidensfilen er ikke et JSON-objekt: ' + str(path))
+        raise EvidenceError('Evidensfilen er ikke et JSON-objekt: ' + path.name)
     return data
 
 
@@ -128,10 +128,16 @@ def _select_external_sources(root: Path, identity: dict) -> dict[str, dict]:
         if str(by.get('job_id') or '') != identity['job_id']:
             continue
         normalized = _within(root, str(m.get('normalized_file') or ''))
-        doc = _read(normalized)
-        if (str(doc.get('source_system') or '') != 'Arkade 5' or
-                not isinstance(doc.get('tests'), list)):
-            continue
+        from noark5_workflow.analysis.canonical_external_import_v0115_a10 import MAX_SOURCE_NORMALIZED
+        if normalized.stat().st_size > MAX_SOURCE_NORMALIZED:
+            from noark5_workflow.analysis.streaming_arkade import has_normalized_arkade_tests
+            if not has_normalized_arkade_tests(normalized):
+                continue
+        else:
+            doc = _read(normalized)
+            if (str(doc.get('source_system') or '') != 'Arkade 5' or
+                    not isinstance(doc.get('tests'), list)):
+                continue
         s = m.get('source') or {}
         original = _within(root, str(s.get('preserved_file') or ''))
         if str(s.get('sha256') or '') != _hash(original):
@@ -195,6 +201,14 @@ def _publish_json(root: Path, relative: str, document: dict) -> Path:
         raise EvidenceError('Resultatmappen er en symbolsk lenke.')
     parent.mkdir(parents=True, exist_ok=True)
     data = (json.dumps(document, ensure_ascii=False, indent=2, allow_nan=False) + '\n').encode('utf-8')
+    if relative.endswith('/canonical-external-analysis.json'):
+        from noark5_workflow.analysis.canonical_external_import_v0115_a10 import MAX_ANALYSIS_OUTPUT
+        if len(data) > MAX_ANALYSIS_OUTPUT:
+            selected = ', '.join((item.get('evidence') or {}).get('work_relative_path', '')
+                                 for item in (document.get('sources') or [])[:3])
+            raise EvidenceError(f'Generert ekstern analyse er {len(data)} bytes; '
+                                f'grensen er {MAX_ANALYSIS_OUTPUT} bytes. '
+                                f'Valgte kilder: {selected}. Reduser kildeutvalget.')
     if target.is_file():
         prior = target.read_bytes()
         if prior == data:
@@ -253,49 +267,12 @@ def build_evidence(work: str | Path, *, job_id: str = '', run_id: str = '') -> d
 
 
 def _dwm_siegfried_statistics(doc: dict) -> dict | None:
-    """Interpret only DWM's native, bounded Siegfried PRONOM summary.
-
-    The statistics are format-identification evidence, not verified file
-    integrity, an accepted-format decision, or Noark 5 test compliance.
-    """
-    if (doc.get('evidence_type') != 'dwm_siegfried_pronom_identification' or
-            doc.get('source_system') != 'DWM / Siegfried' or
-            doc.get('format_version') != 1):
-        return None
-    counters = ('files_total', 'identified', 'unidentified', 'ambiguous')
-    if any(type(doc.get(key)) is not int or not 0 <= doc[key] <= 1_000_000_000_000
-           for key in counters):
-        raise EvidenceError('Siegfried-statistikk har ugyldige filantall.')
-    total, identified, unidentified, ambiguous = (doc[key] for key in counters)
-    if identified + unidentified != total or ambiguous > identified:
-        raise EvidenceError('Siegfried-statistikk har selvmotsigende filantall.')
-    rows = doc.get('format_groups')
-    if not isinstance(rows, list) or len(rows) > 100_000:
-        raise EvidenceError('Siegfried-statistikk har ugyldige formatgrupper.')
-    formats = []
-    for item in rows:
-        if not isinstance(item, dict) or type(item.get('count')) is not int or not 0 <= item['count'] <= 1_000_000_000_000:
-            raise EvidenceError('Siegfried-statistikk har ugyldig formatantall.')
-        puid = item.get('puid')
-        if not isinstance(puid, str) or len(puid) > 150:
-            raise EvidenceError('Siegfried-statistikk har ugyldig PRONOM-ID.')
-        formats.append({'puid': puid, 'format': str(item.get('format') or '')[:400],
-                        'version': str(item.get('version') or '')[:80],
-                        'reported_count': item['count']})
-    return {
-        'source_format': 'dwm_siegfried_pronom_statistics_v1',
-        'interpretation': 'format_statistics_only',
-        'reported_total_files': total,
-        'reported_identified_files': identified,
-        'reported_unidentified_files': unidentified,
-        'reported_ambiguous_files': ambiguous,
-        'format_rows': len(formats),
-        'formats': formats,
-        'technical_validation_verified': False,
-        'archive_creator_acceptance': None,
-        'depot_approval': None,
-        'note': 'PRONOM-formatidentifikasjon, ingen Noark 5- eller depotgodkjenning.',
-    }
+    """Compatibility wrapper for callers that handle ``EvidenceError``."""
+    from noark5_workflow.analysis.siegfried_statistics import summarize_dwm_siegfried_statistics
+    try:
+        return summarize_dwm_siegfried_statistics(doc)
+    except ValueError as exc:
+        raise EvidenceError(str(exc)) from exc
 
 
 def analyze_external(work: str | Path, *, job_id: str = '') -> dict:
@@ -321,10 +298,6 @@ def analyze_external(work: str | Path, *, job_id: str = '') -> dict:
             rel = reference.get('work_relative_path')
             if not rel or not any(rel == selected_path for selected_path in selected):
                 raise EvidenceError('Ekstern analyse har returnert en ukjent Work-kilde.')
-            if rel == (expected.get('siegfried_pronom') or {}).get('file'):
-                interpreted = _dwm_siegfried_statistics(_read(_within(root, rel)))
-                if interpreted is not None:
-                    item['analysis'] = interpreted
         counted_unparsed = sum((src.get('analysis') or {}).get('interpretation') == 'not_parsed'
                                for src in external.get('sources') or ())
         external['summary']['unparsed_files'] = counted_unparsed
@@ -354,7 +327,8 @@ def audit_evidence(work: str | Path, *, job_id: str = '') -> dict:
     external = root / ROOT_NAME / 'canonical-external-analysis.json'
     status = 'not_analyzed'
     if external.is_file() and not external.is_symlink():
-        data = _read(external)
+        from noark5_workflow.analysis.canonical_external_import_v0115_a10 import MAX_ANALYSIS_OUTPUT
+        data = _read(external, limit=MAX_ANALYSIS_OUTPUT)
         ref = data.get('canonical_reference') or {}
         if data.get('extraction_stable_id') != identity['job_uid'] or \
            ref.get('sha256') != _hash(root / ROOT_NAME / 'canonical-results.json'):
@@ -400,7 +374,7 @@ def audit_evidence(work: str | Path, *, job_id: str = '') -> dict:
             'missing': list(doc['missing_source_families']), 'status': doc['status']}
 
 
-def build_qa_basis(work: str | Path, *, job_id: str = '') -> dict:
+def _build_qa_basis_legacy_v022_a7(work: str | Path, *, job_id: str = '') -> dict:
     from noark5_workflow.reporting.qa_workflow_v022_a3 import (
         build_review_snapshot_v022_a3, finding_summary,
     )
@@ -454,6 +428,12 @@ def build_qa_basis(work: str | Path, *, job_id: str = '') -> dict:
             os.unlink(tempname)
     return {'path': str(target), 'html': str(html_target), 'summary': summary,
             'automatic_approval': False}
+
+
+def build_qa_basis(work: str | Path, *, job_id: str = '') -> dict:
+    """A260: stream complete source-bound findings; no 300-row ceiling."""
+    from noark5_workflow.reporting.qa_a260_v023_a6 import build_qa_basis_a6
+    return build_qa_basis_a6(work, job_id=job_id)
 
 
 class _BaseEvidenceOperation(BaseOperation):

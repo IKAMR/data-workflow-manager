@@ -152,6 +152,35 @@ class A12Reports(unittest.TestCase):
         self.ark.write_text('{"changed":true}')
         with self.assertRaisesRegex(ReportInputError,'SHA-256'):self.build()
 
+    def test_large_arkade_source_keeps_full_qa_snapshot(self):
+        with self.ark.open('w',encoding='utf-8') as stream:
+            stream.write('{"format_version":2,"evidence_type":"external_validation_report",'
+                         '"tests":[{"test_id":"N5.15","source_status":"error",'
+                         '"results":[],"source_raw":[')
+            item='{"Message":"'+'x'*4000+'"}'
+            for index in range(25_000):
+                if index:
+                    stream.write(',')
+                stream.write(item)
+            stream.write(']}]}')
+        self.assertGreater(self.ark.stat().st_size,95_287_457)
+        digest_value=sha256()
+        with self.ark.open('rb') as stream:
+            for block in iter(lambda:stream.read(1024*1024),b''):
+                digest_value.update(block)
+        doc=json.loads(self.ext.read_text(encoding='utf-8'))
+        doc['sources'][0]['evidence']['sha256']=digest_value.hexdigest()
+        self.ext.write_text(json.dumps(doc),encoding='utf-8')
+        snapshot=self.build()
+        self.assertEqual(snapshot['arkade']['test_count'],2)
+        self.assertEqual(len(snapshot['arkade']['findings']),2)
+        source=next(item for item in snapshot['evidence_manifest'] if
+                    item['kind']=='external' and item['path']==self.arkrel)
+        self.assertEqual(source['bytes'],self.ark.stat().st_size)
+        from noark5_workflow.reporting.qa_workflow_v022_a3 import build_review_snapshot_v022_a3
+        reviewed=build_review_snapshot_v022_a3(work=self.work)
+        self.assertEqual(len(reviewed['arkade']['findings']),2)
+
     def test_stale_kdrs_index_fails_closed(self):
         self.index.write_text('{"changed":true}')
         with self.assertRaisesRegex(ReportInputError,'SHA-256'):self.build()
