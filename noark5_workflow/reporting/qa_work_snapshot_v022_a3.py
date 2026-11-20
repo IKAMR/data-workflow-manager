@@ -13,6 +13,8 @@ from datetime import datetime, timezone
 from pathlib import Path, PureWindowsPath
 from typing import Any
 
+from .qa_xpath_master_v023_a16 import project_xpath_master
+
 from .qa_decision_v021_a12 import (
     MODEL, MAX_DEPO, MAX_ISSUES, MAX_JSON, ReportInputError, _assessments,
     _count, _extraction_label, _find_depot, _hash, _json, _kdrs, _parts,
@@ -250,7 +252,10 @@ def build_saved_work_snapshot(work: str | Path, *, depot_report: str | None = No
     if not run_ref or run_leaf != report_path.parent.name:
         raise ReportInputError("Depot report and its XPath run do not agree")
     master_rel = "noark5_tests/xpath/" + run_leaf + "/master-results.json"
-    master = _json(_rel(root, master_rel), MAX_JSON)
+    # A16: read every byte of the exact normal XPath master while retaining
+    # only the small test identity/state projection required by this bridge.
+    # No 20 MiB cutoff and no unbounded JSON materialization.
+    master = project_xpath_master(_rel(root, master_rel))
     if (master.get("format_version") != 1 or
             str((master.get("source") or {}).get("execution_profile")) != "normal" or
             not isinstance(master.get("tests"), list)):
@@ -271,7 +276,8 @@ def build_saved_work_snapshot(work: str | Path, *, depot_report: str | None = No
         raise ReportInputError("Depot validation disagrees with the saved XPath master status")
     manifest = [
         {"kind": "work_job", **_source(root, "job.json")},
-        {"kind": "dwm_xpath_master", **_source(root, master_rel)},
+        {"kind": "dwm_xpath_master", **_source(
+            root, master_rel, limit=(1 << 63) - 1)},
         {"kind": "dwm_depot", **_source(root, depot_rel, limit=MAX_DEPO)},
     ]
     arkade = _linked_arkade(root, depot, job_id, manifest, arkade_evidence,
