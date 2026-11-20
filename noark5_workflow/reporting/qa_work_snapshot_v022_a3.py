@@ -15,6 +15,7 @@ from typing import Any
 
 from .qa_xpath_master_v023_a16 import project_xpath_master
 from .qa_depot_stream_v023_a17 import project_depot_report
+from .qa_control_coverage_v023_a18 import ControlCoverageError, reconcile_controls
 
 from .qa_decision_v021_a12 import (
     MODEL, MAX_DEPO, MAX_ISSUES, MAX_JSON, ReportInputError, _assessments,
@@ -242,6 +243,20 @@ def build_saved_work_snapshot(work: str | Path, *, depot_report: str | None = No
     if not job_id or not uid or (props.get("job_uid") and props["job_uid"] != uid):
         raise ReportInputError("Missing or contradictory Work job identity")
     report_path, depot_rel = _find_depot(root, depot_report)
+    # Windows can spell the same directory as a long user name or as its
+    # short 8.3 alias (e.g. TORBJO~1.AAS).  Path.relative_to() compares
+    # spelling, not filesystem identity.  Anchor the selected report to the
+    # already verified Work-relative path before calling older QA helpers.
+    # Do not treat two files with the same filename/content as interchangeable:
+    # samefile() must confirm that they are the *same* on-disk file.
+    work_report_path = _rel(root, depot_rel)
+    try:
+        if (report_path.is_symlink() or not work_report_path.is_file() or
+                not work_report_path.samefile(report_path)):
+            raise ReportInputError('Valgt depotrapport tilhører ikke angitt Work-evidens')
+    except OSError as exc:
+        raise ReportInputError('Kan ikke verifisere valgt depotrapport i Work') from exc
+    report_path = work_report_path
     if not report_path.parent.name.startswith(job_id + "__"):
         raise ReportInputError("Depot report belongs to a different job")
     # A17: the established small-report path remains unchanged. For a large
@@ -327,6 +342,35 @@ def build_saved_work_snapshot(work: str | Path, *, depot_report: str | None = No
     technical = depot.get("technical_validation") or {}
     if not isinstance(technical, dict):
         raise ReportInputError("Invalid technical validation block")
+    # A18: status belongs to the original test engine. Never add DWM and
+    # Arkade test totals into a fictitious compliance score; don't count
+    # PRONOM format statistics as Noark validation tests. The linked Arkade
+    # evidence is fully streamed and SHA-verified, even when the KS snapshot
+    # contains only its A8 paginated findings preview.
+    arkade_source = str(arkade.get('source') or '')
+    selected_norm = [item for item in manifest if item.get('kind') == 'external'
+                     and item.get('path') == arkade_source] if arkade_source else []
+    selected_import = [item for item in (
+        ((depot.get('external_validation') or {}).get('arkade5') or {}).get('imports') or [])
+        if isinstance(item, dict)
+        and str(item.get('normalized_file') or '').replace('\\', '/') == arkade_source
+    ] if arkade_source else []
+    if arkade_source and (len(selected_norm) != 1 or len(selected_import) != 1):
+        raise ReportInputError('A18 mangler entydig SHA-kobling til valgt Arkade Noark-kilde')
+    try:
+        control_coverage = reconcile_controls(
+            master=master, depot_tests=reported_tests,
+            depot_summary=depot.get('summary') or {}, parts=parts,
+            arkade_path=_rel(root, arkade_source) if arkade_source else None,
+            arkade_source_sha256=selected_norm[0]['sha256'] if arkade_source else None,
+            arkade_original_sha256=selected_import[0]['source_sha256'] if arkade_source else None,
+            pronom_imported=any(item.get('kind') == 'external' and
+                                str(item.get('path') or '').endswith('/pronom_statistics.json')
+                                for item in manifest),
+            depot_technical_status=str(technical.get('status') or ''),
+        )
+    except ControlCoverageError as exc:
+        raise ReportInputError('A18 kontrollstatus kan ikke verifiseres: ' + str(exc)) from exc
     return {
         "model_id": MODEL,
         "created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -353,6 +397,7 @@ def build_saved_work_snapshot(work: str | Path, *, depot_report: str | None = No
         },
         "archive_parts": parts, "dwm_report_source": depot_rel,
         "arkade": arkade, "kdrs_qa": kdrs, "human_context_events": [],
+        "control_coverage": control_coverage,
         "existing_depot_assessment": human, "findings": findings,
         "review_required": True,
         "acceptance_from_archive_creator_registered": False,

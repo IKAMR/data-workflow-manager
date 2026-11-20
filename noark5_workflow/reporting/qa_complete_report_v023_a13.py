@@ -330,6 +330,40 @@ def _overview_page(scope: str, snapshot: dict, index: dict, *, stats: dict,
                  _summary_table((('Status', technical.get('status') or 'Ikke dokumentert'),
                                  ('Kilde', index['depot_report_relative']),
                                  ('SHA-256', index['depot_sha256'])))]
+    if 'tests' in sections and (snapshot.get('control_coverage') or {}).get('model_id') == 'dwm.noark5.qa-control-coverage.v023-a18.v1':
+        coverage = snapshot['control_coverage']
+        html += ['<h2>Kontrollstatus per kilde – A18</h2>',
+                 '<p>Observerte testposter fra samme valgte Work-kjøring. DWM XPath og Arkade Noark er ulike testmotorer; tallene skal ikke summeres til en PASS-prosent. PRONOM er formatidentifikasjon, ikke selvstendige Noark-tester.</p>',
+                 '<table><thead><tr><th>Kilde</th><th>Testposter</th><th>Utført OK</th><th>Feil</th><th>Advarsler</th><th>Ikke kjørt</th><th>Avbrutt</th><th>Hoppet over</th><th>Ikke relevant</th><th>Ukjent</th></tr></thead><tbody>']
+        for name, key, total_field in (('DWM XPath', 'dwm_xpath', 'observed_master_tests'),
+                                       ('Arkade 5 Noark', 'arkade_noark', 'observed_test_rows')):
+            entry = coverage.get(key) or {}
+            states = entry.get('by_state')
+            if states is None:
+                numbers = ['Ikke dokumentert'] * 9
+            else:
+                numbers = [entry.get(total_field), states.get('executed_ok', 0),
+                           states.get('reported_error', 0), states.get('reported_warning', 0),
+                           states.get('not_run', 0), states.get('interrupted', 0),
+                           states.get('skipped', 0), states.get('not_relevant', 0),
+                           states.get('unknown', 0)]
+            html.append('<tr><th>' + _h(name) + '</th>'
+                        + ''.join('<td>' + _h(n) + '</td>' for n in numbers) + '</tr>')
+        html.append('</tbody></table>')
+        if coverage.get('control_issues'):
+            html += ['<h3>Uavklarte avstemmingspunkter</h3>', '<ul>']
+            html += ['<li>' + _h(issue) + '</li>' for issue in coverage['control_issues']]
+            html.append('</ul>')
+        html += ['<h3>Hovedtall mot arkivdeler</h3>',
+                 '<table><thead><tr><th>Måling</th><th>Depotrapport</th><th>Arkivdelsum</th><th>Samsvar</th></tr></thead><tbody>']
+        for key, entry in (coverage.get('archive_part_reconciliation') or {}).items():
+            status = entry.get('matches')
+            result = 'Ja' if status is True else 'Nei' if status is False else 'Ikke sammenlignbart'
+            html += ['<tr><th>' + _h(key) + '</th><td>' + _h(entry.get('depot_report_total') if entry.get('depot_report_total') is not None else 'Ikke dokumentert')
+                     + '</td><td>' + _h(entry.get('sum_of_archive_parts') if entry.get('sum_of_archive_parts') is not None else 'Ikke dokumentert')
+                     + '</td><td>' + _h(result) + '</td></tr>']
+        html.append('</tbody></table>')
+        html.append('<p class="small">Antall planlagte kontroller for hele valgt regelprofil er ikke verifisert her. Ingen faglig godkjenning følger av disse tallene.</p>')
     if 'sources' in sections:
         html += ['<h2>Kildebelegg og integritet</h2>',
                  _summary_table((('A12-indeks', index['index_relative_path']),
@@ -453,6 +487,7 @@ def export_complete_reports(work: str | Path, snapshot: dict, index: dict,
                          'sections': sorted(options), 'recommendation_not_decision': recommendation,
                          'recommendation_note': recommendation_note,
                          'technical_status_unchanged': (snapshot.get('dwm_technical') or {}).get('status'),
+                         'control_coverage': snapshot.get('control_coverage'),
                          'archive_parts': snapshot.get('archive_parts') or [],
                          'created_utc': generated}
         (stage / 'rapportgrunnlag.json').write_text(

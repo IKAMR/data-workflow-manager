@@ -221,7 +221,15 @@ def build_paged_index(work: str | Path, snapshot: dict, *,
     delivery = snapshot.get('delivery_qa') or {}
     use_delivery = bool(str(delivery.get('status') or '').startswith('completed_'))
     if use_delivery:
-        depot = json.loads(depot_path.read_text(encoding='utf-8-sig'))
+        if depot_path.stat().st_size > 24 * 1024 * 1024:
+            # A18: don't regress to unbounded json.loads after A17/A11
+            # successfully streamed the source-bound depot report.
+            from .qa_depot_stream_v023_a17 import project_depot_report
+            depot, parsed_digest = project_depot_report(depot_path)
+            if parsed_digest != depot_sha:
+                raise PagedReviewError('Depotrapport endret ved KS-indeksering')
+        else:
+            depot = json.loads(depot_path.read_text(encoding='utf-8-sig'))
         binding = delivery_binding(root, depot_rel, depot, uid)
         if not binding or not binding.get('complete'):
             raise PagedReviewError('DWM-rapporten mangler fullstendige individuelle funn')

@@ -515,7 +515,14 @@ def build_qa_basis_a6(work: str | Path, *, job_id: str = '') -> dict:
         )
         return _build_qa_basis_legacy_v022_a7(root, job_id=job_id)
     depot_path, depot_rel = _find_depot(root, None)
-    depot = _json(depot_path, MAX_DEPO)
+    large_depot = depot_path.stat().st_size > MAX_DEPO
+    if large_depot:
+        from .qa_depot_stream_v023_a17 import project_depot_report
+        depot, parsed_digest = project_depot_report(depot_path)
+        if parsed_digest != _sha(depot_path):
+            raise A260CapacityError('Depotrapporten endret seg under A260-lesing')
+    else:
+        depot = _json(depot_path, MAX_DEPO)
     if depot.get('report_type') != 'noark5_depot_validation':
         raise A260CapacityError('Ukjent depotvalideringsrapport')
     if not depot_path.parent.name.startswith(identity['job_id'] + '__'):
@@ -543,7 +550,7 @@ def build_qa_basis_a6(work: str | Path, *, job_id: str = '') -> dict:
     small_delivery = (delivery_binding is None or not delivery_binding.get('complete')
                       or delivery_binding['count'] <= 250)
     try:
-        if small_arkade and small_delivery:
+        if small_arkade and small_delivery and not large_depot:
             snapshot = build_review_snapshot_v022_a3(work=root)
     except Exception as exc:
         message = str(exc)

@@ -274,8 +274,17 @@ def _dwm_unfinished_or_failed(work: Path, snapshot: dict) -> list[dict]:
     The source is the same SHA-bound original depot report as the snapshot.
     """
     _, _, report_rel = _binding(snapshot)
-    report = _json(_rel(work, report_rel), MAX_DEPO)
-    tests = ((report.get("technical_validation") or {}).get("tests") or [])
+    coverage = snapshot.get('control_coverage') or {}
+    if coverage.get('model_id') == 'dwm.noark5.qa-control-coverage.v023-a18.v1':
+        dwm = coverage.get('dwm_xpath') or {}
+        # A18: these rows were already authenticated against the streamed
+        # XPath master and depot report. Do NOT reopen a 24+ MiB report.
+        tests = dwm.get('non_ok_reported_tests') or []
+        missing = dwm.get('missing_from_depot_report') or []
+    else:
+        report = _json(_rel(work, report_rel), MAX_DEPO)
+        tests = ((report.get("technical_validation") or {}).get("tests") or [])
+        missing = []
     if not isinstance(tests, list) or len(tests) > 5000:
         raise ReviewError("Ugyldig DWM-kontrolltabell")
     found = []
@@ -299,6 +308,16 @@ def _dwm_unfinished_or_failed(work: Path, snapshot: dict) -> list[dict]:
             "context": str(test.get("test_point") or ""),
             "file": "", "lines": [], "source_ref": report_rel,
             "requires_review": True,
+        })
+    if missing:
+        found.append({
+            'source': 'DWM – avstemming av XPath-kontroller',
+            'test_id': 'dwm.master_not_reported_in_depot',
+            'severity': 'REVIEW',
+            'message': str(len(missing)) + ' tester i XPath-master mangler i depotrapportens testtabell.',
+            'context': ', '.join(str(x) for x in missing[:30]),
+            'file': '', 'lines': [], 'source_ref': report_rel,
+            'requires_review': True,
         })
     return found
 

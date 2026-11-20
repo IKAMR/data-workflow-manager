@@ -37,7 +37,7 @@ _COLLECTION_FIELDS: dict[str, frozenset[str]] = {
         'registration_count', 'document_object_count',
     )),
     'deviations': frozenset(('category', 'severity', 'summary', 'requires_review')),
-    'technical_validation.tests': frozenset(('test_id', 'status')),
+    'technical_validation.tests': frozenset(('test_id', 'status', 'test_point')),
     'external_validation.arkade5.imports': frozenset(('normalized_file', 'source_sha256')),
 }
 
@@ -175,7 +175,7 @@ def project_depot_report(path: str | Path) -> tuple[dict, str]:
     result: dict = {
         'report_type': None, 'summary': {},
         'technical_validation': {'tests': [], 'summary': {}, 'reconciliation': {}},
-        'archive_parts': [], 'deviations': [],
+        'archive_parts': [], 'deviations': [], 'delivery_validation': None,
         'evidence': {}, 'external_validation': {'arkade5': {'imports': []}},
     }
     target_lists = {
@@ -206,13 +206,23 @@ def project_depot_report(path: str | Path) -> tuple[dict, str]:
                     root_end = True
 
                 if prefix in ('summary', 'technical_validation.summary',
-                              'technical_validation.reconciliation'):
-                    if event != 'start_map' or prefix in seen:
+                              'technical_validation.reconciliation', 'delivery_validation'):
+                    if prefix in seen:
                         raise DepotStreamError('Ugyldig eller duplisert sammendragsdel: ' + prefix)
+                    if prefix == 'delivery_validation' and event == 'null':
+                        seen.add(prefix)
+                        continue
+                    if event != 'start_map':
+                        raise DepotStreamError('Forventet objekt i depotrapport: ' + prefix)
                     seen.add(prefix)
                     data = _bounded_map(events, prefix)
                     if prefix == 'summary':
                         result['summary'] = data
+                    elif prefix == 'delivery_validation':
+                        # A18: original a9/a10 per-finding register binding only.
+                        # Never load an entire >24 MiB depot report just to bind
+                        # its small SHA-/rule-based delivery metadata.
+                        result['delivery_validation'] = data
                     else:
                         result['technical_validation'][prefix.rsplit('.', 1)[1]] = data
                     continue

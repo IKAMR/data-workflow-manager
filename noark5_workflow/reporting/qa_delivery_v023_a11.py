@@ -321,13 +321,21 @@ def attach_delivery_to_snapshot(work: str | Path, snapshot: dict) -> dict:
     depot_row = manifests[0]
     depot_rel = depot_row.get('path')
     depot_path = _safe_work_file(root, depot_rel)
-    if (_hash(depot_path) != depot_row.get('sha256') or
-            depot_path.stat().st_size > 24 * 1024 * 1024):
-        raise DeliveryQaError('KS-depotrapport er endret eller overstiger sikker lesestørrelse')
-    try:
-        depot = json.loads(depot_path.read_text(encoding='utf-8-sig'))
-    except (OSError, ValueError, UnicodeError) as exc:
-        raise DeliveryQaError('KS-depotrapport kan ikke leses') from exc
+    depot_digest = _hash(depot_path)
+    if depot_digest != depot_row.get('sha256'):
+        raise DeliveryQaError('KS-depotrapporten er endret siden KS-grunnlaget ble lest')
+    if depot_path.stat().st_size > 24 * 1024 * 1024:
+        # A18: full a17 streaming projection retains the small a9/a10
+        # delivery-validation manifest; it does not copy giant XPath details.
+        from .qa_depot_stream_v023_a17 import project_depot_report
+        depot, parsed_digest = project_depot_report(depot_path)
+        if parsed_digest != depot_digest:
+            raise DeliveryQaError('Depotrapporten ble endret mellom lesinger')
+    else:
+        try:
+            depot = json.loads(depot_path.read_text(encoding='utf-8-sig'))
+        except (OSError, ValueError, UnicodeError) as exc:
+            raise DeliveryQaError('KS-depotrapport kan ikke leses') from exc
     if not isinstance(depot, dict) or depot.get('report_type') != 'noark5_depot_validation':
         raise DeliveryQaError('KS har ikke valgt en gjenkjent DWM-depotrapport')
     uid = str((snapshot.get('work_identity') or {}).get('job_uid') or '')
