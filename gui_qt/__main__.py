@@ -1,4 +1,4 @@
-"""Qt desktop entry point with v0.2.3-a4 guided KS and multi-job safety over the shared multi-job controller."""
+"""Qt desktop entry point with v0.2.4-a3 local combo anchoring and autosave."""
 from __future__ import annotations
 
 import sys
@@ -29,6 +29,10 @@ def main() -> int:
     from gui_qt.main_v022_a11 import DwmMainWindow as _A11DwmMainWindow
     from gui_qt.main_v022_a12 import DwmMainWindow as _A12DwmMainWindow
     from gui_qt.main_v023_a4 import DwmMainWindow
+    from gui_qt.main_v024_a1 import DwmMainWindow as _A1Window
+    from gui_qt.main_v024_a2 import DwmMainWindow as _A2Window
+    from gui_qt.main_v024_a3 import DwmMainWindow as _A3Window
+    DwmMainWindow = _A3Window
     if (not issubclass(DwmMainWindow, _StableDwmMainWindow)
             or not issubclass(DwmMainWindow, _MultiJobDwmMainWindow)
             or not issubclass(DwmMainWindow, _A10DwmMainWindow)
@@ -40,11 +44,13 @@ def main() -> int:
     from gui_qt.production_home_v020_a2 import ProductionStartPage, install_integrated_home
     from gui_qt.depot_profile_v022_a1 import install_depot_profile_controls
     from app.workbench_api_v020_a2 import DwmWorkbenchAPI
+    from app.workbench_api_v024_a2 import DwmWorkbenchAPI as _A2WorkbenchAPI
+    from app.workbench_api_v024_a3 import DwmWorkbenchAPI as _A3WorkbenchAPI
+    DwmWorkbenchAPI = _A3WorkbenchAPI
     from gui_qt.appearance_v0110_a3 import apply_appearance
     from gui_qt.qt_startup_policy_v022_a1_14 import select_qt_startup_features
 
     _boot_phase("04 Imports complete, before QApplication")
-    # Keep app-wide event filters disabled by default after earlier Windows faults.
     features = select_qt_startup_features(os.environ)
     _boot_phase(
         "Qt startup profile: "
