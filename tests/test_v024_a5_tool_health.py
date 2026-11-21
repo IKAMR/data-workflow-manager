@@ -243,10 +243,19 @@ class HealthAndCacheTests(TestCase):
 
 class IntegrationStaticTests(TestCase):
     def test_application_version_consistency(self):
+        # A finished v0.2.4 is newer than a5; the capability must stay tested.
+        # Check the physical version files, never inject an alpha at runtime.
+        import tomllib
+        from version import APP_NAME, VERSION
+        from tests.version_assertions import assert_release_at_least
+
         version = (ROOT/'version.py').read_text(encoding='utf-8')
         metadata = (ROOT/'pyproject.toml').read_text(encoding='utf-8')
-        self.assertIn('VERSION = "0.2.4-a5"', version)
-        self.assertIn('version = "0.2.4a5"', metadata)
+        assert_release_at_least(self, version, '0.2.4', 5)
+        self.assertEqual(APP_NAME, 'Data Workflow Manager')
+        self.assertEqual(version, f'APP_NAME = "Data Workflow Manager"\nVERSION = "{VERSION}"\n')
+        self.assertEqual(tomllib.loads(metadata)['project']['version'],
+                         VERSION.replace('-a', 'a'))
 
     def test_entrypoint_keeps_a4_and_safe_mode(self):
         source = (ROOT/'gui_qt/__main__.py').read_text(encoding='utf-8')

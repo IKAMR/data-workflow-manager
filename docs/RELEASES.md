@@ -9,6 +9,10 @@ Versjonene v0.1.0–v0.1.3 ble utgitt under navnet **Noark 5 Workflow Manager**.
 Nyeste ferdige versjon står øverst. Alpha-trinn dokumenteres ikke som egne
 permanente releaseversjoner.
 
+## v0.2.4
+
+Stabilisering av flerjobbkjøring og operatørens arbeidsflate: robust Siegfried/PRONOM-kjøring ved ugyldig JSON med kontrollert fortsettelse, eksplisitt Fortsett/Nullstill med Work-først-lagring, korrigert autosave-status og lokal nedtrekksplassering, bedre Kjøredetaljer med lagring av panel- og kolonnebredder, samt automatisk søk, versjonskontroll og brukerspesifikk lagring av Arkade 5 CLI og Siegfried ved oppstart. Ingen nye Noark 5-regler eller automatisk depotgodkjenning; teknisk fullført betyr ikke faglig godkjent. Se `docs/RELEASE-v0.2.4.md`.
+
 ## v0.2.3
 
 Sidevis og komplett Veiledet KS for DWM-/Arkade-funn med kildebundet SHA-256-evidens, store JSON-/depotrapportlesere, individvise M051–M054-avleveringskontroller, revisjonssikker vurderingshistorikk uten de tidligere 2 000-grensene, fullstendige KS-/depotrapportutkast, kontrollstatusavstemming og XML-forekomsthierarki fra valgt Source. Ingen automatisk godkjenning, full Noark-normativ dekning eller AIP-pakking. Se `docs/RELEASE-v0.2.3.md`.
