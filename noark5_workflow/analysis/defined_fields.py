@@ -211,7 +211,14 @@ def _stream_plan(definition: dict[str, Any]) -> dict[str, Any] | None:
                 "field_tags": child_field_tags,
             }
 
+        ancestor_fields = entity.get("ancestor_fields", {})
+        if not isinstance(ancestor_fields, dict):
+            return None
+        for relation in ancestor_fields.values():
+            if not isinstance(relation, dict) or not relation.get("entity") or not relation.get("field"):
+                return None
         plan[str(entity_id)] = {
+            "ancestor_fields": ancestor_fields,
             "tag": entity_tag,
             "scope": entity.get("scope"),
             "field_tags": field_tags,
@@ -265,6 +272,15 @@ def _extract_defined_fields_streaming(
                     if tag == entity_plan["tag"]:
                         entity_stacks[entity_id].append({
                             "values": {},
+                            "ancestor_owners": {
+                                owner_id: entity_stacks[owner_id][-1]
+                                if owner_id in entity_stacks and entity_stacks[owner_id]
+                                else None
+                                for owner_id in {
+                                    str(rel["entity"])
+                                    for rel in entity_plan["ancestor_fields"].values()
+                                }
+                            },
                             "children": {
                                 child_id: []
                                 for child_id in entity_plan["children"]
@@ -315,6 +331,8 @@ def _extract_defined_fields_streaming(
                     for field_id in entity_plan["field_tags"].values():
                         values.setdefault(field_id, "")
                     values["index"] = len(extracted[entity_id]) + 1
+                    if entity_plan["ancestor_fields"]:
+                        values["_ancestor_owners"] = state["ancestor_owners"]
                     for child_id, items in state["children"].items():
                         values[child_id] = items
                     extracted[entity_id].append(values)
@@ -328,6 +346,15 @@ def _extract_defined_fields_streaming(
             f"XML-feil under stroemmet feltuttrekk: {exc}",
             phase="stream_parse",
         ) from exc
+
+    # Owners are retained as dict references, so relation resolution also
+    # works when archive metadata follows an archive part in document order.
+    for entity_id, entity_plan in plan.items():
+        for row in extracted[entity_id]:
+            owners = row.pop("_ancestor_owners", {})
+            for field_id, rel in entity_plan["ancestor_fields"].items():
+                owner = owners.get(str(rel["entity"]))
+                row[field_id] = owner["values"].get(str(rel["field"]), "") if owner else ""
 
     result: dict[str, Any] = {
         "definition_id": definition["definition_id"],
