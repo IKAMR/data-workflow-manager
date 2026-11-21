@@ -31,7 +31,7 @@ Endringer siden **v0.2.2**:
 ## Releasekontroll før tag/opprettelse
 
 1. Kjør `py tools/release_gate.py` og full `cmd.exe /c test.bat` etter utpakking i repo-roten.
-2. Kontroller i Windows/PySide6 en faktisk jobb, også eldre Work, sidevis KS, bevarte kommentarer, kildelinjer, store rapporter og A260-eksport. Verifiser gjerne 1525_004–006 og 1502_024.
+2. Kontroller i Windows/PySide6 en faktisk jobb, også eldre Work, sidevis KS, bevarte kommentarer, kildelinjer, store rapporter og A260-eksport. Bruk representative små og store Noark 5-uttrekk.
 3. Verifiser versjon `0.2.3` og at rapportene fortsatt viser **UTKAST – IKKE GODKJENT**.
 4. Først etter grønne tester og praktisk godkjenning committer/pusher utvikler og oppretter Git-tag/release `v0.2.3`.
 

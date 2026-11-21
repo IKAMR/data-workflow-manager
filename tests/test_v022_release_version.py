@@ -33,7 +33,7 @@ class V022ReleaseTests(unittest.TestCase):
 
     def test_release_notes_cover_scope_and_known_limits(self):
         text = (ROOT / 'docs/RELEASE-v0.2.2.md').read_text(encoding='utf-8').casefold()
-        for marker in ('1525_004', '1525_005', '1525_006', '17',
+        for marker in ('uavhengige noark 5-uttrekk', '17 av 17',
                        'a100', 'a200', 'a260', 'arkade', 'evidens',
                        'ks-', 'utkast', 'sha-256', 'test.bat', 'workshop',
                        'ikke', '0.2.2-a12'):
