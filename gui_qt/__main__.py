@@ -1,4 +1,4 @@
-"""Qt desktop entry point with v0.2.4-a3 local combo anchoring and autosave."""
+"""Qt desktop entry point with v0.2.4-a4 run-details layout persistence."""
 from __future__ import annotations
 
 import sys
@@ -32,7 +32,8 @@ def main() -> int:
     from gui_qt.main_v024_a1 import DwmMainWindow as _A1Window
     from gui_qt.main_v024_a2 import DwmMainWindow as _A2Window
     from gui_qt.main_v024_a3 import DwmMainWindow as _A3Window
-    DwmMainWindow = _A3Window
+    from gui_qt.main_v024_a4 import DwmMainWindow as _A4Window
+    DwmMainWindow = _A4Window
     if (not issubclass(DwmMainWindow, _StableDwmMainWindow)
             or not issubclass(DwmMainWindow, _MultiJobDwmMainWindow)
             or not issubclass(DwmMainWindow, _A10DwmMainWindow)

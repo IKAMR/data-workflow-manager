@@ -295,8 +295,16 @@ class DistributionAndStartupTests(unittest.TestCase):
     def test_versions_match_and_a2_contracts_remain(self):
         version = (ROOT / 'version.py').read_text(encoding='utf-8')
         project = (ROOT / 'pyproject.toml').read_text(encoding='utf-8')
-        self.assertIn('0.2.4-a3', version)
-        self.assertIn('0.2.4a3', project)
+        # Older feature milestone must also pass for every later alpha/final.
+        from importlib.util import module_from_spec, spec_from_file_location
+        from re import search
+        spec = spec_from_file_location('_dwm_a3_version_rule', ROOT / 'tests/version_assertions.py')
+        rule = module_from_spec(spec)
+        spec.loader.exec_module(rule)
+        rule.assert_release_at_least(self, version, '0.2.4', 3)
+        declared = search(r'(?m)^VERSION\s*=\s*"([^"]+)"', version)
+        self.assertIsNotNone(declared)
+        self.assertIn('version = "' + declared.group(1).replace('-a', 'a') + '"', project)
         entry = (ROOT / 'gui_qt/__main__.py').read_text(encoding='utf-8')
         self.assertIn('from gui_qt.main_v024_a2 import DwmMainWindow as _A2Window', entry)
         self.assertIn('from gui_qt.main_v024_a3 import DwmMainWindow as _A3Window', entry)
