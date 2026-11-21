@@ -1,4 +1,4 @@
-"""Qt desktop entry point with v0.2.4-a4 run-details layout persistence."""
+"""Qt desktop entry point v0.2.4-a5: asynchronous external-tool setup health."""
 from __future__ import annotations
 
 import sys
@@ -85,6 +85,11 @@ def main() -> int:
         if fit_control is not None:
             fit_control.hide()
     _boot_phase("12 Main window constructed")
+    # Install only with the real Qt workbench. Headless startup/crash tests
+    # supply a minimal fake window with no toolbar or Qt widget classes.
+    if hasattr(window, '_toolbar'):
+        from gui_qt.setup_tool_health_v024_a5 import install_tool_health_setup
+        install_tool_health_setup()
     install_canonical_results_menu(window)
     _boot_phase("13 Result navigation installed")
     window.v020_start_page_factory = ProductionStartPage
@@ -102,6 +107,11 @@ def main() -> int:
     _boot_phase("17 Before window.show")
     window.show()
     _boot_phase("18 window.show completed")
+    if hasattr(window, '_toolbar') and os.environ.get('DWM_SAFE_MODE') != '1':
+        # Discovery and version commands run off the UI thread and use no
+        # Source or Work files. SAFE startup deliberately skips optional IO.
+        from gui_qt.tool_health_startup_v024_a5 import schedule_tool_check
+        schedule_tool_check(window, api)
     if len(sys.argv) > 1:
         try:
             window.open_job_list(sys.argv[1])
