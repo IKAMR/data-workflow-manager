@@ -24,7 +24,7 @@
 - Utviklingsgrunnlag: committet `v0.2.1-a16`, GitHub `main` commit `c8aedccb331213fcf5faaceadff7ad7ce4f8d8c9`, inkludert GUI-deltaene a16.1 og a16.2.
 - Sluttversjon: `version.py` = `0.2.1`; Python-distribusjon = `0.2.1`.
 - Tidligere: 118 målrettede tester fra a12 til a16.2 bestått under alpha. **Disse erstatter ikke full `test.bat` med endelig versjon.**
-- For reparasjon av første v0.2.1-ZIP: Pakk `v0.2.1.1.zip` over installert v0.2.1, og kjør **`fix-v0.2.1.bat`** én gang. Denne engangsrettingen oppdaterer fem historiske alpha-versjonsvakter, kontrollerer releasehistorikk og kjører `test.bat`. De opprinnelige funksjonstestene beholdes. **Framtidige releaser skal leveres komplett uten slike skript**, se `docs/RELEASE-VERSION-TEST-RULE.md`. Kjør `test.bat`, kontroller `docs/test-results/v0.2.1.md` og test GUI med reelle Work-data (`1525_004`): begge faglige navigasjonsknapper, metadata/kildekolonner, sjekkliste, faglige funn og rapporteksport.
+- For reparasjon av første v0.2.1-ZIP: Pakk `v0.2.1.1.zip` over installert v0.2.1, og kjør **`fix-v0.2.1.bat`** én gang. Denne engangsrettingen oppdaterer fem historiske alpha-versjonsvakter, kontrollerer releasehistorikk og kjører `test.bat`. De opprinnelige funksjonstestene beholdes. **Framtidige releaser skal leveres komplett uten slike skript**, se `docs/RELEASE-VERSION-TEST-RULE.md`. Kjør `test.bat`, kontroller `docs/test-results/v0.2.1.md` og test GUI med reelle Work-data (lagrede Work-data fra representative Noark 5-uttrekk): begge faglige navigasjonsknapper, metadata/kildekolonner, sjekkliste, faglige funn og rapporteksport.
 - Opprett GitHub release/tag `v0.2.1` først fra godkjent, committet release-kode. Ingen Git-handlinger utføres av deltaen.
 
 ## Videre arbeid

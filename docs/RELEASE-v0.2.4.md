@@ -29,7 +29,7 @@ Endringer siden **v0.2.3** (utviklingsløp v0.2.4-a1–a5):
 
 1. **Resultatvisninger og faglig forståelse:** Bedre samlet tilgang til DWM XPath, Arkade 5, Siegfried/PRONOM, XSD og KS-funn; dokumentert kilde, faktisk teststatus, arkivdel og individfunn må ikke blandes eller dobbelttelles.
 2. **Feil i tidligere prosessering:** Identifisere og rette reelle feil før videre presentasjonsarbeid, blant annet kilde-/dokumentreferanser, presis fil-/hash-evidens, store uttrekk, ekstern CLI-robusthet og avhengighetsrekkefølge der praktiske kjøringer avdekker feil.
-3. **Praktisk depotkontroll:** Teste visninger på tre fullførte WebSak-uttrekk (1525_004–006) og et stort uttrekk (1502_024) uten å omklassifisere teknisk fullført til faglig godkjent.
+3. **Praktisk depotkontroll:** Teste visninger på et representativt utvalg av fullførte Noark 5-uttrekk med ulik størrelse og kompleksitet, uten å omklassifisere teknisk fullført til faglig godkjent.
 4. **Utvidet Wiki:** Videreføre visuell skjerm-for-skjerm-veiledning og teste publikumslesbarhet i den separate GitHub Wiki-en.
 
 ## Releasekontroll før commit, tag og publisering
