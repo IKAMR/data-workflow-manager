@@ -1,4 +1,4 @@
-"""Qt desktop entry point with v0.2.3-a4 guided KS and multi-job safety over the shared multi-job controller."""
+"""Qt desktop entry point v0.2.4-a5: asynchronous external-tool setup health."""
 from __future__ import annotations
 
 import sys
@@ -29,6 +29,11 @@ def main() -> int:
     from gui_qt.main_v022_a11 import DwmMainWindow as _A11DwmMainWindow
     from gui_qt.main_v022_a12 import DwmMainWindow as _A12DwmMainWindow
     from gui_qt.main_v023_a4 import DwmMainWindow
+    from gui_qt.main_v024_a1 import DwmMainWindow as _A1Window
+    from gui_qt.main_v024_a2 import DwmMainWindow as _A2Window
+    from gui_qt.main_v024_a3 import DwmMainWindow as _A3Window
+    from gui_qt.main_v024_a4 import DwmMainWindow as _A4Window
+    DwmMainWindow = _A4Window
     if (not issubclass(DwmMainWindow, _StableDwmMainWindow)
             or not issubclass(DwmMainWindow, _MultiJobDwmMainWindow)
             or not issubclass(DwmMainWindow, _A10DwmMainWindow)
@@ -40,11 +45,13 @@ def main() -> int:
     from gui_qt.production_home_v020_a2 import ProductionStartPage, install_integrated_home
     from gui_qt.depot_profile_v022_a1 import install_depot_profile_controls
     from app.workbench_api_v020_a2 import DwmWorkbenchAPI
+    from app.workbench_api_v024_a2 import DwmWorkbenchAPI as _A2WorkbenchAPI
+    from app.workbench_api_v024_a3 import DwmWorkbenchAPI as _A3WorkbenchAPI
+    DwmWorkbenchAPI = _A3WorkbenchAPI
     from gui_qt.appearance_v0110_a3 import apply_appearance
     from gui_qt.qt_startup_policy_v022_a1_14 import select_qt_startup_features
 
     _boot_phase("04 Imports complete, before QApplication")
-    # Keep app-wide event filters disabled by default after earlier Windows faults.
     features = select_qt_startup_features(os.environ)
     _boot_phase(
         "Qt startup profile: "
@@ -78,6 +85,11 @@ def main() -> int:
         if fit_control is not None:
             fit_control.hide()
     _boot_phase("12 Main window constructed")
+    # Install only with the real Qt workbench. Headless startup/crash tests
+    # supply a minimal fake window with no toolbar or Qt widget classes.
+    if hasattr(window, '_toolbar'):
+        from gui_qt.setup_tool_health_v024_a5 import install_tool_health_setup
+        install_tool_health_setup()
     install_canonical_results_menu(window)
     _boot_phase("13 Result navigation installed")
     window.v020_start_page_factory = ProductionStartPage
@@ -95,6 +107,11 @@ def main() -> int:
     _boot_phase("17 Before window.show")
     window.show()
     _boot_phase("18 window.show completed")
+    if hasattr(window, '_toolbar') and os.environ.get('DWM_SAFE_MODE') != '1':
+        # Discovery and version commands run off the UI thread and use no
+        # Source or Work files. SAFE startup deliberately skips optional IO.
+        from gui_qt.tool_health_startup_v024_a5 import schedule_tool_check
+        schedule_tool_check(window, api)
     if len(sys.argv) > 1:
         try:
             window.open_job_list(sys.argv[1])

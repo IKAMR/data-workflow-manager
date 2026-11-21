@@ -2,8 +2,8 @@
 
 Since v0.2.2-a5 the Noark workflow uses streaming, bounded parallel sf
 processes (100 files per batch) with durable ordered Work checkpoints.
-The former 250,000-file hard limit is removed; Source remains read-only and
-previous completed runs are immutable.
+v0.2.4-a1 isolates malformed JSON responses and records file-level errors
+without inventing valid PRONOM identifications.
 """
 from __future__ import annotations
 
@@ -14,17 +14,16 @@ from app.siegfried_tool_v0111_a3 import inspect_siegfried
 from noark5_workflow.core.context import OperationContext
 from noark5_workflow.core.operation import BaseOperation, ExecutionTarget, OperationDefinition
 from noark5_workflow.core.result import OperationResult
-from .siegfried_stream_v022_a4 import MAX_SF_WORKERS, iter_document_files, scan_document_tree
+from .siegfried_stream_v022_a4 import MAX_SF_WORKERS, iter_document_files
+from .siegfried_resilient_v024_a1 import scan_document_tree
 
 
 def document_files(source: Path, *, cancelled_cb=None, max_files: int | None = None,
                    progress_cb=None, progress_interval: int = 500):
     """Legacy list-returning discovery helper; independent of the a4 scanner.
 
-    Kept self-contained because the earlier a3.5 regression tests isolate this
+    Kept self-contained because earlier a3.5 regression tests isolate this
     function via AST. Production uses scan_document_tree(), never this list.
-    An optional explicit max_files remains available to list-based callers,
-    but it must not impose a limit on production Siegfried execution.
     """
     import os
 
@@ -63,7 +62,7 @@ class SiegfriedPronomOperation(BaseOperation):
     definition = OperationDefinition(
         operation_id='siegfried_pronom_identification',
         name='Siegfried – PRONOM filidentifikasjon',
-        description='Strømmende, gjenopptakbar Siegfried-identifikasjon; lagrer PRONOM-evidens under Work.',
+        description='Strømmende Siegfried-identifikasjon, med gjenopptak og eksplisitte filfeil i Work.',
         execution_target=ExecutionTarget.EITHER,
         category='Systemspesifikt',
     )
@@ -85,7 +84,6 @@ class SiegfriedPronomOperation(BaseOperation):
             return OperationResult(False, 'Source og Work må være angitt.')
         try:
             configured_workers = ctx.settings.get('siegfried_max_workers', 2)
-            # Never truncate a fractional or boolean worker setting silently.
             if (type(configured_workers) not in (int, str) or
                     (isinstance(configured_workers, str) and
                      not configured_workers.strip().isdigit())):
@@ -113,19 +111,37 @@ class SiegfriedPronomOperation(BaseOperation):
             )
             model = run['model']
             target = run['target']
-            ctx.progress(1., 'Siegfried-identifikasjon fullført')
+            failed = int(model.get('files_failed', 0))
+            json_errors = int(model.get('json_response_errors', 0))
+            ctx.progress(1., ('Siegfried skannet med filfeil' if failed else
+                               'Siegfried-identifikasjon fullført'))
+            message = (f'Siegfried identifiserte {model["identified"]} av {model["files_total"]} filer; '
+                       f'{model["unidentified"]} uidentifiserte, {model["ambiguous"]} flertydige, '
+                       f'{failed} identifikasjonsfeil, {json_errors} ugyldige JSON-svar. '
+                       f'Kilde: {model["source_scope"]}. '
+                       f'{"Gjenopptatt fra kontrollpunkt." if run["resumed"] else ""}')
+            warnings = []
+            if failed:
+                warnings.append(
+                    f'Siegfried har {failed} dokumentfiler uten gyldig identifikasjon '
+                    'på grunn av ugyldig JSON. Dette er ikke en godkjent PRONOM-analysesum. '
+                    f'Se manifest og diagnostics i {target}. Kjøring av andre deljobber fortsetter.')
+            if json_errors and not failed:
+                warnings.append(
+                    f'Siegfried ga {json_errors} ugyldige JSON-svar, men identifikasjonene '
+                    'ble hentet ved ny kjøring/deling. Originale svar er bevart i Work-diagnostikk.')
             return OperationResult(
-                True,
-                f'Siegfried identifiserte {model["identified"]} av {model["files_total"]} filer; '
-                f'{model["unidentified"]} uidentifiserte, {model["ambiguous"]} flertydige. '
-                f'Kilde: {model["source_scope"]}. '
-                f'{"Gjenopptatt fra kontrollpunkt." if run["resumed"] else ""}',
+                True, message,
                 data={'run_id': run['run_id'], 'evidence_type': model['evidence_type'],
                       'format_groups': len(model['format_groups']),
                       'files_total': model['files_total'],
+                      'files_failed': failed, 'json_response_errors': json_errors,
+                      'identification_status': model.get('identification_status',
+                                                         'complete_with_file_errors' if failed else 'complete'),
                       'unidentified': model['unidentified'],
                       'output_dir': str(target), 'resumed': run['resumed'],
                       'siegfried_process_workers': workers},
+                warnings=warnings,
                 outputs=[str(target / 'manifest.json'), str(target / 'pronom_statistics.json')],
             )
         except (OSError, ValueError, RuntimeError, TimeoutError,
