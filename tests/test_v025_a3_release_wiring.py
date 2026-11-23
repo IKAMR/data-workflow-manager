@@ -6,15 +6,16 @@ import tomllib
 import unittest
 
 from version import VERSION
+from tests.version_assertions import assert_release_at_least
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class V025A3WiringTests(unittest.TestCase):
-    def test_version_consistency(self):
-        self.assertEqual(VERSION, '0.2.5-a3')
+    def test_version_consistency_and_a3_milestone(self):
+        assert_release_at_least(self, f'VERSION = "{VERSION}"', '0.2.5', 3)
         with (ROOT / 'pyproject.toml').open('rb') as f:
-            self.assertEqual(tomllib.load(f)['project']['version'], '0.2.5a3')
+            self.assertEqual(tomllib.load(f)['project']['version'], VERSION.replace('-a', 'a'))
 
     def test_startup_retains_legacy_tool_health_and_uses_a3(self):
         source = (ROOT / 'gui_qt/__main__.py').read_text(encoding='utf-8')
