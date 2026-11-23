@@ -231,7 +231,9 @@ class JobRunner:
             )
             total = len(op_ids)
             all_ok = True
+            current_index = start_index
             for zero_index in range(start_index, total):
+                current_index = zero_index
                 op_id = op_ids[zero_index]
                 if cancelled_cb and cancelled_cb():
                     job.status = JobStatus.SKIPPED
@@ -305,8 +307,13 @@ class JobRunner:
             return JobRunOutcome(False, False)
         except Exception as exc:
             job.status = JobStatus.FAILED
+            # Exception may happen AFTER a previously resumed operation succeeded.
+            # Record the actual failed operation, not the original start cursor.
+            failed_index = locals().get("current_index", start_index)
+            job.next_operation_index = failed_index
+            job.progress = failed_index / len(op_ids)
             job.message = (
-                f"Fortsettelse feilet - prøv igjen fra operasjon {start_index + 1}"
+                f"Fortsettelse feilet - prøv igjen fra operasjon {failed_index + 1}"
                 if resuming else str(exc)
             )
             log(f"FEIL: {exc}")

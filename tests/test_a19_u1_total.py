@@ -60,7 +60,7 @@ class A19U1Tests(unittest.TestCase):
     def test_registry_exposes_u1_as_own_operation(self):
         registry = build_registry()
         operation = registry.get("analyse_noark5_u1")
-        self.assertEqual("Noark 5 U1 – samlet opptelling", operation.definition.name)
+        self.assertEqual("Noark 5 U1 – samlet opptelling (Legacy)", operation.definition.name)
 
     def test_u1_counts_whole_extraction(self):
         with tempfile.TemporaryDirectory() as tmp:

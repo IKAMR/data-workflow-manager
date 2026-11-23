@@ -7,9 +7,9 @@ from lxml import etree
 
 from noark5_workflow.analysis.definition_engine import (
     AnalysisDefinitionError,
-    run_definition_analysis,
     write_analysis_result,
 )
+from noark5_workflow.analysis.legacy_a170_stream import run_legacy_a170_stream
 from noark5_workflow.core.context import OperationContext
 from noark5_workflow.core.operation import BaseOperation, ExecutionTarget, OperationDefinition
 from noark5_workflow.core.result import OperationResult
@@ -28,7 +28,7 @@ DEFINITION_PATH = (
 class AnalyseNoark5CoreOperation(BaseOperation):
     definition = OperationDefinition(
         operation_id="analyse_noark5_core",
-        name="Noark 5-analyse: arkiv og arkivdel",
+        name="Noark 5-analyse: arkiv og arkivdel (Legacy)",
         description=(
             "Kjører eksternt definerte XPath-analyser basert på U1/U2-grunnlaget "
             "og lagrer et strukturert grunnresultat uavhengig av senere rapportformat."
@@ -79,8 +79,8 @@ class AnalyseNoark5CoreOperation(BaseOperation):
 
         ctx.progress(0.10, "Leser U1/U2-basert analysedefinisjon")
         try:
-            result = run_definition_analysis(arkivstruktur, DEFINITION_PATH)
-        except (OSError, etree.XMLSyntaxError, AnalysisDefinitionError, ValueError) as exc:
+            result = run_legacy_a170_stream(arkivstruktur, DEFINITION_PATH)
+        except (OSError, etree.XMLSyntaxError, etree.XPathError, AnalysisDefinitionError, ValueError) as exc:
             return OperationResult(False, f"Noark 5-analysen feilet: {exc}")
 
         output_path = (
