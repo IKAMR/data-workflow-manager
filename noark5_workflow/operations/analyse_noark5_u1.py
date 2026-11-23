@@ -21,7 +21,7 @@ DEFINITION_PATH = (
 class AnalyseNoark5U1Operation(BaseOperation):
     definition = OperationDefinition(
         operation_id="analyse_noark5_u1",
-        name="Noark 5 U1 – samlet opptelling",
+        name="Noark 5 U1 – samlet opptelling (Legacy)",
         description=(
             "Kjører U1/N5.101 som samlet opptelling for hele Noark 5-uttrekket. "
             "Grunnlaget er den bevarte KDRS Query U01-filen fra 2022-09-21."

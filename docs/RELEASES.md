@@ -9,6 +9,10 @@ Versjonene v0.1.0–v0.1.3 ble utgitt under navnet **Noark 5 Workflow Manager**.
 Nyeste ferdige versjon står øverst. Alpha-trinn dokumenteres ikke som egne
 permanente releaseversjoner.
 
+## v0.2.5
+
+Rettet A170-/A120-analyse av store Noark 5-arkivstrukturer med strømmelesing i den eldre analyseveien og forbedret XPath-utvalg i den definisjonsstyrte motoren. Integrert tidligere manglende A170/A180-arbeid, styrket arkiv-/arkivdelrelasjoner og korrigert kjøremarkør ved gjenopptakelse. Enkel og Avansert modus kan byttes under aktiv kjøring uten å endre jobbdata. Den samlede handlingen «Fortsett og kjør resterende» fortsetter delvis kjørte jobber, starter klare jobber i rekkefølge og hopper over fullførte jobber. Rettet moduloppstarten for Qt-GUI og etablert release-kontroller uten alfa-låst versjonstest. Source, Work og tidligere resultathistorikk bevares. Se `docs/RELEASE-v0.2.5.md` for verifiseringsgrenser og videre arbeid.
+
 ## v0.2.4
 
 Stabilisering av flerjobbkjøring og operatørens arbeidsflate: robust Siegfried/PRONOM-kjøring ved ugyldig JSON med kontrollert fortsettelse, eksplisitt Fortsett/Nullstill med Work-først-lagring, korrigert autosave-status og lokal nedtrekksplassering, bedre Kjøredetaljer med lagring av panel- og kolonnebredder, samt automatisk søk, versjonskontroll og brukerspesifikk lagring av Arkade 5 CLI og Siegfried ved oppstart. Ingen nye Noark 5-regler eller automatisk depotgodkjenning; teknisk fullført betyr ikke faglig godkjent. Se `docs/RELEASE-v0.2.4.md`.

@@ -41,6 +41,7 @@
       "scope": "many",
       "select": "//*[local-name()='arkivdel']",
       "fields": {
+        "system_id": "string(./*[local-name()='systemID'][1])",
         "title": "string(./*[local-name()='tittel'][1])",
         "description": "string(./*[local-name()='beskrivelse'][1])",
         "status": "string(./*[local-name()='arkivdelstatus'][1])",
@@ -49,6 +50,16 @@
         "period_end": "string(./*[local-name()='arkivperiodeSluttDato'][1])",
         "created_date": "string(./*[local-name()='opprettetDato'][1])",
         "closed_date": "string(./*[local-name()='avsluttetDato'][1])"
+      },
+      "ancestor_fields": {
+        "parent_archive_system_id": {
+          "entity": "archive",
+          "field": "system_id"
+        },
+        "parent_archive_title": {
+          "entity": "archive",
+          "field": "title"
+        }
       }
     }
   }
