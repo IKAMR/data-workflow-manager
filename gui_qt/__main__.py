@@ -78,7 +78,11 @@ def main() -> int:
         from gui_qt.file_dialog_contrast_v022_a1_10 import install_file_dialog_navigation_contrast
         install_file_dialog_navigation_contrast(application)
     _boot_phase("10 File-dialog filter stage complete")
+    # Install the existing Setup first.  The format layout attaches to that
+    # already-loaded module without importing PySide6 during fake-Qt startup.
     install_setup_tab()
+    from gui_qt.format_assessment_layout_v026_a2 import install_format_assessment_layout
+    install_format_assessment_layout()
     from gui_qt.setup_reset_v022_a1_5 import install_setup_reset_actions
     install_setup_reset_actions()
     _boot_phase("11 Setup hooks installed, before main-window construction")
