@@ -1,4 +1,4 @@
-"""Qt desktop entry point v0.2.5-a1: safe running-job mode navigation."""
+"""Qt desktop entry point v0.2.5-a3: continue and run remaining jobs."""
 from __future__ import annotations
 
 import sys
@@ -17,7 +17,7 @@ def main() -> int:
     try:
         from PySide6.QtWidgets import QApplication, QMessageBox
     except ImportError:
-        print('PySide6 mangler. Kj\u00f8r: py -m pip install -r requirements-gui.txt', file=sys.stderr)
+        print('PySide6 mangler. Kjør: py -m pip install -r requirements-gui.txt', file=sys.stderr)
         return 2
     _boot_phase("02 PySide6 imported, before DWM bootstrap")
     from gui_qt.bootstrap_v0113_a1 import install
@@ -36,12 +36,14 @@ def main() -> int:
     DwmMainWindow = _A4Window
     from gui_qt.main_v025_a1 import DwmMainWindow as _V025A1Window
     DwmMainWindow = _V025A1Window
+    from gui_qt.main_v025_a3 import DwmMainWindow as _V025A3Window
+    DwmMainWindow = _V025A3Window
     if (not issubclass(DwmMainWindow, _StableDwmMainWindow)
             or not issubclass(DwmMainWindow, _MultiJobDwmMainWindow)
             or not issubclass(DwmMainWindow, _A10DwmMainWindow)
             or not issubclass(DwmMainWindow, _A11DwmMainWindow)
             or not issubclass(DwmMainWindow, _A12DwmMainWindow)):
-        raise RuntimeError('Enkel flerjobbvisning m\u00e5 utvide det eksisterende Qt-hovedvinduet')
+        raise RuntimeError('Enkel flerjobbvisning må utvide det eksisterende Qt-hovedvinduet')
     from gui_qt.canonical_results_v0115_a3 import install_canonical_results_menu
     from gui_qt.start_shell_v020_a1 import install_setup_tab, install_start_navigation
     from gui_qt.production_home_v020_a2 import ProductionStartPage, install_integrated_home
@@ -101,7 +103,7 @@ def main() -> int:
     _boot_phase("15 Integrated home installed")
     if not install_depot_profile_controls(window):
         QMessageBox.warning(window, 'Depotprofil',
-                            'Rapporteringsarbeidsflaten mangler. Depotprofil kan ikke \u00e5pnes.')
+                            'Rapporteringsarbeidsflaten mangler. Depotprofil kan ikke åpnes.')
     if features.popup_filter:
         from gui_qt.combobox_popup_v020_a2 import install_dropdown_positioning
         install_dropdown_positioning(application, window)
@@ -118,7 +120,7 @@ def main() -> int:
         try:
             window.open_job_list(sys.argv[1])
         except Exception as exc:
-            QMessageBox.warning(window, 'Kunne ikke \u00e5pne jobbliste', str(exc))
+            QMessageBox.warning(window, 'Kunne ikke åpne jobbliste', str(exc))
     _boot_phase("19 Entering Qt event loop")
     code = application.exec()
     _boot_phase("20 Qt event loop returned with code " + str(code))
