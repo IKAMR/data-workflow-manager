@@ -39,13 +39,13 @@ teksttreff, XSD-validitet eller intern DWM-regresjon som normativ godkjenning.
   Arkade 5-feltene og de fire allerede eksisterende depotfeltene redigeres
   i samme Work-metadata; øvrige XML-forekomster har egne kildebundne Work-
   korreksjoner og append-only historikk. Like verdier vises nøytralt,
-  ulike/endrede utheves. Se `docs/NOARK5-DIAS-METADATA-V021-A16.md`.
+  ulike/endrede utheves. Se `docs/history/alpha/v0.2.1/NOARK5-DIAS-METADATA-V021-A16.md`.
 - **a16.1 (GUI-opprydding etter a16-test):** 47 Arkade-felt som
   standardvisning, separate depotfelt, faglig gruppert tillegg fra METS,
   teknisk XML-inventar i egen visning. Begge METS-representasjonene har
   kildefelt per metadataelement med forventet plassering, faktisk
   forekomst når bevart kilde er importert, kildeidentitet og SHA-256.
-  Se `docs/NOARK5-DIAS-METADATA-V021-A16-1.md`. Dette er en retting
+  Se `docs/history/alpha/v0.2.1/NOARK5-DIAS-METADATA-V021-A16-1.md`. Dette er en retting
   over a16, ikke et nytt funksjonelt hovedtrinn.
 - **a17 (plan):** Konfigurerbar **depotprofil** uavhengig av Noark-teknisk
   profil og DWM-brukeridentitet. Standard **Test Depot** med fiktive data,
@@ -146,7 +146,7 @@ Work-struktur og skrivebeskyttede kildegrunnlag.
   ødelagt kjøring, og isolering av resultatfiler/logg. Benchmark og test
   før standardoppsett endres. Ingen implementasjon i a11.
 
-Se `docs/NOARK5-CONTROL-TO-PRESERVATION-ROADMAP.md` for prosesskjeden
+Se `docs/reference/noark5/NOARK5-CONTROL-TO-PRESERVATION-ROADMAP.md` for prosesskjeden
 kontroll -> kvalitetssikring -> godkjenning -> bevaring.
 
 ## Operasjonssynlighet og modenhet

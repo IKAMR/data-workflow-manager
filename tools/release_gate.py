@@ -1,11 +1,16 @@
 """Read-only release promotion gate for Data Workflow Manager.
 
-Run from the repo root: py tools/release_gate.py
-Requires no third-party packages. It never changes release files, tests,
-Source, Work, Git history or user data.
+Run from repo root:
+    py tools/release_gate.py --development    # during X.Y.Z-aN
+    py tools/release_gate.py                  # before final release
+
+The development check validates the *hypothetical final version* against
+current-series tests. New tests must use milestone floors, not exact alpha IDs.
+This script never modifies application files, tests, Source, Work or Git.
 """
 from __future__ import annotations
 
+import argparse
 import ast
 from pathlib import Path
 import re
@@ -24,12 +29,7 @@ def _is_version_name(node: ast.AST) -> bool:
 
 
 def _assertion_issues(path: Path, version: str) -> list[str]:
-    """Find direct VERSION asserts which would fail after alpha removal.
-
-    Static precheck complements, but never replaces, actually executing tests.
-    Only examines assertions on VERSION or literal physical-file version
-    statements; unrelated regex tests and deliberate negative fixtures remain.
-    """
+    """Find direct version assertions incompatible with a future final build."""
     text = path.read_text(encoding="utf-8")
     tree = ast.parse(text, filename=str(path))
     issues = []
@@ -43,13 +43,10 @@ def _assertion_issues(path: Path, version: str) -> list[str]:
                 try:
                     matches = re.search(pattern, version) is not None
                 except re.error:
-                    # Let the actual unit test report its invalid regex.
-                    continue
+                    continue  # The actual unittest will flag invalid regexes.
                 if not matches:
                     issues.append(f"{path.name}:{node.lineno}: assertRegex(VERSION, ...) utelukker {version}")
-        elif method in ("assertEqual", "assertNotEqual") and len(node.args) >= 2:
-            if method != "assertEqual":
-                continue
+        elif method == "assertEqual" and len(node.args) >= 2:
             a, b = node.args[:2]
             value = _literal(b) if _is_version_name(a) else _literal(a) if _is_version_name(b) else None
             if isinstance(value, str) and value != version:
@@ -67,12 +64,15 @@ def _assertion_issues(path: Path, version: str) -> list[str]:
 
 
 def release_errors(root: Path, *, require_final: bool = True) -> list[str]:
-    """Return blockers for release identity, changelog, and old alpha guards."""
+    """Check metadata and current-series tests; require history only for final.
+
+    During development, validate the prospective final before alpha-specific
+    assertions have a chance to accumulate. Historical feature tests remain.
+    """
     issues: list[str] = []
     root = Path(root)
-    version_path = root / "version.py"
     try:
-        version_text = version_path.read_text(encoding="utf-8")
+        version_text = (root / "version.py").read_text(encoding="utf-8")
         parsed = VERSION_RE.fullmatch(version_text)
     except OSError as exc:
         return [f"Kan ikke lese version.py: {exc}"]
@@ -81,51 +81,73 @@ def release_errors(root: Path, *, require_final: bool = True) -> list[str]:
     major, minor, patch, alpha = parsed.groups()
     release = f"{major}.{minor}.{patch}"
     version = release + (f"-a{alpha}" if alpha else "")
-    if alpha:
-        if require_final:
-            issues.append(f"{version}: forventet ferdig {release}, ikke alpha")
-        # Alpha builds are not required to have a *finished* release history.
-        if not require_final:
-            return []
-        return issues
+    expected_distribution = release + (f"a{alpha}" if alpha else "")
+
+    if alpha and require_final:
+        issues.append(f"{version}: forventet ferdig {release}, ikke alpha")
+
     try:
         with (root / "pyproject.toml").open("rb") as stream:
             project = tomllib.load(stream)["project"]
-        if project.get("version") != release:
-            issues.append(f"pyproject.toml: versjon {project.get('version')!r} er ulik {release!r}")
+        if project.get("version") != expected_distribution:
+            issues.append(
+                f"pyproject.toml: versjon {project.get('version')!r} er ulik {expected_distribution!r}"
+            )
     except (OSError, KeyError, ValueError, tomllib.TOMLDecodeError) as exc:
         issues.append(f"pyproject.toml: kan ikke verifisere distribusjonsversjonen: {exc}")
-    notes = root / "docs" / f"RELEASE-v{release}.md"
-    if not notes.is_file():
-        issues.append(f"Mangler {notes.relative_to(root)}")
-    history_file = root / "docs" / "RELEASES.md"
-    try:
-        history = history_file.read_text(encoding="utf-8")
-        count = history.count(f"## v{release}\n")
-        if count != 1:
-            issues.append(f"docs/RELEASES.md: forventet nøyaktig én '## v{release}' (fant {count})")
-    except OSError as exc:
-        issues.append(f"docs/RELEASES.md: kan ikke lese: {exc}")
-    series = f"v{major}{minor}{patch}"
-    for test_path in sorted((root / "tests").glob(f"test_{series}*.py")):
+
+    if not alpha:
+        notes = root / "docs" / f"RELEASE-v{release}.md"
+        if not notes.is_file():
+            issues.append(f"Mangler {notes.relative_to(root)}")
+        history_file = root / "docs" / "RELEASES.md"
         try:
-            issues.extend(_assertion_issues(test_path, version))
+            history = history_file.read_text(encoding="utf-8")
+            count = history.count(f"## v{release}\n")
+            if count != 1:
+                issues.append(f"docs/RELEASES.md: forventet nøyaktig én '## v{release}' (fant {count})")
+        except OSError as exc:
+            issues.append(f"docs/RELEASES.md: kan ikke lese: {exc}")
+
+    # Check the real current series against the future final. This prevents
+    # creating new tests that require a specific -aN and later block promotion.
+    series = f"v{major}{minor}{patch}"
+    for test_path in sorted((root / "tests").glob("test_*.py")):
+        try:
+            test_text = test_path.read_text(encoding="utf-8")
+            # Also cover generically named tests that hardcode THIS series.
+            # Do not re-interpret historical milestone fixtures in older tests.
+            if (test_path.name.startswith(f"test_{series}")
+                    or f"{release}-a" in test_text
+                    or f"{re.escape(release)}-a" in test_text
+                    or re.search(rf'{re.escape(release)}a\d+', test_text)):
+                issues.extend(_assertion_issues(test_path, release))
         except (OSError, SyntaxError, UnicodeDecodeError) as exc:
             issues.append(f"{test_path.name}: kan ikke skanne test: {exc}")
     return issues
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--development", action="store_true",
+        help="Kontroller alpha-metadata og framtidig release-beredskap",
+    )
+    args = parser.parse_args(argv)
     root = Path(__file__).resolve().parents[1]
-    issues = release_errors(root)
+    issues = release_errors(root, require_final=not args.development)
     if issues:
-        print("[RELEASE SPERRET] Frigivelse avvist:")
+        print("[RELEASE-SPERRE] Følgende må rettes:")
         for item in issues:
             print("  - " + item)
-        print("Rett filene i release-deltaen og kjør FULL test.bat på sluttversjonen.")
+        print("Rett funnene; kjør deretter full test.bat på faktisk versjon.")
         return 1
-    print("[OK] Release-preflight: versjoner, historikk og alpha-testvakter samsvarer.")
-    print("[MERK] Denne statiske kontrollen erstatter aldri full test.bat.")
+    print("[OK] Versjonsfiler og aktuelle testvakter er konsistente.")
+    if args.development:
+        print("[OK] Ingen oppdagede alpha-låser som sperrer en senere sluttversjon.")
+    else:
+        print("[OK] Release-notater og versjonshistorikk er til stede.")
+    print("[MERK] Statisk kontroll erstatter aldri full test.bat.")
     return 0
 
 

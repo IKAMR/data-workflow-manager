@@ -48,8 +48,8 @@
    forbehold og oppfølgingspunkter **som egen Markdown-fil i samtalen utenfor
    delta-ZIP**. Informasjonsfilen skal ikke bli en ekstra fil i repoet.
 6. En oppdatering av `AGENTS.md` eller annen faktisk repo-regel kan ligge i
-   deltaen **kun når den er en tilsiktet varig repoendring**; dette er ikke en
-   README for hver delta.
+   deltaen **kun når den er en tilsiktet varig repoendring**; dette er ikke
+   en README for hver delta.
 7. Skill mellom **produksjonskode**, **varige regresjonstester** og **engangs-
    installasjonshjelp**. Behold nødvendige produksjonsfiler og reelle tester.
    Slett ikke kode som er i bruk uten å kontrollere import/avhengigheter.
@@ -59,6 +59,25 @@
    overskriv fremmed kode på antakelser.
 9. **Ingen commit, push, merge eller release utføres av AI.** Brukeren utfører
    Git-operasjoner etter kontroll med `test.bat` og praktisk verifisering.
+
+## Varige dokumentasjons- og release-regler fra v0.2.6-a1
+
+1. Bruk `docs/README.md` som teknisk inngang og GitHub Wiki for nybegynnere.
+   **Ingen nye løse filer i `docs/`-roten.** Oppdater kanoniske fagfiler i
+   relevant undermappe. Historiske alpha-notater er allerede arkivert under
+   `docs/history/`; ikke legg nye `V0xx-A*.md` eller andre engangsnotater der.
+2. Kjør `py tools/docs_layout.py --check` før hvert alpha-delta. Denne sperren
+   inngår i `tests/test_docs_layout.py` og avviser nye rotfiler og aktuelle
+   versjonsspesifikke alpha-notater. Eldre kompatibilitetsunntak beholdes.
+3. Nye versjonstester skal verifisere **milepæler**, ikke likhet med
+   `VERSION == "X.Y.Z-aN"`. Bruk `tests/version_assertions.py` og
+   `assert_release_at_least` ved behov. Ikke innfør alpha-låser som må
+   repareres ved sluttversjon.
+4. Kjør `py tools/release_gate.py --development` under utviklingen, og
+   `py tools/release_gate.py` ved ferdig release. Den valgfrie
+   `tools/release_prepare.py` klargjør kun versjonsfilene når gjennomgåtte
+   releasenotater finnes. Full `test.bat` må bestå på både siste alpha og
+   ferdig release. Release-ZIP skal aldri kreve etterfølgende patchscript.
 
 ## Obligatorisk format for foreslått Git commit-tekst
 

@@ -15,11 +15,9 @@ release_errors = _gate.release_errors
 
 
 class ReleaseGateTests(unittest.TestCase):
-    def test_current_release_is_complete(self):
+    def test_current_version_is_consistent_already_during_alpha(self):
         from version import VERSION
-        if "-a" in VERSION:
-            self.skipTest("Alpha er ikke en ferdig release")
-        self.assertEqual(release_errors(ROOT), [])
+        self.assertEqual(release_errors(ROOT, require_final='-a' not in VERSION), [])
 
     def _fixture(self):
         temporary = TemporaryDirectory()
@@ -80,7 +78,8 @@ class Old(unittest.TestCase):
         rule = (ROOT / "docs/RELEASE-VERSION-TEST-RULE.md").read_text(encoding="utf-8")
         self.assertIn("Ingen", rule)
         self.assertIn("test.bat", rule)
-        self.assertIn("komplett", rule)
+        self.assertIn("release_prepare.py", rule)
+        self.assertIn("alpha", rule.lower())
 
 
 if __name__ == "__main__":

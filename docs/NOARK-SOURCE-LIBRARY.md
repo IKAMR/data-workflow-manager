@@ -155,6 +155,6 @@ resultatsamsvar eller depotgodkjenning.
 kravregistreringen fra a9.2 med faktisk DWM-kode/katalog og registrerer bare
 **mulige tekniske koblinger**, aldri automatisk godkjent kravimplementasjon.
 Arbeidsbeskrivelse, fem rapportfiler, eksakt PowerShell-kommando og GUI-plassering
-står i [NOARK5-KRAV-KONTROLL-MATRISE-V021-A10.md](NOARK5-KRAV-KONTROLL-MATRISE-V021-A10.md).
+står i [NOARK5-KRAV-KONTROLL-MATRISE-V021-A10.md](history/alpha/v0.2.1/NOARK5-KRAV-KONTROLL-MATRISE-V021-A10.md).
 Kilde-QA og Saxon/lxml-paritet forblir egne vurderinger; intet normativt
 kildegrunnlag endres av a10.

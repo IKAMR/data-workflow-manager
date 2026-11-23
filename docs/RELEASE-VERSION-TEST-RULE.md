@@ -1,73 +1,64 @@
 # Permanent regel: fra utviklingsalpha til ferdig DWM-release
 
-Denne regelen gjelder **alle** overganger `vX.Y.Z-aN` → `vX.Y.Z`, inkludert
-v0.2.1-a16 → v0.2.1. Ikke bare Noark-arbeidspakken.
+Gjelder alle overganger fra `vX.Y.Z-aN` til `vX.Y.Z`. Ingen funksjonstester
+skal bli ugyldige bare fordi alfasuffikset fjernes.
 
-## 1. Versjon og semantikk
+## Under utvikling – også før siste alpha
 
-- Applikasjonsversjonen i `version.py` endres fra `X.Y.Z-aN` til **ren** `X.Y.Z`.
-  Den fysiske filen inneholder kun `APP_NAME` og `VERSION`.
-- `pyproject.toml` `[project].version` skal være **samme** `X.Y.Z`.
-  Distribusjonsnavnet beholdes.
-- Ferdig release er nyere enn alle `X.Y.Z-aN`. Funksjonstester fra alpha
-  forblir bindende regresjonstester, men må bruke en **nedre versjonsgrense**,
-  ikke hardkodet likhet med ett alpha-trinn.
-- For milepæler brukes `tests/version_assertions.py`:
-  `assert_release_at_least(self, f'VERSION = "{VERSION}"', "X.Y.Z", N)`.
-  Bare en ekte sluttversjon eller en alpha med minst N oppfyller dette.
-- Det er **forbudt** å gi `version.py` ekstra falske alpha-markører, endre
-  runtime-`VERSION` i en test, filtrere bort feilede tester eller simulere
-  tidligere versjonsstrenger for å få grønne tester.
+1. Bruk `VERSION = "X.Y.Z-aN"` i `version.py` og PEP 440-verdien `X.Y.ZaN`
+   i `pyproject.toml`. Den fysiske `version.py` inneholder kun `APP_NAME`
+   og `VERSION`.
+2. Nye funksjons- og regresjonstester skal teste **funksjonalitet**, ikke låses
+   til eksakt alpha-streng. Ved milepælkrav, bruk
+   `tests/version_assertions.py` og `assert_release_at_least(...)`. En ferdig
+   `X.Y.Z` og senere versjoner oppfyller milepælene.
+3. Kjør `py tools/release_gate.py --development` eller
+   `py tools/release_prepare.py --check` ved hvert alpha-trinn. Kontrollene
+   varsler om hardkodede alpha-versjoner før disse skaper release-feil.
+4. Kjør `py tools/docs_layout.py --check`. Nye utviklingsnotater for hver
+   `-aN` skal ikke legges i `docs/`. Oppdater heller kanoniske dokumenter.
+   Historiske alpha-notater i `docs/history/` beholdes som arkiv.
+5. `test.bat` forblir eneste fullstendige regresjonstest for Windows. Ingen
+   release-kontroll erstatter automatiske tester eller praktisk GUI-/Work-test.
 
-## 2. Release-delta er komplett ved utpakking
+## Når siste alpha er ferdig
 
-- ZIP-en skal inneholde alle ferdig redigerte filer i riktige repo-relative
-  stier, både kode, eldre versjonsvakter, release-tester og dokumentasjon.
-- **Ingen** `apply-release.bat`, postinstall-patcher, manuelle kodeutskiftninger
-  eller skjult selvmodifisering under `test.bat`.
-- `docs/RELEASES.md` skal ha nøyaktig én ny `## vX.Y.Z`-oppføring og bevare
-  hele den historiske releaseoversikten, uten å kutte eller skrive om gamle
-  seksjoner. `docs/RELEASE-vX.Y.Z.md` beskriver faktisk omfang og begrensninger.
-- En release-rettingsdelta kan hete `vX.Y.Z.1.zip`, `vX.Y.Z.2.zip` osv. som
-  **pakkenavn**, mens programversjonen fortsatt er `X.Y.Z` inntil en faktisk
-  ny release er besluttet.
+1. Ferdigstill og les gjennom `docs/RELEASE-vX.Y.Z.md` og legg **én** ny
+   `## vX.Y.Z`-seksjon øverst i `docs/RELEASES.md`, uten å fjerne historikk.
+   Notatene skal beskrive faktiske endringer, verifisering og begrensninger.
+2. Klargjør `version.py` og `pyproject.toml` for sluttversjon.
+   Utviklerverktøyet `py tools/release_prepare.py --promote` kan utføre
+   akkurat disse to versjonsbyttene **når** release-notater, historikk og
+   alpha-beredskap er kontrollert. Det lager ingen notater eller testfiks.
+3. Kjør `py tools/release_gate.py`, `py tools/docs_layout.py --check` og
+   deretter hele `test.bat` med faktisk sluttversjon.
+4. Kjør relevante manuelle tester, særlig oppstart, eksisterende jobblister,
+   fortsettelse og bevaring av Work-evidens.
+5. Ferdig delta-ZIP lages fra det samme testede filsettet og inneholder alle
+   endrede filer i repo-relative stier. Kontroller også ZIP-en i ren arbeidskopi.
+6. **Brukeren** godkjenner, committer, pusher, tagger og lager GitHub-release.
 
-## 3. Obligatoriske tester FØR ZIP leveres
+`release_prepare.py --promote` er et frivillig utviklerverktøy før release-
+leveransen, aldri et skript brukeren må kjøre etter utpakking av en release-ZIP.
 
-1. Start med siste **committede alpha**. Gjør alle release-endringer i en
-   isolert arbeidskopi (ikke i Source/Work eller ved å endre arkivdata).
-2. Søk etter alle tester som krever bokstavelig `-aN`, for eksempel
-   `assertRegex(VERSION, r'^X.Y.Z-a...')`, `assertEqual(VERSION, ...)`, og
-   `assertIn('VERSION = "X.Y.Z-aN"', ...)`. Rettes semantisk – funksjonelle
-   assert-er fjernes aldri.
-3. Kjør den skrivebeskyttede **`py tools/release_gate.py`**. Den skal
-   avsløre hardkodede alpha-versjonskrav, feil mellom runtime og distribusjon,
-   og manglende releasehistorikk.
-4. Kjør **hele** `test.bat` med den endelige, fysiske `version.py` og
-   `pyproject.toml`. Ingen tilpasninger bare på brukerens maskin. Dokumenter
-   antall bestått, feilet, feil under kjøring og hoppet over.
-5. Lag ZIP-en **fra samme testede filsett**, pakk den ut i en annen ren kopi av
-   siste alpha og kjør `release_gate.py` + full `test.bat` igjen.
-6. Be bruker kjøre `test.bat` i Windows og relevante GUI-/Work-tester. Ikke
-   be om commit/tag/push før full test og operatørkontroll er grønn.
-7. **Brukeren** committer, pusher og oppretter release/tag i GitHub; assistenten
-   oppretter aldri commit, tag eller release på brukerens vegne.
+## Varige sperrer
 
-## 4. Egen regresjonssperre
+- `tools/release_gate.py` er **read-only**, oppdager versjonssprik og
+  aktuelle testsperrer. Under alpha kontrolleres framtidig ren sluttversjon.
+- `tests/test_release_promotion_guard.py` og `tests/test_release_prepare.py`
+  er ordinære regresjonstester, ikke engangsfiler.
+- `tools/docs_layout.py --check` og `tests/test_docs_layout.py` hindrer
+  at dokumentrot og gjeldende alpha-historikk fylles med nye filer.
+- Det er **forbudt** å lage falske alpha-markører i `version.py`, endre
+  `VERSION` i en test, filtrere bort feilede tester, skjule testfeil eller
+  justere produksjonskode bare for å oppfylle en foreldet versjonsvakt.
+- Ingen `apply-release.bat`, postinstall-patcher, manuelle kodeutskiftninger
+  eller skript for selvmodifisering under `test.bat` skal følge en release-ZIP.
+- Full test skal kjøres etter sluttversjonen, og releasepakke skal kontrolleres
+  i en ny arbeidskopi. En statisk kontroll gir aldri alene release-godkjenning.
 
-`tests/test_release_promotion_guard.py` skal være en ordinær `test.bat`-test.
-Den kjører samme release-preflight for ferdig versjon, og tester også at
-preflight **finner** utgåtte alpha-vakter i syntetiske testfiler.
+## Historisk erfaring – v0.2.1
 
-Denne statiske kontrollen kommer **i tillegg til** fulltest; den må ikke
-brukes som erstatning for å kjøre alle eksisterende funksjonstester.
-
-## 5. Hva gikk galt ved v0.2.1?
-
-Første release-ZIP inneholdt `apply-v0.2.1.bat` i stedet for å inkludere de
-ferdig korrigerte testfilene og den oppdaterte `RELEASES.md`. Brukeren fikk
-seks feil: fem gamle alpha-vakter og én manglende historikkoppføring.
-Det er en feil i release-leveransen, ikke dokumentasjon på feil i Noark-motoren.
-
-**Fast leveranseregel:** En ZIP som trenger et ekstra manuelt patchsteg er
-*ikke* en ferdig release-delta og skal ikke leveres som sådan.
+Første release-ZIP for v0.2.1 krevde en separat patch og førte til flere
+feil fra gamle alpha-vakter og manglende historikk. Slike problemer skal
+oppdages mens alpha-utviklingen pågår, ikke først når sluttversjonen klargjøres.
