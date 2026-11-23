@@ -1,4 +1,4 @@
-"""Qt desktop entry point v0.2.4-a5: asynchronous external-tool setup health."""
+"""Qt desktop entry point v0.2.5-a1: safe running-job mode navigation."""
 from __future__ import annotations
 
 import sys
@@ -34,6 +34,8 @@ def main() -> int:
     from gui_qt.main_v024_a3 import DwmMainWindow as _A3Window
     from gui_qt.main_v024_a4 import DwmMainWindow as _A4Window
     DwmMainWindow = _A4Window
+    from gui_qt.main_v025_a1 import DwmMainWindow as _V025A1Window
+    DwmMainWindow = _V025A1Window
     if (not issubclass(DwmMainWindow, _StableDwmMainWindow)
             or not issubclass(DwmMainWindow, _MultiJobDwmMainWindow)
             or not issubclass(DwmMainWindow, _A10DwmMainWindow)
