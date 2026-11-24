@@ -1,4 +1,4 @@
-# v0.2.6-a3: A210/A230 og kildebundet Arkade PRONOM-evidens
+# A210/A230: kildebundet Arkade PRONOM-evidens i v0.2.6
 
 ## Feil og årsak
 
