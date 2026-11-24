@@ -1,4 +1,4 @@
-"""Qt desktop entry point v0.2.5-a3: continue and run remaining jobs."""
+"""Qt desktop entry point: DWM v0.2.7-a1 depot control overview."""
 from __future__ import annotations
 
 import sys
@@ -96,6 +96,8 @@ def main() -> int:
     # Install only with the real Qt workbench. Headless startup/crash tests
     # supply a minimal fake window with no toolbar or Qt widget classes.
     if hasattr(window, '_toolbar'):
+        from gui_qt.depot_process_v027_a1 import install_depot_process_results_class
+        install_depot_process_results_class(window)
         from gui_qt.setup_tool_health_v024_a5 import install_tool_health_setup
         install_tool_health_setup()
     install_canonical_results_menu(window)
