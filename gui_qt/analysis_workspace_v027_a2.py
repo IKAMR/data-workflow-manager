@@ -154,6 +154,10 @@ class AnalysisWorkspaceDialog(QDialog):
         self.areas.setCurrentRow(0)
         self._part_changed()
 
+    def _area_index(self):
+        # Overridden by a3, whose first entry is "Alle delresultater".
+        return self.areas.currentRow()
+
     def _part_index(self):
         value = self.part.currentData()
         return value if isinstance(value, int) else None
@@ -223,7 +227,7 @@ class AnalysisWorkspaceDialog(QDialog):
             return
         self._update_headline()
         idx, year = self._part_index(), self._year()
-        area = self.areas.currentRow()
+        area = self._area_index()
         self.section.setText(LABELS[area])
         if area == 0:
             self.info.setText('Arkivdelene forblir synlige som eget niv\u00e5. Dobbeltklikk en arkivdel for \u00e5 avgrense analysen.')
@@ -378,7 +382,9 @@ def install_analysis_workspace(window) -> bool:
         except (OSError, ValueError, AttributeError) as exc:
             QMessageBox.warning(window, 'Analyse', str(exc))
             return
-        dialog = AnalysisWorkspaceDialog(snapshot, window)
+        # a3 may supply a richer read-only surface; preserve original routing.
+        dialog_class = getattr(window, '_analysis_dialog_class', AnalysisWorkspaceDialog)
+        dialog = dialog_class(snapshot, window)
         dialog.setStyleSheet(stylesheet_for(window.api.settings))
         dialog.setFont(window.font())
         dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)

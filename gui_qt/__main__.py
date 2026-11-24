@@ -1,4 +1,4 @@
-"""Qt desktop entry point: DWM v0.2.7-a2 Analyse."""
+"""Qt desktop entry point: DWM v0.2.7-a3 Analyse."""
 from __future__ import annotations
 
 import sys
@@ -115,6 +115,8 @@ def main() -> int:
     if hasattr(window, '_toolbar'):
         from gui_qt.analysis_workspace_v027_a2 import install_analysis_workspace
         install_analysis_workspace(window)
+        from gui_qt.analysis_workspace_v027_a3 import install_analysis_workspace_v3
+        install_analysis_workspace_v3(window)
     if features.popup_filter:
         from gui_qt.combobox_popup_v020_a2 import install_dropdown_positioning
         install_dropdown_positioning(application, window)
