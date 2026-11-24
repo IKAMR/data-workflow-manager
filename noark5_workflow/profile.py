@@ -16,10 +16,12 @@ from noark5_workflow.operations import (
 )
 from noark5_workflow.operations.run_siegfried_pronom import SiegfriedPronomOperation
 from noark5_workflow.operations.canonical_evidence_v022_a7 import (
-    BuildNoark5CanonicalEvidenceOperation,
     AnalyzeNoark5ExternalEvidenceOperation,
-    AuditNoark5EvidenceOperation,
     BuildNoark5QaDraftOperation,
+)
+from noark5_workflow.operations.canonical_evidence_v026_a3 import (
+    BuildNoark5CanonicalEvidenceOperation,
+    AuditNoark5EvidenceOperation,
 )
 
 NOARK5_CATEGORIES = (
