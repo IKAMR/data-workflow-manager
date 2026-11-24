@@ -1,4 +1,4 @@
-"""Qt desktop entry point: DWM v0.2.7-a1 depot control overview."""
+"""Qt desktop entry point: DWM v0.2.7-a2 Analyse."""
 from __future__ import annotations
 
 import sys
@@ -110,6 +110,11 @@ def main() -> int:
     if not install_depot_profile_controls(window):
         QMessageBox.warning(window, 'Depotprofil',
                             'Rapporteringsarbeidsflaten mangler. Depotprofil kan ikke åpnes.')
+    # The new primary Analyse surface is additive. The original result center
+    # remains available from Advanced mode: Rapport -> Resultatvisninger (klassisk).
+    if hasattr(window, '_toolbar'):
+        from gui_qt.analysis_workspace_v027_a2 import install_analysis_workspace
+        install_analysis_workspace(window)
     if features.popup_filter:
         from gui_qt.combobox_popup_v020_a2 import install_dropdown_positioning
         install_dropdown_positioning(application, window)
