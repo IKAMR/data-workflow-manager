@@ -117,6 +117,8 @@ def main() -> int:
         install_analysis_workspace(window)
         from gui_qt.analysis_workspace_v027_a3 import install_analysis_workspace_v3
         install_analysis_workspace_v3(window)
+        from gui_qt.analysis_workspace_v027_a4 import install_analysis_workspace_v4
+        install_analysis_workspace_v4(window)
     if features.popup_filter:
         from gui_qt.combobox_popup_v020_a2 import install_dropdown_positioning
         install_dropdown_positioning(application, window)
