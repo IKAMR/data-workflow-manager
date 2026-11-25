@@ -1,4 +1,4 @@
-"""Qt desktop entry point: DWM v0.2.7 Analyse (a2-a5)."""
+"""Qt desktop entry point: DWM v0.2.7 Analyse (a2-a6)."""
 from __future__ import annotations
 
 import sys
@@ -121,6 +121,8 @@ def main() -> int:
         install_analysis_workspace_v4(window)
         from gui_qt.noark_object_browser_v027_a5 import install_analysis_workspace_v5
         install_analysis_workspace_v5(window)
+        from gui_qt.noark5_document_workbench_v027_a6 import install_analysis_workspace_v6
+        install_analysis_workspace_v6(window)
     if features.popup_filter:
         from gui_qt.combobox_popup_v020_a2 import install_dropdown_positioning
         install_dropdown_positioning(application, window)
