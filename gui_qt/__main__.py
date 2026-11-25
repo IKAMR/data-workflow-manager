@@ -1,4 +1,4 @@
-"""Qt desktop entry point: DWM v0.2.7-a3 Analyse."""
+"""Qt desktop entry point: DWM v0.2.7 Analyse (a2-a5)."""
 from __future__ import annotations
 
 import sys
@@ -78,7 +78,7 @@ def main() -> int:
         from gui_qt.file_dialog_contrast_v022_a1_10 import install_file_dialog_navigation_contrast
         install_file_dialog_navigation_contrast(application)
     _boot_phase("10 File-dialog filter stage complete")
-    # Install the existing Setup first.  The format layout attaches to that
+    # Install the existing Setup first. The format layout attaches to that
     # already-loaded module without importing PySide6 during fake-Qt startup.
     install_setup_tab()
     from gui_qt.format_assessment_layout_v026_a2 import install_format_assessment_layout
@@ -110,7 +110,7 @@ def main() -> int:
     if not install_depot_profile_controls(window):
         QMessageBox.warning(window, 'Depotprofil',
                             'Rapporteringsarbeidsflaten mangler. Depotprofil kan ikke åpnes.')
-    # The new primary Analyse surface is additive. The original result center
+    # The primary Analyse surface is additive. The original result center
     # remains available from Advanced mode: Rapport -> Resultatvisninger (klassisk).
     if hasattr(window, '_toolbar'):
         from gui_qt.analysis_workspace_v027_a2 import install_analysis_workspace
@@ -119,6 +119,8 @@ def main() -> int:
         install_analysis_workspace_v3(window)
         from gui_qt.analysis_workspace_v027_a4 import install_analysis_workspace_v4
         install_analysis_workspace_v4(window)
+        from gui_qt.noark_object_browser_v027_a5 import install_analysis_workspace_v5
+        install_analysis_workspace_v5(window)
     if features.popup_filter:
         from gui_qt.combobox_popup_v020_a2 import install_dropdown_positioning
         install_dropdown_positioning(application, window)
