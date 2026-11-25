@@ -123,6 +123,8 @@ def main() -> int:
         install_analysis_workspace_v5(window)
         from gui_qt.noark5_document_workbench_v027_a6 import install_analysis_workspace_v6
         install_analysis_workspace_v6(window)
+        from gui_qt.noark5_format_overview_v027_a7 import install_analysis_workspace_v7
+        install_analysis_workspace_v7(window)
     if features.popup_filter:
         from gui_qt.combobox_popup_v020_a2 import install_dropdown_positioning
         install_dropdown_positioning(application, window)
