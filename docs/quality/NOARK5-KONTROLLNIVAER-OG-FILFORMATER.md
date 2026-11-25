@@ -99,3 +99,30 @@ test.bat
 Åpne Analyse for ett ferdig Noark 5-uttrekk, trykk **Noark 5-kontroller → Velg nivå / Filformater / Dokumentkopiering**, velg direkte **Dokumentfil / Filformat**, kryss av én eller flere reelle PUID-er, kontroller status og detaljer, og test først kopiering av et lite utvalg til et ufarlig og **tomt kontrollområde utenfor Source/Work**. Kontroller kopier og manifest. Test også arkivdel, avviksvurdering, flat struktur og dupliserte filnavn.
 
 **Teststatus:** Full Windows/Qt-prøving og full `test.bat` gjenstår etter utpakking. Lokale målrettede tester verifiserer backend og kilde-/oppstartskontrakter, men er ikke en formell brukergodkjenning.
+
+
+## A8 – PUID-utvalg, sortering og husket outputområde
+
+- Venstre filtypeutvalg er en tabell med **Velg**, **PUID**, **Kat.**, **MIME** og
+  **Filer**. Kolonneoverskriftene sorteres vekselvis stigende og synkende.
+- Den sentrale **PUID-gruppetabellen** har tilsvarende sortering på alle
+  kolonner, inkludert numerisk riktig sortering av antall filer og kopieringer.
+  Sorteringen gjelder hele utvalget **før** sidevis visning; ingen PUID-grupper
+  utelates når tabellen omfatter flere sider.
+- Filnivået er fortsatt en eksplisitt neddrilling via en valgt PUID. Her beholdes
+  kildeindeksens stabile, sidevise rekkefølge som egner seg for millionuttak.
+- Et eget **Outputmappe**-felt viser valgt målmappe. Første kopiering ber om
+  mappevalg, og deretter husker DWM samme målområde mellom øktene via
+  `QSettings('IKAMR', 'DWM-Qt')`. Bruk **Velg outputmappe…** for å endre det.
+  En bortfalt mappe velges på nytt.
+- **PUID-undermapper** er standard kopieringsstruktur, men **Flat mappe**
+  kan velges. Valget lagres i samme lokale innstillinger.
+- En ny `DWM-filutvalg-...`-katalog opprettes for hver eksport, og kilde- og
+  målhash samt kopihistorikk fortsetter å bruke eksisterende A6/A7-protokoll.
+  Source og Work forblir adskilt fra målområdet.
+- MIME er fortsatt en **veiledende kategori**, ikke verifisert MIME fra filinnhold
+  eller en normativ Noark-godkjenning. Faglige vurderinger lagres separat.
+- **Skalering:** Antall individuelle filer kan være over én million. PUID-rader
+  er relativt få og kan sorteres som samlet datasett; det er ikke grunnlag for
+  å sortere vilkårlig hele filregisteret i Qt-minne. Kopiering jobber strømmende
+  fra kildeverifisert SQLite, aldri fra tabellradene.
