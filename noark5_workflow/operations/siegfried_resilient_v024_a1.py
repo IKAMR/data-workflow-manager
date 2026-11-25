@@ -29,6 +29,7 @@ from uuid import uuid4
 
 from app.siegfried_tool_v0111_a3 import parse_siegfried_json
 from . import siegfried_stream_v022_a4 as base
+from .siegfried_publish_v027_a10 import publish_verified_siegfried
 
 ERROR_CODE = 'DWM_SIEGFRIED_INVALID_JSON'
 # Existing a4/a5 tests patch the legacy subprocess boundary on Windows.
@@ -406,7 +407,7 @@ def scan_document_tree(*, source: Path, work: Path, executable: str,
         target = runs / run_id
         if target.exists():
             raise ValueError('Fullført Siegfried-kjøring finnes allerede: ' + str(target))
-        stage.rename(target)
+        publish_verified_siegfried(stage, target, log_cb=log_cb)
         return {'run_id': run_id, 'target': target, 'model': model,
                 'resumed': resumed, 'files_total': processed}
     except Exception as exc:
