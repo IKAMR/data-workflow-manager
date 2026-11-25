@@ -126,3 +126,23 @@ test.bat
   er relativt få og kan sorteres som samlet datasett; det er ikke grunnlag for
   å sortere vilkårlig hele filregisteret i Qt-minne. Kopiering jobber strømmende
   fra kildeverifisert SQLite, aldri fra tabellradene.
+
+
+## A9 – Formatvurdering per PUID og kompakt arbeidsflate
+
+- Den sentrale **PUID-tabellen** viser nå **Formatvurdering** umiddelbart før
+  **Faglig vurdering**. Formatvurderingen hentes direkte fra det aktive
+  formatgrunnlaget (Nasjonalarkivets daterte liste eller historisk Arkade RAF).
+  Kolonnen har kilde-/regeltekst i verktøytips og kan sorteres over alle
+  PUID-gruppene **før** sidevis visning.
+- **Faglig vurdering** er fortsatt et uavhengig, historisert Work-resultat.
+  Verken PUID-identifisering eller treff i en formatliste er et formelt vedtak.
+- Øverst over tabellen finnes **Merk alle · Fjern alle · MIN/MAX visning**.
+  **MIN** skjuler venstre filtypevelger og høyre detaljpanel og lar den sentrale
+  PUID-/filtabellen bruke skjermbredden. **MAX** gjenoppretter alle panelene.
+  Avkryssing i hovedtabellen fungerer også i MIN, og detalj/vurdering kan
+  åpnes fra verktøylinjen. Ingen valgt PUID, status, fil eller kommentar endres
+  ved veksling. Visningsvalget lagres lokalt i DWM Qt-innstillingene.
+- De eksisterende sikkerhetskontrollene, Work-kopihistorikken, målmappevalget
+  og PUID-undermappene videreføres uendret.
+- Eldre Analyse/Resultatvisninger og a5-objektnavigasjon påvirkes ikke.
