@@ -5,7 +5,7 @@ from pathlib import Path
 
 from lxml import etree
 
-from noark5_workflow.analysis.u1_total import run_u1_total
+from noark5_workflow.analysis.u1_stream_v027_a12 import run_u1_stream
 from noark5_workflow.core.context import OperationContext
 from noark5_workflow.core.operation import BaseOperation, ExecutionTarget, OperationDefinition
 from noark5_workflow.core.result import OperationResult
@@ -50,22 +50,27 @@ class AnalyseNoark5U1Operation(BaseOperation):
         source = extraction.metadata_files.get("arkivstruktur")
         if source is None:
             return OperationResult(False, "arkivstruktur.xml ble ikke funnet.")
-
         try:
             definition = json.loads(DEFINITION_PATH.read_text(encoding="utf-8"))
             output_cfg = definition["output"]
         except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
             return OperationResult(False, f"Kunne ikke lese U1-definisjonen: {exc}")
 
-        ctx.progress(0.05, "Starter U1 – samlet opptelling")
+        ctx.progress(0.05, "Starter U1 – strømmende samlet opptelling")
         try:
-            result = run_u1_total(source)
-        except (OSError, etree.XMLSyntaxError, ValueError) as exc:
-            return OperationResult(False, f"U1-analysen feilet: {exc}")
+            result = run_u1_stream(
+                source,
+                progress_cb=lambda count: ctx.progress(
+                    0.50, f"U1 – {count} dokumentobjekter registrert (strømmende)"),
+            )
+        except (OSError, etree.XMLSyntaxError, ValueError, MemoryError) as exc:
+            return OperationResult(
+                False, "U1-strømming feilet ved lesing av arkivstruktur.xml: "
+                       f"{type(exc).__name__}: {exc}",
+            )
 
         result["definition_path"] = str(DEFINITION_PATH)
         result["basis"] = definition.get("basis", {})
-
         output_path = (
             Path(ctx.work_operations)
             / str(output_cfg["relative_dir"])
@@ -77,7 +82,6 @@ class AnalyseNoark5U1Operation(BaseOperation):
             encoding="utf-8",
         )
         ctx.progress(1.0, "U1 – samlet opptelling fullført")
-
         return OperationResult(
             True,
             (

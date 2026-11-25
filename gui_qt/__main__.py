@@ -1,4 +1,4 @@
-"""Qt desktop entry point: DWM v0.2.7 Analyse (a2-a9)."""
+"""Qt desktop entry point: DWM v0.2.7 Analyse (a2-a11)."""
 from __future__ import annotations
 
 import sys
@@ -78,8 +78,6 @@ def main() -> int:
         from gui_qt.file_dialog_contrast_v022_a1_10 import install_file_dialog_navigation_contrast
         install_file_dialog_navigation_contrast(application)
     _boot_phase("10 File-dialog filter stage complete")
-    # Install the existing Setup first. The format layout attaches to that
-    # already-loaded module without importing PySide6 during fake-Qt startup.
     install_setup_tab()
     from gui_qt.format_assessment_layout_v026_a2 import install_format_assessment_layout
     install_format_assessment_layout()
@@ -93,9 +91,10 @@ def main() -> int:
         if fit_control is not None:
             fit_control.hide()
     _boot_phase("12 Main window constructed")
-    # Install only with the real Qt workbench. Headless startup/crash tests
-    # supply a minimal fake window with no toolbar or Qt widget classes.
     if hasattr(window, '_toolbar'):
+        # a11 is loaded only for a real Qt workbench, not headless startup doubles.
+        from gui_qt.batch_discovery_v027_a11 import install_setup_a11, install_batch_discovery
+        install_setup_a11()
         from gui_qt.depot_process_v027_a1 import install_depot_process_results_class
         install_depot_process_results_class(window)
         from gui_qt.setup_tool_health_v024_a5 import install_tool_health_setup
@@ -110,8 +109,6 @@ def main() -> int:
     if not install_depot_profile_controls(window):
         QMessageBox.warning(window, 'Depotprofil',
                             'Rapporteringsarbeidsflaten mangler. Depotprofil kan ikke åpnes.')
-    # The primary Analyse surface is additive. The original result center
-    # remains available from Advanced mode: Rapport -> Resultatvisninger (klassisk).
     if hasattr(window, '_toolbar'):
         from gui_qt.analysis_workspace_v027_a2 import install_analysis_workspace
         install_analysis_workspace(window)
@@ -129,6 +126,7 @@ def main() -> int:
         install_analysis_workspace_v8(window)
         from gui_qt.noark5_format_overview_v027_a9 import install_analysis_workspace_v9
         install_analysis_workspace_v9(window)
+        install_batch_discovery(window)
     if features.popup_filter:
         from gui_qt.combobox_popup_v020_a2 import install_dropdown_positioning
         install_dropdown_positioning(application, window)
@@ -137,8 +135,6 @@ def main() -> int:
     window.show()
     _boot_phase("18 window.show completed")
     if hasattr(window, '_toolbar') and os.environ.get('DWM_SAFE_MODE') != '1':
-        # Discovery and version commands run off the UI thread and use no
-        # Source or Work files. SAFE startup deliberately skips optional IO.
         from gui_qt.tool_health_startup_v024_a5 import schedule_tool_check
         schedule_tool_check(window, api)
     if len(sys.argv) > 1:
