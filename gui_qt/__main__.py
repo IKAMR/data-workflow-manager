@@ -1,4 +1,4 @@
-"""Qt desktop entry point: DWM v0.2.7 Analyse (a2-a11)."""
+"""Qt desktop entry point: DWM v0.2.7 Analyse (a2-a16)."""
 from __future__ import annotations
 
 import sys
@@ -92,7 +92,8 @@ def main() -> int:
             fit_control.hide()
     _boot_phase("12 Main window constructed")
     if hasattr(window, '_toolbar'):
-        # a11 is loaded only for a real Qt workbench, not headless startup doubles.
+        from gui_qt.advanced_splitter_v027_a16 import install_visible_run_history_splitter
+        install_visible_run_history_splitter(window)
         from gui_qt.batch_discovery_v027_a11 import install_setup_a11, install_batch_discovery
         install_setup_a11()
         from gui_qt.depot_process_v027_a1 import install_depot_process_results_class

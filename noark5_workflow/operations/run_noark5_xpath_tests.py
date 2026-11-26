@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import traceback
 
 from noark5_workflow.analysis.master_results import (
-    MasterResultError,
-    build_master_result_set,
-    load_master_result_set,
+    MasterResultError, build_master_result_set, load_master_result_set,
 )
 from noark5_workflow.analysis.xpath_fast_a154 import run_catalog_profiled
 from noark5_workflow.core.artifact_identity import artifact_run_dir, write_artifact_manifest
@@ -17,17 +16,20 @@ from noark5_workflow.core.result import OperationResult
 CATALOG_PATH = Path(__file__).resolve().parents[2] / "config" / "noark5" / "tests" / "xpath_catalog_2026_05_26.json"
 
 
+def _write_failure_traceback(out: Path, exc: Exception) -> Path:
+    path = out / "runner-error.txt"
+    path.write_text(''.join(traceback.format_exception(type(exc), exc, exc.__traceback__)), encoding="utf-8")
+    return path
+
+
 class _BaseNoark5XpathTestsOperation(BaseOperation):
     execution_profile = "normal"
     output_subdir = "xpath"
-
     raw_result_record = True
 
     def raw_result_identity(self, result, ctx):
-        return {
-            "test_id": f"noark5-kdrs-query-2026-05-26-{self.execution_profile}",
-            "definition_version": "6",
-        }
+        return {"test_id": f"noark5-kdrs-query-2026-05-26-{self.execution_profile}",
+                "definition_version": "6"}
 
     def can_run(self, ctx: OperationContext) -> tuple[bool, str]:
         if ctx.work_operations is None:
@@ -37,20 +39,11 @@ class _BaseNoark5XpathTestsOperation(BaseOperation):
         return True, ""
 
     def _run_profile(self, ctx: OperationContext) -> OperationResult:
-        out = artifact_run_dir(
-            ctx,
-            "noark5_tests",
-            self.output_subdir,
-            operation_id=self.definition.operation_id,
-        )
-        write_artifact_manifest(
-            ctx,
-            out,
-            operation_id=self.definition.operation_id,
-            definition_id="noark5-kdrs-query-2026-05-26",
-            definition_version="6",
-        )
-
+        out = artifact_run_dir(ctx, "noark5_tests", self.output_subdir,
+                               operation_id=self.definition.operation_id)
+        write_artifact_manifest(ctx, out, operation_id=self.definition.operation_id,
+                                definition_id="noark5-kdrs-query-2026-05-26",
+                                definition_version="6")
         ctx.progress(0.02, f"Starter {self.definition.name}")
 
         def on_test_progress(phase, current, total, test, status, duration):
@@ -60,27 +53,35 @@ class _BaseNoark5XpathTestsOperation(BaseOperation):
             if phase == "started":
                 fraction = 0.02 + (0.94 * (current - 1) / max(total, 1))
                 ctx.progress(fraction, label)
-                ctx.log(
-                    f"TEST START {current}/{total} | {test['test_id']} | "
-                    f"{job_id} | {point} | {test['source_xml']} | {test['name']}"
-                )
+                ctx.log(f"TEST START {current}/{total} | {test['test_id']} | "
+                        f"{job_id} | {point} | {test['source_xml']} | {test['name']}")
             else:
                 fraction = 0.02 + (0.94 * current / max(total, 1))
                 suffix = f" | {duration:.3f}s" if duration is not None else ""
                 ctx.progress(fraction, f"{label} – {status}{suffix}")
-                ctx.log(
-                    f"TEST SLUTT {current}/{total} | {test['test_id']} | "
-                    f"{job_id} | {point} | {status}{suffix}"
-                )
+                ctx.log(f"TEST SLUTT {current}/{total} | {test['test_id']} | "
+                        f"{job_id} | {point} | {status}{suffix}")
 
-        index = run_catalog_profiled(
-            CATALOG_PATH,
-            ctx.extraction_root,
-            out,
-            include_disabled=True,
-            execution_profile=self.execution_profile,
-            progress_callback=on_test_progress,
-        )
+        try:
+            index = run_catalog_profiled(
+                CATALOG_PATH, ctx.extraction_root, out,
+                include_disabled=True, execution_profile=self.execution_profile,
+                progress_callback=on_test_progress,
+            )
+        except Exception as exc:
+            # A motor exception must never be confused with a Noark test result.
+            # Partial individual test files are kept for diagnosis.
+            try:
+                detail = str(_write_failure_traceback(out, exc))
+            except OSError:
+                detail = str(out)
+            ctx.log(f"XPATH MOTORFEIL: {type(exc).__name__}: {exc} | traceback: {detail}")
+            return OperationResult(
+                False, f"XPath-motorfeil ({self.execution_profile}): "
+                       f"{type(exc).__name__}: {exc}. Delresultater: {out}; traceback: {detail}",
+                data={"output_dir": str(out), "error_file": detail,
+                      "execution_profile": self.execution_profile},
+            )
 
         perf_ref = index.get("performance_diagnostics") or {}
         perf_summary = perf_ref.get("summary") or {}
@@ -94,14 +95,10 @@ class _BaseNoark5XpathTestsOperation(BaseOperation):
                 f"metrics={perf_summary.get('total_metric_evaluation_seconds', 0):.3f}s | "
                 f"{out / perf_ref.get('file', 'performance-diagnostics.json')}"
             )
-
             try:
-                perf_doc = json.loads(
-                    (out / perf_ref["file"]).read_text(encoding="utf-8")
-                )
+                perf_doc = json.loads((out / perf_ref["file"]).read_text(encoding="utf-8"))
             except (OSError, KeyError, json.JSONDecodeError):
                 perf_doc = {}
-
             for error in perf_doc.get("errors", []):
                 context = error.get("error_context") or {}
                 ctx.log(
@@ -135,16 +132,12 @@ class _BaseNoark5XpathTestsOperation(BaseOperation):
                 return OperationResult(
                     False,
                     f"Noark 5-testene ble kjørt, men masterresultatsettet kunne ikke materialiseres: {exc}",
-                    data={
-                        "result_index": index,
-                        "output_dir": str(out),
-                        "artifact_manifest": str(out / "artifact_manifest.json"),
-                        "catalog": str(CATALOG_PATH),
-                        "execution_profile": self.execution_profile,
-                    },
+                    data={"result_index": index, "output_dir": str(out),
+                          "artifact_manifest": str(out / "artifact_manifest.json"),
+                          "catalog": str(CATALOG_PATH),
+                          "execution_profile": self.execution_profile},
                 )
 
-        ctx.progress(1.0, f"{self.definition.name} fullført")
         s = index.get("summary", {})
         regression = index.get("legacy_regression_comparison")
         regression_text = ""
@@ -155,6 +148,8 @@ class _BaseNoark5XpathTestsOperation(BaseOperation):
                 f"{rs.get('mismatches', 0)} mismatch, "
                 f"{rs.get('not_comparable', 0)} ikke sammenlignbare."
             )
+            if rs.get("unavailable_archive_part_reference"):
+                regression_text += " U02 mangler gyldige referanseverdier."
 
         master_text = ""
         if master_path is not None and master_summary is not None:
@@ -163,7 +158,6 @@ class _BaseNoark5XpathTestsOperation(BaseOperation):
                 f"{master_summary.get('available_master_results', 0)} tilgjengelige, "
                 f"{master_summary.get('unavailable_master_results', 0)} utilgjengelige."
             )
-
         perf_text = ""
         if perf_ref:
             perf_text = (
@@ -172,24 +166,34 @@ class _BaseNoark5XpathTestsOperation(BaseOperation):
                 f"{perf_summary.get('total_tree_preparation_seconds', 0):.1f}s tree-preparering, "
                 f"{perf_summary.get('total_metric_evaluation_seconds', 0):.1f}s metrics."
             )
-
-        return OperationResult(
-            True,
+        message = (
             f"Noark 5-testkatalog kjørt ({self.execution_profile}): "
             f"{s.get('ok', 0)} OK, {s.get('source_missing', 0)} mangler kildefil, "
-            f"{s.get('error', 0)} feil.{master_text}{regression_text}{perf_text} Resultat: {out}",
-            data={
-                "result_index": index,
-                "output_dir": str(out),
-                "artifact_manifest": str(out / "artifact_manifest.json"),
-                "catalog": str(CATALOG_PATH),
-                "execution_profile": self.execution_profile,
-                "master_result_set": str(master_path) if master_path is not None else None,
-                "performance_diagnostics": (
-                    str(out / perf_ref["file"]) if perf_ref.get("file") else None
-                ),
-            },
+            f"{s.get('error', 0)} feil.{master_text}{regression_text}{perf_text} Resultat: {out}"
         )
+        data = {
+            "result_index": index, "output_dir": str(out),
+            "artifact_manifest": str(out / "artifact_manifest.json"),
+            "catalog": str(CATALOG_PATH),
+            "execution_profile": self.execution_profile,
+            "master_result_set": str(master_path) if master_path is not None else None,
+            "performance_diagnostics": (
+                str(out / perf_ref["file"]) if perf_ref.get("file") else None
+            ),
+        }
+        # Do not signal a successful QA regression when its technical tests
+        # returned errors. Keep the complete index and comparison available.
+        if self.execution_profile == "regression" and s.get("error", 0):
+            errors = [t for t in index.get("tests", []) if t.get("status") == "error"]
+            first = errors[0] if errors else {}
+            detail = (f" Første feilede test: {first.get('test_id')} "
+                      f"({first.get('file')})." if first else "")
+            ctx.log("XPATH REGRESJON: " + str(s.get("error", 0)) +
+                    " tekniske testfeil; resultater bevart i " + str(out) + detail)
+            return OperationResult(False, message + detail, data=data)
+
+        ctx.progress(1.0, f"{self.definition.name} fullført")
+        return OperationResult(True, message, data=data)
 
 
 class RunNoark5XpathTestsOperation(_BaseNoark5XpathTestsOperation):
