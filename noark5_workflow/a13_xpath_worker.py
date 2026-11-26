@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Headless subprocess worker for the a13 Noark 5 XPath catalogue."""
+"""Headless subprocess worker for the Noark 5 XPath catalogue (a13/a17)."""
 
 import argparse
 import json
@@ -13,7 +13,6 @@ EVENT_PREFIX = "DWM_A13_EVENT\t"
 
 
 def _force_utf8_stdio() -> None:
-    """Use one encoding across worker pipes, logs and the Windows GUI parent."""
     for stream in (sys.stdout, sys.stderr):
         reconfigure = getattr(stream, "reconfigure", None)
         if callable(reconfigure):
@@ -29,7 +28,6 @@ def _emit(payload: dict) -> None:
 
 
 def _redirect_native_stderr(path: Path) -> int:
-    """Redirect OS-level fd 2 so libxml2 diagnostics never leak to console."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
@@ -37,41 +35,26 @@ def _redirect_native_stderr(path: Path) -> int:
         flags |= os.O_BINARY
     fd = os.open(str(path), flags, 0o666)
     os.dup2(fd, 2)
-
-    # On Windows, native libraries may write through the process standard
-    # handle instead of Python/CRT fd 2.  Point that handle at the same file
-    # as well; os.dup2 alone is not sufficient for all libxml2 builds.
     if os.name == "nt":
         try:
             import ctypes
             import msvcrt
-
             stderr_handle = msvcrt.get_osfhandle(2)
-            STD_ERROR_HANDLE = -12
-            ctypes.windll.kernel32.SetStdHandle(
-                STD_ERROR_HANDLE, ctypes.c_void_p(stderr_handle)
-            )
+            ctypes.windll.kernel32.SetStdHandle(-12, ctypes.c_void_p(stderr_handle))
         except Exception:
             pass
-
     if fd != 2:
         os.close(fd)
     return 2
 
 
-
-
 def _install_large_xml_runtime() -> None:
-    """Install a13's scalable XPath evaluator inside the worker process.
-
-    The parent process installs the subprocess wrapper, but the worker starts a
-    fresh Python interpreter.  Without this explicit install the child would
-    execute the original libxml2 XPath engine and could still hit the
-    ``growing nodeset hit limit`` on large Noark 5 XML files.
-    """
+    """Keep a13's working C01/C02 paths; add bounded a17 metric projection."""
     from noark5_workflow.analysis import a13_large_xml
-
     a13_large_xml.install()
+    from noark5_workflow.analysis import a17_xpath_stream
+    a17_xpath_stream.install()
+
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
@@ -90,17 +73,10 @@ def main(argv: list[str] | None = None) -> int:
             request.get("stderr_path")
             or (Path(request["output_dir"]) / "xpath-worker-stderr.log")
         )
-        # lxml/libxml2 can write directly to the native stderr descriptor,
-        # bypassing Python's sys.stderr and subprocess text wrappers. Redirect
-        # fd 2 before importing the XPath engine so these diagnostics are kept
-        # with the run instead of appearing in the user's console.
         os.environ["DWM_A13_NATIVE_STDERR_PATH"] = str(stderr_path)
         _redirect_native_stderr(stderr_path)
         _force_utf8_stdio()
 
-        # The worker is a fresh interpreter. Install the scalable evaluator
-        # here before importing/running xpath_diagnostics; otherwise the child
-        # falls back to the original libxml2 XPath implementation.
         _install_large_xml_runtime()
         from noark5_workflow.analysis.xpath_diagnostics import run_catalog_profiled
 
