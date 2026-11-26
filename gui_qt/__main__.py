@@ -1,4 +1,4 @@
-"""Qt desktop entry point: DWM v0.2.7 Analyse (a2-a16)."""
+"""Qt desktop entry point: DWM v0.2.7 Analyse (a2-a18)."""
 from __future__ import annotations
 
 import sys
@@ -90,6 +90,8 @@ def main() -> int:
         fit_control = getattr(window, 'v022_fit_window_button', None)
         if fit_control is not None:
             fit_control.hide()
+    from gui_qt.active_log_v027_a18 import install_active_run_log
+    install_active_run_log(window)
     _boot_phase("12 Main window constructed")
     if hasattr(window, '_toolbar'):
         from gui_qt.advanced_splitter_v027_a16 import install_visible_run_history_splitter

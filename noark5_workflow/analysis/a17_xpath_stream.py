@@ -217,7 +217,11 @@ class Metric:
             'count(//klasse[klasse]/mappe)', 'count(.//klasse[klasse]/mappe)',
             'count(//registrering[not(dokumentbeskrivelse)]/registreringsID)',
             'count(//dokumentbeskrivelse[not(dokumentobjekt)]/systemID/text())',
-            'count(.//dokumentbeskrivelse[not(dokumentobjekt)]/systemID/text())'}
+            'count(.//dokumentbeskrivelse[not(dokumentobjekt)]/systemID/text())',
+            'count(//registrering[@type="journalpost"]/avskrivning[string-length(avskrivningsmaate)>0]/avskrivningsmaate)',
+            'count(.//registrering[@type="journalpost"]/avskrivning[string-length(avskrivningsmaate)>0]/avskrivningsmaate)',
+            'count(//registrering[@type="journalpost"]/avskrivning[string-length(referanseAvskrivesAvJournalpost)>0]/referanseAvskrivesAvJournalpost)',
+            'count(.//registrering[@type="journalpost"]/avskrivning[string-length(referanseAvskrivesAvJournalpost)>0]/referanseAvskrivesAvJournalpost)'}
         if not is_deferred:
             self.selectors = [(sign, Selector(path)) for sign, path in self.paths]
         self.counts = [0] * len(self.paths)
@@ -237,6 +241,10 @@ class Metric:
                 'count(//registrering[not(dokumentbeskrivelse)]/registreringsID)': ('registrering', '!dokumentbeskrivelse', 'registreringsID'),
                 'count(//dokumentbeskrivelse[not(dokumentobjekt)]/systemID/text())': ('dokumentbeskrivelse', '!dokumentobjekt', 'systemID#text'),
                 'count(.//dokumentbeskrivelse[not(dokumentobjekt)]/systemID/text())': ('dokumentbeskrivelse', '!dokumentobjekt', 'systemID#text'),
+                'count(//registrering[@type="journalpost"]/avskrivning[string-length(avskrivningsmaate)>0]/avskrivningsmaate)': ('avskrivning', 'registration@journalpost', 'avskrivningsmaate#length'),
+                'count(.//registrering[@type="journalpost"]/avskrivning[string-length(avskrivningsmaate)>0]/avskrivningsmaate)': ('avskrivning', 'registration@journalpost', 'avskrivningsmaate#length'),
+                'count(//registrering[@type="journalpost"]/avskrivning[string-length(referanseAvskrivesAvJournalpost)>0]/referanseAvskrivesAvJournalpost)': ('avskrivning', 'registration@journalpost', 'referanseAvskrivesAvJournalpost#length'),
+                'count(.//registrering[@type="journalpost"]/avskrivning[string-length(referanseAvskrivesAvJournalpost)>0]/referanseAvskrivesAvJournalpost)': ('avskrivning', 'registration@journalpost', 'referanseAvskrivesAvJournalpost#length'),
             }
             self.deferred = deferred.get(expression)
         if self.type in {'group_xpath','year_counts_by_node'}:
@@ -255,6 +263,19 @@ class Metric:
         if self.deferred is not None:
             target, condition, child = self.deferred
             if frame['tag'] != target or (part_depth is not None and len(stack)-1 <= part_depth):
+                return
+            if condition == 'registration@journalpost':
+                # XPath selects only avskrivning children of journalpost registrations.
+                # Evaluate when the entire avskrivning element has closed, so the
+                # direct child text is available without keeping a full XML tree.
+                parent = stack[-2] if len(stack) >= 2 else None
+                if (parent is None or parent['tag'] != 'registrering'
+                        or parent['attrs'].get('type') != 'journalpost'):
+                    return
+                name = child.split('#', 1)[0]
+                # XPath string-length() checks raw character length, not strip().
+                if frame['children'][name] and len(frame['values'].get(name, '')) > 0:
+                    self.counts[0] += frame['children'][name]
                 return
             has = bool(frame['children'][condition.lstrip('!')])
             if condition.startswith('!'):
@@ -499,6 +520,8 @@ class StreamPlan:
                 elem.clear()
                 continue
             frame['text'] = ''.join(elem.itertext()).strip() if len(elem)==0 else (elem.text or '').strip()
+            if frame['tag'] in {'avskrivningsmaate', 'referanseAvskrivesAvJournalpost'}:
+                frame['raw_text'] = ''.join(elem.itertext())
             # The element's direct children have been released from the XML
             # parser, but children/values are retained in the small frame.
             for metric in self.whole_by_tag.get(frame['tag'], ()):
@@ -551,7 +574,9 @@ class StreamPlan:
                         if ancestor['tag']=='dokumentbeskrivelse':
                             ancestor['document_objects'] = ancestor.get('document_objects',0) + 1
                             break
-                if not frame['children'] or frame['tag'] in {'opprettetDato','avsluttetDato','systemID','tittel','arkivdelstatus'}:
+                if frame['tag'] in {'avskrivningsmaate', 'referanseAvskrivesAvJournalpost'}:
+                    parent['values'].setdefault(frame['tag'], frame.get('raw_text', ''))
+                elif not frame['children'] or frame['tag'] in {'opprettetDato','avsluttetDato','systemID','tittel','arkivdelstatus'}:
                     parent['values'].setdefault(frame['tag'], frame['text'])
             elem.clear()
             parent_elem = elem.getparent()
