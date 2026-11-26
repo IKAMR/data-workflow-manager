@@ -11,7 +11,7 @@ from threading import Thread
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
-    QComboBox, QDialog, QHBoxLayout, QLabel, QMessageBox, QPushButton,
+    QCheckBox, QComboBox, QDialog, QHBoxLayout, QLabel, QMessageBox, QPushButton,
     QTableWidget, QTableWidgetItem, QVBoxLayout,
 )
 
@@ -20,6 +20,9 @@ from app.additional_subjobs_v027_a14 import (
     inspect_additional_subjob, run_additional_subjob,
 )
 from app.workflow_dependencies_v022_a7 import BY_ID, dependency_label
+from app.aftercare_v027_a15 import (
+    aftercare_plan, aftercare_summary, execute_aftercare, read_aftercare,
+)
 
 
 def _full_name(operation_id: str, catalog: dict) -> str:
@@ -28,7 +31,7 @@ def _full_name(operation_id: str, catalog: dict) -> str:
 
 
 class AdditionalSubjobsDialog(QDialog):
-    def __init__(self, window):
+    def __init__(self, window, *, selected_operation=None, selected_job_id=None):
         super().__init__(window)
         self.window = window
         self.api = window.api
@@ -51,7 +54,7 @@ class AdditionalSubjobsDialog(QDialog):
         for oid in sorted(BY_ID, key=lambda k: BY_ID[k].number):
             if oid != 'dias_package' and oid in self.catalog:
                 self.operation.addItem(_full_name(oid, self.catalog), oid)
-        index = self.operation.findData(SIEGFRIED)
+        index = self.operation.findData(selected_operation or SIEGFRIED)
         if index >= 0:
             self.operation.setCurrentIndex(index)
         self.operation.currentIndexChanged.connect(self._update)
@@ -83,7 +86,9 @@ class AdditionalSubjobsDialog(QDialog):
         for i, job in enumerate(jobs):
             check = QTableWidgetItem('')
             check.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsUserCheckable)
-            check.setCheckState(Qt.CheckState.Checked)
+            check.setCheckState(
+                Qt.CheckState.Checked if selected_job_id is None or job.job_id == selected_job_id
+                else Qt.CheckState.Unchecked)
             self.table.setItem(i, 0, check)
             name = job.name or job.job_id
             label = QTableWidgetItem(f'{job.job_id}  {name}')
@@ -93,6 +98,16 @@ class AdditionalSubjobsDialog(QDialog):
             self.table.setItem(i, 2, QTableWidgetItem(''))
             self._job_ids.append(job.job_id)
 
+        self.auto_refresh = QCheckBox(
+            'Oppdater avhengig evidens og rapporter automatisk', self)
+        self.auto_refresh.setChecked(True)
+        self.auto_refresh.setToolTip(
+            'Gjenbruker ferdige tekniske tester, men fornyer etterjobbene som bygger paa valgt deljobb.')
+        layout.addWidget(self.auto_refresh)
+        self.resume = QCheckBox(
+            'Fortsett tidligere stoppet etterbehandling uten aa gjenta teknisk deljobb', self)
+        self.resume.setChecked(True)
+        layout.addWidget(self.resume)
         self.note = QLabel('', self)
         self.note.setWordWrap(True)
         layout.addWidget(self.note)
@@ -115,27 +130,47 @@ class AdditionalSubjobsDialog(QDialog):
 
     def _update(self, *_args):
         operation = self.operation.currentData()
+        resumes = 0
         for i, job_id in enumerate(self._job_ids):
             try:
                 job = self.api._require_job(job_id)
                 if operation in job.workflow_ids:
-                    text = 'Kjør eksisterende deljobb separat på nytt'
+                    text = 'Kjor eksisterende deljobb separat paa nytt'
                 else:
                     extended_workflow(job, operation, self.catalog)
-                    text = ('Tidligere registrert tilleggskjøring – kjør på nytt'
+                    text = ('Tidligere registrert tilleggskjoring'
                             if operation in additional_ids(job)
-                            else 'Legg til som tilleggskjøring (uten å nullstille 100 %)')
+                            else 'Registrer som tilleggskjoring (behold 13/13)')
+                # When this operation has not been registered yet, preview its
+                # downstream based on the historic workflow without mutating it.
+                if operation in job.workflow_ids or operation in additional_ids(job):
+                    plan = aftercare_plan(job, operation)
+                    refresh = plan.downstream
+                else:
+                    from app.aftercare_v027_a15 import affected_operations
+                    refresh = tuple(o for o in affected_operations(operation)
+                                    if o in job.workflow_ids)
+                if refresh:
+                    text += '\nEtterjobber: ' + ', '.join(dependency_label(o) for o in refresh)
+                state = read_aftercare(job)
+                if (state.get('source_operation') == operation
+                        and state.get('source_completed')
+                        and state.get('status') in ('pending', 'running', 'blocked')):
+                    resumes += 1
+                    text += '\nTidligere etterbehandling kan fortsettes'
             except Exception as exc:
-                text = 'Kan ikke kjøres: ' + str(exc)
+                text = 'Kan ikke kjores: ' + str(exc)
             item = self.table.item(i, 2)
             item.setText(text)
             item.setToolTip(text)
+        self.resume.setVisible(bool(resumes))
+        self.resume.setText(
+            f'Fortsett ufullstendig etterbehandling ({resumes} jobb(er)) uten ny teknisk kjoring')
         self.note.setText(
-            'Hver kjøring får egen logg i eksisterende Work. Teknisk ferdigstatus og '
-            'hovedjobbens 100 % beholdes. Tillegg vises i egne Work-kjørelogger, ikke i 13/13. '
-            'Tidligere resultater slettes ikke av dialogen, '
-            'men den valgte deljobben kan skrive over egne resultatfiler. '
-            'Rapporter og evidens oppdateres ikke automatisk etter en tilleggskjøring.'
+            'Hver deljobb far egen varig Work-logg. Den opprinnelige arbeidsflyten og '
+            '13/13-statusen endres ikke. Ved automatisk oppdatering kjores bare '
+            'berorte, tidligere fullforte etterjobber i avhengighetsrekkefolge. '
+            'Ved feil stoppes etterkjeden, og utdaterte rapporter merkes tydelig.'
         )
 
     def _start(self):
@@ -146,23 +181,56 @@ class AdditionalSubjobsDialog(QDialog):
             QMessageBox.information(self, 'Velg deljobb', 'Velg minst ett uttrekk.')
             return
         if self.window._worker is not None or self.api.running:
-            QMessageBox.warning(self, 'Kjøring pågår', 'Avslutt kjøringen før endringer.')
+            QMessageBox.warning(self, 'Kjoring pagar', 'Avslutt kjoringen for endringer.')
             return
         if not self.api.workspace().job_list_path:
-            QMessageBox.warning(self, 'Lagre først', 'Lagre jobblisten før tilleggskjøring.')
+            QMessageBox.warning(self, 'Lagre forst', 'Lagre jobblisten for tilleggskjoring.')
             return
-
-        missing, warnings, errors = [], [], []
+        missing, warnings, errors, plan_text = [], [], [], []
+        approved_warnings = set()
         for job_id in jobs:
             try:
                 job = self.api._require_job(job_id)
                 if operation not in job.workflow_ids:
-                    missing.append(job_id)
+                    if operation not in additional_ids(job):
+                        missing.append(job_id)
+                    extended_workflow(job, operation, self.catalog)
+                # Before any operation is started, approve warnings for its
+                # ENTIRE declared chain. The actual step is rechecked at run
+                # time, and any NEW warning blocks rather than silently passes.
                 report = inspect_additional_subjob(self.api, job_id, operation)
-                errors.extend(f'{job_id}: {item.message}' for item in report.errors)
-                errors.extend(f'{job_id}: Work må klargjøres: {item.path}'
-                              for item in report.actions)
-                warnings.extend(f'{job_id}: {item.message}' for item in report.warnings)
+                errors.extend(f'{job_id}: {i.message}' for i in report.errors)
+                errors.extend(f'{job_id}: Work ma klargjores: {a.path}'
+                              for a in report.actions)
+                for item in report.warnings:
+                    warnings.append(f'{job_id} {dependency_label(operation)}: {item.message}')
+                    approved_warnings.add((operation, str(item.message)))
+                # An omitted operation has the same descendant graph; the
+                # parent workflow never needs to be modified for a preview.
+                if operation in job.workflow_ids or operation in additional_ids(job):
+                    plan = aftercare_plan(job, operation)
+                    downstream = plan.downstream
+                    unconfigured = plan.not_configured
+                else:
+                    from app.aftercare_v027_a15 import affected_operations
+                    downstream = tuple(x for x in affected_operations(operation)
+                                       if x in job.workflow_ids[:job.next_operation_index])
+                    unconfigured = tuple(x for x in affected_operations(operation)
+                                         if x not in job.workflow_ids)
+                if self.auto_refresh.isChecked():
+                    for child in downstream:
+                        preflight = inspect_additional_subjob(self.api, job_id, child)
+                        errors.extend(f'{job_id} {dependency_label(child)}: {i.message}'
+                                      for i in preflight.errors)
+                        errors.extend(f'{job_id} {dependency_label(child)}: Work: {a.path}'
+                                      for a in preflight.actions)
+                        for item in preflight.warnings:
+                            warnings.append(f'{job_id} {dependency_label(child)}: {item.message}')
+                            approved_warnings.add((child, str(item.message)))
+                msg = f'{job_id}: 1 teknisk + {len(downstream) if self.auto_refresh.isChecked() else 0} etterjobber'
+                if unconfigured:
+                    msg += ' (ikke konfigurerte: ' + ', '.join(dependency_label(i) for i in unconfigured) + ')'
+                plan_text.append(msg)
             except Exception as exc:
                 errors.append(f'{job_id}: {exc}')
         if operation == SIEGFRIED:
@@ -173,70 +241,83 @@ class AdditionalSubjobsDialog(QDialog):
         if errors:
             QMessageBox.warning(self, 'Deljobb blokkert', '\n'.join(errors[:12]))
             return
+        # Never silently approve warnings that are omitted from the dialog.
+        # Split a large approval batch into smaller explicit selections.
+        if len(warnings) > 8:
+            QMessageBox.warning(self, 'For mange advarsler',
+                'Forhandskontrollen fant mer enn aatte advarsler. '
+                'Velg faerre uttrekk slik at alle avvik kan vises og godkjennes.')
+            return
+        resume = self.resume.isVisible() and self.resume.isChecked()
         question = QMessageBox(self)
-        question.setWindowTitle('Bekreft selektiv kjøring')
+        question.setWindowTitle('Etterkontroll med avhengigheter')
         question.setIcon(QMessageBox.Icon.Warning)
         question.setText(
-            f'{_full_name(operation, self.catalog)}\n'
-            f'Antall jobber: {len(jobs)} | Nye tillegg: {len(missing)}\n\n'
-            'Eksisterende kjørestatus og arbeidsflyt beholdes. '
-            'Deljobben kan erstatte egne tidligere resultatfiler i Work. '
-            'Avhengige rapporter oppdateres IKKE automatisk.\n\n'
-            + ('Forhåndskontroll: ' + '\n'.join(warnings[:5]) + '\n\n' if warnings else '')
-            + 'Gjennomføre disse enkeltkjøringene?'
+            _full_name(operation, self.catalog) + '\n'
+            + '\n'.join(plan_text) + '\n\n'
+            + ('Tidligere ufullstendig etterbehandling fortsettes der det er mulig.\n'
+               if resume else '')
+            + ('Avhengige etterjobber oppdateres automatisk.\n' if self.auto_refresh.isChecked()
+               else 'Etterbehandling UTSETTES; rapportene vil vaere utdaterte.\n')
+            + 'Opprinnelig jobbstatus og historikk beholdes. '
+            + 'Kjoringen er ikke en faglig godkjenning.\n\n'
+            + ('Forhandskontroll: ' + '\n'.join(warnings[:8]) + '\n\n'
+               if warnings else '')
+            + 'Gjennomfore?'
         )
-        yes = question.addButton('Start deljobbene', QMessageBox.ButtonRole.YesRole)
+        yes = question.addButton('Start etterkontroll', QMessageBox.ButtonRole.YesRole)
         question.addButton('Avbryt', QMessageBox.ButtonRole.NoRole)
         question.exec()
         if question.clickedButton() is not yes:
             return
-
-        # Register missing IDs explicitly before launching the worker. The
-        # parent workflow itself is not edited and 100% stays 100%.
+        # Persist any new optional operation before starting the worker. This
+        # never changes parent workflow_ids, cursor or completed status.
         try:
             for job_id in missing:
                 add_additional_subjob(self.api, job_id, operation)
         except Exception as exc:
-            QMessageBox.warning(self, 'Kunne ikke lagre tilleggskjøring',
-                'Ingen kjøring er startet. Kontroller jobblisten: ' + str(exc))
+            QMessageBox.warning(self, 'Kunne ikke lagre tilleggskjoring', str(exc))
             return
         window = self.window
         window._batch_stop.clear()
         window._worker_messages = Queue()
         window._set_running_ui(True)
         window._append_log(
-            f'a14: starter {_full_name(operation, self.catalog)} for {len(jobs)} jobb(er).'
+            'a15: avhengighetsstyrt ' + _full_name(operation, self.catalog)
+            + f' for {len(jobs)} jobb(er).'
         )
+        update = self.auto_refresh.isChecked()
+        approvals = tuple(approved_warnings)
         def execute():
             try:
                 for job_id in jobs:
                     if window._batch_stop.is_set():
-                        window._worker_messages.put(('info', 'a14: avbrutt mellom jobber.'))
+                        window._worker_messages.put(('info', 'a15: stoppet mellom jobber.'))
                         break
                     window._worker_messages.put(('selected', job_id))
-                    try:
-                        if operation in self.api._require_job(job_id).workflow_ids:
-                            result = self.api.run_subjob(
-                                job_id, operation, allow_rerun=True,
-                                acknowledge_warnings=bool(warnings),
-                            )
-                        else:
-                            result = run_additional_subjob(
-                                self.api, job_id, operation,
-                                acknowledge_warnings=bool(warnings),
-                            )
+                    def report_step(oid, ok, detail):
                         window._worker_messages.put(('info',
-                            f'{job_id}: {dependency_label(operation)} – '
-                            + ('OK' if result else 'FEIL (se Work-logg)')))
+                            f'{job_id} {dependency_label(oid)}: '
+                            + ('OK' if ok else 'FEIL') + ' - ' + detail))
+                    try:
+                        ok = execute_aftercare(
+                            self.api, job_id, operation,
+                            update_dependents=update, resume=resume,
+                            approved_warnings=approvals,
+                            cancelled=window._batch_stop.is_set,
+                            progress=report_step,
+                        )
+                        state = aftercare_summary(self.api._require_job(job_id))
+                        window._worker_messages.put(('info',
+                            f'{job_id}: ' + ('OK' if ok else 'UTDATERT / FEIL')
+                            + ' - ' + state))
                     except Exception as exc:
                         window._worker_messages.put(('info', f'{job_id}: FEIL: {exc}'))
             except Exception as exc:
                 window._worker_messages.put(('error', str(exc)))
             finally:
-                window._worker_messages.put(('done',
-                    f'a14: selektiv {dependency_label(operation)}-kjøring avsluttet.'))
-
-        worker = Thread(target=execute, name='dwm-a14-supplemental-subjob', daemon=True)
+                window._worker_messages.put(('done', 'a15: etterkontroll avsluttet.'))
+        worker = Thread(target=execute, name='dwm-a15-aftercare', daemon=True)
         window._worker = worker
         worker.start()
         self.accept()
@@ -269,6 +350,46 @@ def install_additional_subjobs(window):
             menu.addAction(action)
             break
     window.a14_additional_subjobs_action = action
+    # a15: the legacy Advanced "run selected subjob" button/action/context
+    # menu must not bypass dependent-evidence invalidation. All three GUI
+    # entry points now open the same guarded aftercare review dialog, already
+    # focused on the user's selected operation and selected JOB.
+    def open_aftercare_for_selection(*_unused):
+        chosen = window._a9_selected_operation_id()
+        if not chosen or not window._active_id:
+            QMessageBox.information(window, 'Velg deljobb',
+                'Velg en deljobb og en aktiv jobb i Arbeidsflyt-panelet.')
+            return
+        # AIP and unsupported operations retain the established selective
+        # runner. They must never silently become a Siegfried selection.
+        if chosen == 'dias_package' or chosen not in BY_ID:
+            original = getattr(window, '_a15_original_selective_run', None)
+            if callable(original):
+                return original()
+            QMessageBox.information(window, 'Deljobb',
+                'Bruk den ordinare arbeidsflyten for denne operasjonen.')
+            return
+        if chosen not in window.api._registry_catalog():
+            QMessageBox.warning(window, 'Deljobb',
+                'Valgt deljobb er ikke tilgjengelig i denne versjonen.')
+            return
+        AdditionalSubjobsDialog(
+            window, selected_operation=chosen,
+            selected_job_id=window._active_id,
+        ).exec()
+    for trigger in (getattr(window, 'subjob_run_button', None),
+                    getattr(window, 'subjob_run_action', None)):
+        if trigger is None:
+            continue
+        signal = (trigger.clicked if hasattr(trigger, 'clicked')
+                  else trigger.triggered)
+        try:
+            signal.disconnect()
+        except (RuntimeError, TypeError):
+            pass
+        signal.connect(open_aftercare_for_selection)
+    window._a15_original_selective_run = getattr(window, '_a9_run_selected_subjob', None)
+    window._a9_run_selected_subjob = open_aftercare_for_selection
     basic = getattr(window, '_a2_step_groups', {}).get('run')
     if basic is not None and basic.layout() is not None:
         button = QPushButton('Legg til / kjør deljobb på nytt…', basic)
@@ -276,3 +397,6 @@ def install_additional_subjobs(window):
         button.clicked.connect(lambda: AdditionalSubjobsDialog(window).exec())
         basic.layout().addWidget(button)
         window.a14_basic_button = button
+    # a15: responsive Simple run layout using the existing widgets and actions.
+    from gui_qt.basic_run_compact_v027_a15 import install_compact_simple_run
+    install_compact_simple_run(window)

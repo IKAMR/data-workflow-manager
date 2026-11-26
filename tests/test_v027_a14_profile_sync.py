@@ -64,7 +64,7 @@ class NewBatchJobProfileA14Tests(unittest.TestCase):
         ast.parse(text)
         self.assertIn('preset.clicked.disconnect()', text)
         self.assertIn('preset.clicked.connect(window._a8_choose_run_profile)', text)
-        self.assertIn('run_additional_subjob(', text)
+        self.assertIn('execute_aftercare(', text)
 
 
 if __name__ == '__main__':
