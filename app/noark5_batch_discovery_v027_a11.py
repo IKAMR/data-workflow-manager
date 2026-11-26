@@ -234,7 +234,8 @@ def work_target_state(target: str | Path) -> str:
     return 'new'
 
 
-def create_direct_work_job(api, candidate: Candidate, target: Path, *, on_created=None) -> str:
+def create_direct_work_job(api, candidate: Candidate, target: Path, *,
+                           on_created=None, workflow_ids=None) -> str:
     """Register one approved batch job using precisely the selected Work path.
 
     The GUI calls this only after explicit operator confirmation. Existing Work
@@ -266,6 +267,19 @@ def create_direct_work_job(api, candidate: Candidate, target: Path, *, on_create
             name=candidate.package_root.name or candidate.source.name,
             profile_id='noark5',
         )
+        # Apply the *new* common run profile, not the legacy discovery sequence.
+        # Leave explicitly configured jobs untouched; batch creates fresh jobs.
+        apply_flow = getattr(api, 'set_workflow', None)
+        if callable(apply_flow):
+            if workflow_ids is None:
+                from app.run_profiles_v022_a8 import selected_default
+                workflow_ids = selected_default(api.settings).operation_ids
+            if not workflow_ids:
+                raise ValueError('Kjøreprofilen mangler deljobber.')
+            apply_flow(view.job_id, tuple(workflow_ids))
+        elif workflow_ids is not None:
+            # Explicit profile requests may never be silently ignored.
+            raise ValueError('Workbench API mangler støtte for moderne kjøreprofil.')
         # Basic mode requires BOTH paths to equal the selected Work directory.
         # package_root is only the provenance of Source, not the Work root.
         api.update_storage(view.job_id, {

@@ -263,6 +263,20 @@ class BatchDiscoveryDialog(QDialog):
         info_choose.clicked.connect(self._choose_info)
         info_row.addWidget(info_choose)
         form.addRow('Ekstern info.xml-katalog (valgfri):', info_row)
+        # a14: explicit modern profile, shared with Setup and Advanced mode.
+        from app.run_profiles_v022_a8 import available_profiles, selected_default
+        self.profile_chooser = QComboBox(self)
+        default_id = selected_default(self.api.settings).profile_id
+        for profile in available_profiles(self.api.settings):
+            self.profile_chooser.addItem(
+                f'{profile.name} ({len(profile.operation_ids)} deljobber)',
+                profile.profile_id,
+            )
+            self.profile_chooser.setItemData(self.profile_chooser.count() - 1,
+                                             profile.description, Qt.ItemDataRole.ToolTipRole)
+        found = self.profile_chooser.findData(default_id)
+        self.profile_chooser.setCurrentIndex(max(found, 0))
+        form.addRow('Kjøreprofil for nye uttrekk:', self.profile_chooser)
         layout.addLayout(form)
 
         self.note = QLabel(
@@ -642,6 +656,12 @@ class BatchDiscoveryDialog(QDialog):
         except (ValueError, OSError) as exc:
             QMessageBox.warning(self, 'Kan ikke importere', str(exc))
             return
+        from app.run_profiles_v022_a8 import available_profiles
+        profile = next((p for p in available_profiles(self.api.settings)
+                        if p.profile_id == self.profile_chooser.currentData()), None)
+        if profile is None:
+            QMessageBox.warning(self, 'Kjøreprofil', 'Valgt kjøreprofil finnes ikke lenger.')
+            return
         lines = [f'{extraction_id(candidate)}: '
                  + self._relative_caption(paths[candidate.source], candidate.package_root)
                  for candidate in selected]
@@ -649,7 +669,8 @@ class BatchDiscoveryDialog(QDialog):
         question.setWindowTitle('Legg til Noark 5-jobber')
         question.setIcon(QMessageBox.Icon.Question)
         question.setText(
-            f'Legge til {len(selected)} jobber i den eksisterende jobblisten?\n\n'
+            f'Legge til {len(selected)} jobber i den eksisterende jobblisten?\n'
+            f'Kjøreprofil: {profile.name} ({len(profile.operation_ids)} deljobber)\n\n'
             + '\n'.join(lines[:8]) + '\n\n'
             'Ingen dokumentfiler flyttes, og ingen analyse starter.\n'
             'Tilknyttede info.xml-filer importeres som Work-evidens n\u00e5r mulig.'
@@ -676,7 +697,8 @@ class BatchDiscoveryDialog(QDialog):
                         persist_metadata(job, values, source_info)
                     )
                 new_id = create_direct_work_job(self.api, candidate, target,
-                                                on_created=callback)
+                                                on_created=callback,
+                                                workflow_ids=profile.operation_ids)
                 created.append(new_id)
             except Exception as exc:
                 errors.append(str(candidate.source) + ': ' + str(exc))
@@ -811,3 +833,6 @@ def install_batch_discovery(window) -> None:
         source_button.clicked.connect(lambda: BatchDiscoveryDialog(window).exec())
         source_group.layout().addWidget(source_button)
         window.a11_source_button = source_button
+    # a14: modern per-job profile selector and post-completion targeted runs.
+    from gui_qt.additional_subjobs_v027_a14 import install_additional_subjobs
+    install_additional_subjobs(window)
