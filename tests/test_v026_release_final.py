@@ -46,6 +46,7 @@ class V026ReleaseTests(unittest.TestCase):
         for rel in (
             'noark5_workflow/operations/canonical_evidence_v026_a3.py',
             'noark5_workflow/operations/canonical_evidence_v022_a7.py',
+            'noark5_workflow/operations/canonical_evidence_v027_a20.py',
             'gui_qt/format_assessment_layout_v026_a2.py',
             'tests/test_v026_a2_format_setup_layout.py',
             'tests/test_v026_a3_a230_evidence.py',
@@ -55,7 +56,7 @@ class V026ReleaseTests(unittest.TestCase):
             with self.subTest(file=rel):
                 self.assertTrue((ROOT / rel).is_file(), rel)
         profile = (ROOT / 'noark5_workflow/profile.py').read_text(encoding='utf-8')
-        self.assertIn('canonical_evidence_v026_a3', profile)
+        self.assertIn('canonical_evidence_v027_a20', profile)
         entrypoint = (ROOT / 'gui_qt/__main__.py').read_text(encoding='utf-8')
         self.assertIn('install_format_assessment_layout()', entrypoint)
         self.assertIn('raise SystemExit(main())', entrypoint)

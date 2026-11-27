@@ -10,7 +10,7 @@ large imports it writes ONLY a derived, integrity-bound SQLite index inside Work
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from pathlib import Path, PureWindowsPath
+from pathlib import Path
 from typing import Any
 
 from .qa_xpath_master_v023_a16 import project_xpath_master
@@ -271,12 +271,10 @@ def build_saved_work_snapshot(work: str | Path, *, depot_report: str | None = No
         parsed_depot_sha = None
     if depot.get("report_type") != "noark5_depot_validation":
         raise ReportInputError("Selected report is not a DWM depot validation report")
-    evidence = depot.get("evidence") or {}
-    run_ref = str(evidence.get("source_xpath_run") or "")
-    run_leaf = PureWindowsPath(run_ref).name
-    if not run_ref or run_leaf != report_path.parent.name:
-        raise ReportInputError("Depot report and its XPath run do not agree")
-    master_rel = "noark5_tests/xpath/" + run_leaf + "/master-results.json"
+    # Only the full Work snapshot needs the XPath/depot source binding.
+    from .qa_decision_v021_a12 import _xpath_master_binding
+    xpath_binding = _xpath_master_binding(root, report_path, depot, job)
+    master_rel = xpath_binding["master_relative_path"]
     # A16: read every byte of the exact normal XPath master while retaining
     # only the small test identity/state projection required by this bridge.
     # No 20 MiB cutoff and no unbounded JSON materialization.
@@ -308,6 +306,7 @@ def build_saved_work_snapshot(work: str | Path, *, depot_report: str | None = No
         {"kind": "dwm_xpath_master", **_source(
             root, master_rel, limit=(1 << 63) - 1)},
         {"kind": "dwm_depot", **depot_record},
+        *xpath_binding["artifact_manifests"],
     ]
     arkade = _linked_arkade(root, depot, job_id, manifest, arkade_evidence,
                              job_uid=uid)
@@ -396,6 +395,7 @@ def build_saved_work_snapshot(work: str | Path, *, depot_report: str | None = No
             "reconciliation": technical.get("reconciliation") or {},
         },
         "archive_parts": parts, "dwm_report_source": depot_rel,
+        "xpath_source_binding": xpath_binding,
         "arkade": arkade, "kdrs_qa": kdrs, "human_context_events": [],
         "control_coverage": control_coverage,
         "existing_depot_assessment": human, "findings": findings,

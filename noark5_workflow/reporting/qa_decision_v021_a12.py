@@ -155,6 +155,89 @@ def _find_depot(work: Path, supplied: str | None) -> tuple[Path, str]:
     return path, rel
 
 
+def _xpath_master_binding(work: Path, depot_path: Path, depot: dict,
+                          job: dict, *, canonical_masters: list[str] | None = None) -> dict:
+    """Resolve the report's declared XPath source, not its generation run ID.
+
+    Old same-run reports keep their original compatibility contract. A report
+    derived during a later workflow continuation needs two authoritative
+    artifact manifests that bind the runs to the same stable job and Source.
+    Historical absolute paths are never opened; only the declared run leaf
+    resolves to a contained Work-relative master. Canonical callers also
+    compare the exact relative reference against the SHA-verified index.
+    """
+    props = job.get("job") or {}
+    job_id = str(props.get("job_id") or "")
+    uid = str(job.get("job_uid") or "")
+    report_leaf = depot_path.parent.name
+    if not job_id or not report_leaf.startswith(job_id + "__"):
+        raise ReportInputError("Depotrapportens jobb-ID samsvarer ikke med Work-jobben")
+    if props.get("job_uid") and props["job_uid"] != uid:
+        raise ReportInputError("Motstridende job_uid i jobbdefinisjon")
+    evidence = depot.get("evidence") or {}
+    if not isinstance(evidence, dict):
+        raise ReportInputError("Ugyldig XPath-kjøring i depotrapportens evidens")
+    runref = evidence.get("source_xpath_run")
+    if runref is None or runref == "":
+        if canonical_masters is None:
+            raise ReportInputError("Depot report and its XPath run do not agree: missing source_xpath_run")
+        # Legacy canonical reports without an explicit reference are restricted
+        # to the same report/master folder. Never infer a cross-run binding.
+        run_leaf = report_leaf
+    else:
+        if not isinstance(runref, str) or not runref.strip():
+            raise ReportInputError("Ugyldig XPath-kjøring i depotrapportens evidens")
+        ref = PureWindowsPath(runref)
+        if ".." in ref.parts:
+            raise ReportInputError("Utrygg XPath-kjøring i depotrapportens evidens")
+        run_leaf = ref.name
+    if not re.fullmatch(re.escape(job_id) + r"__[A-Za-z0-9][A-Za-z0-9_.-]*", run_leaf):
+        raise ReportInputError("Depotrapportens XPath-kjøring tilhører en annen jobb eller er ugyldig")
+    master_rel = "noark5_tests/xpath/" + run_leaf + "/master-results.json"
+    cross_run = run_leaf != report_leaf
+    if canonical_masters is not None:
+        if canonical_masters and master_rel not in canonical_masters:
+            raise ReportInputError("Depotrapport og kanonisk DWM-master gjelder ulike kjøringer (XPath-kjøring)")
+        if cross_run and not canonical_masters:
+            raise ReportInputError("XPath-kjøring fra tidligere kjøring mangler kanonisk kildeversjonsbinding")
+    records = []
+    if cross_run:
+        # For a continued workflow, accepting a matching basename alone would
+        # permit accidental joins between distinct Work jobs with the same ID.
+        # Check both generated manifests before accepting the older master.
+        if not uid or not isinstance(runref, str):
+            raise ReportInputError("XPath-kjøring mangler varig Work-identitet")
+        ref = PureWindowsPath(runref)
+        if len(ref.parts) < 3 or tuple(x.casefold() for x in ref.parts[-3:-1]) != ("noark5_tests", "xpath"):
+            raise ReportInputError("XPath-kjøring fra tidligere kjøring har ugyldig kildereferanse")
+        def token(value: object) -> str:
+            return str(value or "").strip().replace("\\", "/").rstrip("/").casefold()
+        source = token(props.get("source_extraction") or props.get("source_root"))
+        if not source:
+            raise ReportInputError("XPath-kjøring mangler Source-identitet i Work")
+        if not _rel(work, master_rel).is_file():
+            raise ReportInputError("XPath-kjøringens master mangler i Work")
+        master_manifest_rel = master_rel.rsplit("/", 1)[0] + "/artifact_manifest.json"
+        report_manifest_rel = depot_path.parent.relative_to(work).as_posix() + "/artifact_manifest.json"
+        for kind, rel, leaf, op_id in (
+            ("xpath_artifact_manifest", master_manifest_rel, run_leaf, "run_noark5_xpath_tests_2026"),
+            ("depot_artifact_manifest", report_manifest_rel, report_leaf, "build_noark5_depot_report"),
+        ):
+            path = _rel(work, rel)
+            record = _source(work, rel)
+            data = _json(path)
+            if (_hash(path) != record["sha256"] or data.get("schema_version") != 2
+                    or data.get("job_id") != job_id or data.get("job_uid") != uid
+                    or data.get("operation_id") != op_id
+                    or data.get("run_id") != leaf.split("__", 1)[1]
+                    or token(data.get("source_extraction")) != source):
+                raise ReportInputError("XPath-kjøring og depotrapport har motstridende artefaktidentitet: " + rel)
+            records.append({"kind": kind, **record})
+    return {"master_relative_path": master_rel, "source_run": run_leaf,
+            "report_run": report_leaf, "cross_run": cross_run,
+            "artifact_manifests": records}
+
+
 def _date(value: str | None) -> str:
     if value is None:
         return datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -306,6 +389,83 @@ def _assessments(work: Path, depot_path: Path, manifest: list[dict]) -> dict:
             "history_count": len(data.get("history") or [])}
 
 
+def _qa_evidence_coverage(work: Path, canonical: dict, external: dict | None,
+                          uid: str, job_id: str, manifest: list[dict]) -> tuple[dict, list[dict]]:
+    """Surface the current A230 audit and separate PRONOM source statistics.
+
+    The old A250 aggregate counts concern attached Arkade Noark imports. They
+    must not be interpreted as absence of a standalone, verified PRONOM source.
+    No technical status, approval, or original report is modified here.
+    """
+    rel = "noark5_evidence/evidence-audit.json"
+    path = _rel(work, rel)
+    if not path.is_file():
+        return {}, []
+    record = _source(work, rel)
+    audit = _json(path)
+    if audit.get("model_id") != "dwm.noark5.evidence-audit.a7.v1":
+        return {}, []  # Legacy/synthetic Work without the A230 audit contract.
+    if (audit.get("job_uid") != uid or audit.get("job_id") != job_id
+            or _hash(path) != record["sha256"]):
+        raise ReportInputError("Evidensrevisjonen tilhører annen jobb eller er endret")
+    expected = audit.get("canonical_sha256")
+    if not isinstance(expected, str) or not re.fullmatch(r"[a-f0-9]{64}", expected):
+        raise ReportInputError("Evidensrevisjonen mangler SHA-256-binding til A210")
+    _source(work, "noark5_evidence/canonical-results.json", expected)
+    missing = audit.get("missing_source_families")
+    if not isinstance(missing, list) or any(not isinstance(k, str) for k in missing):
+        raise ReportInputError("Ugyldig A230-liste over manglende kilder")
+    manifest.append({"kind": "evidence_audit", **record})
+    refs = canonical.get("a7_evidence_sources") or {}
+    # These files have already been SHA-verified by _external. Select by exact
+    # family reference and digest, not by filename or newest import timestamp.
+    external_by_path = {
+        item["evidence"]["work_relative_path"]: item
+        for item in (external or {}).get("sources") or []
+        if isinstance(item, dict) and isinstance(item.get("evidence"), dict)
+        and item["evidence"].get("work_relative_path")
+    }
+    verified = {m["path"]: m.get("sha256") for m in manifest if m.get("kind") == "external"}
+    pronom = []
+    findings = []
+    for family, label, fmt in (
+        ("arkade_pronom", "Arkade 5 PRONOM", "arkade_pronom_statistics_v1"),
+        ("siegfried_pronom", "DWM / Siegfried PRONOM", "dwm_siegfried_pronom_statistics_v1"),
+    ):
+        ref = refs.get(family) or {}
+        source_rel = ref.get("file")
+        if not source_rel:
+            continue
+        item = external_by_path.get(source_rel) or {}
+        analysis = item.get("analysis") or {}
+        if (not ref.get("sha256") or verified.get(source_rel) != ref["sha256"]
+                or (item.get("evidence") or {}).get("sha256") != ref["sha256"]
+                or analysis.get("source_format") != fmt
+                or analysis.get("interpretation") != "format_statistics_only"):
+            continue  # An unparsed/unverified reference is not reported as statistics.
+        summary = {"family": family, "label": label, "source_ref": source_rel,
+                   "sha256": ref["sha256"], "format_rows": analysis.get("format_rows"),
+                   "automatic_approval": False}
+        if family == "arkade_pronom":
+            summary["reported_format_occurrences"] = analysis.get("reported_total_files")
+        else:
+            for key in ("reported_total_files", "reported_identified_files", "reported_unidentified_files",
+                        "reported_failed_files", "reported_json_response_errors", "reported_ambiguous_files"):
+                summary[key] = analysis.get(key)
+        pronom.append(summary)
+    labels = {"arkade_noark": "Arkade 5 Noark 5-rapport",
+              "arkade_pronom": "Arkade 5 PRONOM", "siegfried_pronom": "DWM / Siegfried PRONOM"}
+    for family in dict.fromkeys(missing):
+        findings.append({"source": "DWM evidensdekning (A230)",
+                         "test_id": "evidence.missing." + family, "severity": "WARNING",
+                         "message": labels.get(family, family) + " mangler som verifisert evidens. "
+                                    "Rapportgrunnlaget er ufullstendig; ikke automatisk godkjenning.",
+                         "context": "A230", "file": "", "lines": [],
+                         "source_ref": rel, "requires_review": True})
+    return {"audit_status": audit.get("status"), "missing_source_families": missing,
+            "pronom_sources": pronom, "automatic_approval": False}, findings
+
+
 def _extraction_label(job_props: dict) -> str:
     """Use a recognizable extraction folder, never a generic sip/content leaf.
 
@@ -356,15 +516,13 @@ def build_snapshot(*, work: Path, depot_report: str | None = None,
     masters = [x.get("reference", {}).get("work_relative_path", "")
                for x in (canonical.get("sources") or []) if isinstance(x, dict)
                and x.get("source_kind") == "dwm_master"]
-    if masters and not any(depot_path.parent.name in x for x in masters):
-        raise ReportInputError("Depotrapport og kanonisk DWM-master gjelder ulike kjøringer")
     depot = _json(depot_path, MAX_DEPO)
     if depot.get("report_type") != "noark5_depot_validation":
         raise ReportInputError("Ikke en DWM-depotvalideringsrapport")
     manifest.append({"kind": "dwm_depot", **_source(work, depot_rel, limit=MAX_DEPO)})
-    runref = str((depot.get("evidence") or {}).get("source_xpath_run") or "")
-    if runref and PureWindowsPath(runref).name != depot_path.parent.name:
-        raise ReportInputError("Depotrapportens XPath-kjøring stemmer ikke med rapportversjonen")
+    xpath_binding = _xpath_master_binding(work, depot_path, depot, job,
+                                          canonical_masters=masters)
+    manifest.extend(xpath_binding["artifact_manifests"])
     ext_rel = "noark5_evidence/canonical-external-analysis.json"
     ext_path = _rel(work, ext_rel)
     from noark5_workflow.analysis.canonical_external_import_v0115_a10 import MAX_ANALYSIS_OUTPUT
@@ -396,6 +554,9 @@ def build_snapshot(*, work: Path, depot_report: str | None = None,
                "source_ref": depot_rel, "requires_review": bool(d.get("requires_review"))}
               for d in dwm_deviations]
     issues.extend(dict(i, requires_review=True) for i in arkade["findings"])
+    evidence_coverage, coverage_findings = _qa_evidence_coverage(
+        work, canonical, external, uid, job_id, manifest)
+    issues.extend(coverage_findings)
     for part in parts:
         if "aktiv" in part["status"].casefold():
             issues.append({"source":"DWM arkivdelstatus", "test_id":"arkivdel.active_period",
@@ -435,6 +596,8 @@ def build_snapshot(*, work: Path, depot_report: str | None = None,
                             "summary": technical.get("summary") or {},
                             "reconciliation": technical.get("reconciliation") or {}},
         "archive_parts": parts, "dwm_report_source": depot_rel,
+        "xpath_source_binding": xpath_binding,
+        "a21_evidence_coverage": evidence_coverage,
         "arkade": arkade, "kdrs_qa": audit, "human_context_events": human_notes,
         "existing_depot_assessment": human, "findings": issues,
         "review_required": True,
@@ -500,6 +663,21 @@ def _report_body(s: dict, *, depot: bool) -> str:
               ", foreløpige avvik " + _h(ksum.get("provisional_mismatches")) +
               ", ikke sammenlignbare " + _h(ksum.get("not_comparable"))) +
              ". KDRS/Saxon-paritet er ikke attestert.</p>")
+    coverage = s.get("a21_evidence_coverage") or {}
+    if coverage:
+        base += "<h3>Evidensdekning (A230)</h3><p>" + _h(coverage.get("audit_status")) + "</p>"
+        if coverage.get("missing_source_families"):
+            base += "<p>Manglende kilder: " + _h(", ".join(coverage["missing_source_families"])) +                     ". Rapportgrunnlaget er ufullstendig.</p>"
+        pronom_rows = []
+        for entry in coverage.get("pronom_sources") or []:
+            count = (entry.get("reported_format_occurrences") if entry.get("family") == "arkade_pronom"
+                     else entry.get("reported_total_files"))
+            unit = "Formatforekomster" if entry.get("family") == "arkade_pronom" else "Filer"
+            pronom_rows.append((entry.get("label"), count, unit, entry.get("format_rows"),
+                                entry.get("reported_failed_files"), entry.get("reported_json_response_errors")))
+        base += _table(("PRONOM-kilde", "Rapportert antall", "Enhet", "Formatgrupper", "Filfeil", "JSON-responsfeil"),
+                       pronom_rows, empty="Ingen verifisert PRONOM-statistikk")
+        base += "<p>Formatidentifikasjon er ikke teknisk Noark-validering eller depotgodkjenning.</p>"
     ar = s["arkade"]["findings"]
     base += ("<h2>4. Arkade 5 – dokumenterte feil og advarsler</h2>"
              "<p>Disse radene er konkrete kildefunn, ikke depotets egen beslutning. "+_h(len(ar))+" feilmeldings-/advarselsposter vises.</p>"+

@@ -13,7 +13,12 @@ def summarize_dwm_siegfried_statistics(doc: dict) -> dict | None:
            for key in counters):
         raise ValueError('Siegfried-statistikk har ugyldige filantall.')
     total, identified, unidentified, ambiguous = (doc[key] for key in counters)
-    if identified + unidentified != total or ambiguous > identified:
+    failed = doc.get('files_failed', 0)
+    response_errors = doc.get('json_response_errors', 0)
+    if any(type(n) is not int or not 0 <= n <= 1_000_000_000_000
+           for n in (failed, response_errors)):
+        raise ValueError('Siegfried-statistikk har ugyldige feiltall.')
+    if identified + unidentified + failed != total or ambiguous > identified:
         raise ValueError('Siegfried-statistikk har selvmotsigende filantall.')
     rows = doc.get('format_groups')
     if not isinstance(rows, list) or len(rows) > 100_000:
@@ -35,6 +40,9 @@ def summarize_dwm_siegfried_statistics(doc: dict) -> dict | None:
         'reported_identified_files': identified,
         'reported_unidentified_files': unidentified,
         'reported_ambiguous_files': ambiguous,
+        'reported_failed_files': failed,
+        'reported_json_response_errors': response_errors,
+        'identification_status': doc.get('identification_status'),
         'format_rows': len(formats),
         'formats': formats,
         'technical_validation_verified': False,

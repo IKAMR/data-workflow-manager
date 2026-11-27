@@ -15,12 +15,10 @@ from noark5_workflow.operations import (
     ValidateXmlSchemaOperation,
 )
 from noark5_workflow.operations.run_siegfried_pronom import SiegfriedPronomOperation
-from noark5_workflow.operations.canonical_evidence_v022_a7 import (
-    AnalyzeNoark5ExternalEvidenceOperation,
-    BuildNoark5QaDraftOperation,
-)
-from noark5_workflow.operations.canonical_evidence_v026_a3 import (
+from noark5_workflow.operations.canonical_evidence_v022_a7 import BuildNoark5QaDraftOperation
+from noark5_workflow.operations.canonical_evidence_v027_a20 import (
     BuildNoark5CanonicalEvidenceOperation,
+    AnalyzeNoark5ExternalEvidenceOperation,
     AuditNoark5EvidenceOperation,
 )
 

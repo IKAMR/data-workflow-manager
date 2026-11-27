@@ -275,15 +275,22 @@ class A230SourceRecoveryTests(unittest.TestCase):
 
 
 class V026A3WiringTests(unittest.TestCase):
-    def test_profile_uses_v026_a3_a210_and_a230(self):
+    def test_profile_uses_v027_a20_a210_a220_and_a230(self):
         from noark5_workflow.profile import NOARK5_PROFILE
+        from noark5_workflow.operations import canonical_evidence_v027_a20 as active
         factories = {f.definition.operation_id: f for f in NOARK5_PROFILE.operation_factories}
         self.assertIs(factories['build_noark5_canonical_evidence'],
-                      revised.BuildNoark5CanonicalEvidenceOperation)
+                      active.BuildNoark5CanonicalEvidenceOperation)
         self.assertIs(factories['audit_noark5_evidence'],
-                      revised.AuditNoark5EvidenceOperation)
-        self.assertEqual(factories['analyze_noark5_external_evidence'].__module__,
-                         'noark5_workflow.operations.canonical_evidence_v022_a7')
+                      active.AuditNoark5EvidenceOperation)
+        self.assertIs(factories['analyze_noark5_external_evidence'],
+                      active.AnalyzeNoark5ExternalEvidenceOperation)
+        self.assertTrue(issubclass(active.BuildNoark5CanonicalEvidenceOperation,
+                                  revised.BuildNoark5CanonicalEvidenceOperation))
+        self.assertTrue(issubclass(active.AuditNoark5EvidenceOperation,
+                                  revised.AuditNoark5EvidenceOperation))
+        self.assertTrue(issubclass(active.AnalyzeNoark5ExternalEvidenceOperation,
+                                  old.AnalyzeNoark5ExternalEvidenceOperation))
 
 
 if __name__ == '__main__':
