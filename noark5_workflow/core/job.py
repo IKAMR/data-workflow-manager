@@ -16,6 +16,7 @@ class JobStatus(str, Enum):
     OK = "Ferdig"
     FAILED = "Feil"
     SKIPPED = "Hoppet over"
+    INTERRUPTED = "Avbrutt"
 
 
 @dataclass

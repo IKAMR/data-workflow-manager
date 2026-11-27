@@ -102,7 +102,7 @@ def plan_remaining_jobs(
         if status.startswith('Frakoblet'):
             blocked.append(BlockedJob(job_id, 'Work er frakoblet.'))
             continue
-        if status not in ('Klar', 'Feil', 'Venter ved kontrollpunkt'):
+        if status not in ('Klar', 'Feil', 'Avbrutt', 'Hoppet over', 'Venter ved kontrollpunkt'):
             blocked.append(BlockedJob(job_id, f'Status {status or "ukjent"} krever manuell vurdering.'))
             continue
 
@@ -130,16 +130,21 @@ def plan_remaining_jobs(
             expected = {
                 'Klar': 'partial_ready',
                 'Feil': 'failed_operation',
+                'Avbrutt': 'failed_operation',
+                'Hoppet over': 'failed_operation',
                 'Venter ved kontrollpunkt': 'checkpoint',
             }[status]
+            option_cursor = _integer(getattr(option, 'index', None))
+            recovered = (status == 'Hoppet over' and message.startswith('Avbrutt under ')
+                         and option_cursor == cursor + 1 and option_cursor < total)
             if (not getattr(option, 'allowed', False)
                     or getattr(option, 'mode', '') != expected
-                    or _integer(getattr(option, 'index', None)) != cursor
+                    or (option_cursor != cursor and not recovered)
                     or _integer(getattr(option, 'total', None)) != total):
                 reason = str(getattr(option, 'reason', '') or 'Ingen verifisert fortsettelsesmulighet.')
                 blocked.append(BlockedJob(job_id, reason))
                 continue
-            steps.append(PlannedJob(job_id, name, 'continue', cursor + 1, total))
+            steps.append(PlannedJob(job_id, name, 'continue', option_cursor + 1, total))
         except (KeyError, AttributeError, OSError, RuntimeError, ValueError, TypeError) as exc:
             blocked.append(BlockedJob(job_id, f'Kunne ikke kontrollere jobbstatus: {exc}'))
 

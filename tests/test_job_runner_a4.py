@@ -94,7 +94,7 @@ class JobRunnerA4Tests(unittest.TestCase):
         outcome = self.make_runner(a).run(job, cancelled_cb=lambda: True)
         self.assertFalse(outcome.ok)
         self.assertFalse(outcome.persist_recommended)
-        self.assertEqual(job.status, JobStatus.SKIPPED)
+        self.assertEqual(job.status, JobStatus.INTERRUPTED)
         self.assertEqual(a.calls, 0)
 
 

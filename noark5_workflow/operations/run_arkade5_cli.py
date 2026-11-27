@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from types import SimpleNamespace
 
 from noark5_workflow.core.context import OperationContext
@@ -9,6 +10,7 @@ from noark5_workflow.external_tools.arkade5_auto_import import import_arkade5_ru
 from noark5_workflow.external_tools.arkade5_jobs import (
     ARKADE5_NOARK5,
     ARKADE5_PRONOM,
+    Arkade5BatchRunSummary, Arkade5JobRun,
     build_arkade5_plan,
     run_arkade5_plan,
 )
@@ -63,14 +65,26 @@ class _Arkade5WorkflowOperation(BaseOperation):
             if line:
                 ctx.log(f"[Arkade 5/{stream}] {line}")
 
+        from app.recovery_v027_a19 import verified_pronom_run
+        reuse = None
+        if self.arkade_operation == ARKADE5_PRONOM and ctx.metadata.get("a19_resume_operation"):
+            reuse = verified_pronom_run(plans[0])
+            if reuse is None:
+                return OperationResult(False, "A19: tidligere PRONOM-output kan ikke verifiseres. Velg eksplisitt ny deljobb ved behov.")
         try:
-            summary = run_arkade5_plan(
-                ctx.settings,
-                plans,
-                on_progress=on_progress,
-                on_output=on_output,
-                cancelled_cb=ctx.cancelled,
-            )
+            if reuse is not None:
+                ctx.log("A19: gjenbruker bevart Arkade PRONOM-kjøring " + reuse)
+                summary = Arkade5BatchRunSummary((Arkade5JobRun(
+                    plan=replace(plans[0], run_id=reuse), ok=True,
+                    message="Gjenbrukt " + reuse),))
+            else:
+                summary = run_arkade5_plan(
+                    ctx.settings,
+                    plans,
+                    on_progress=on_progress,
+                    on_output=on_output,
+                    cancelled_cb=ctx.cancelled,
+                )
         except Exception as exc:
             return OperationResult(False, f"Arkade 5 kunne ikke kjøres: {exc}")
 
@@ -125,11 +139,12 @@ class _Arkade5WorkflowOperation(BaseOperation):
         if missing_pronom:
             message += " PRONOM-evidens mangler; se kjørelogg og Arkade-output."
         return OperationResult(
-            ok=(imported.failed + imported.pronom_failed) == 0 and not missing_pronom,
+            ok=(imported.failed + imported.pronom_failed) == 0 and (not missing_pronom or reuse is not None),
             message=message,
             data={
                 "arkade_operation": self.arkade_operation,
                 "cli_succeeded": True,
+                "reused_external_run": reuse,
                 "imported": imported.imported,
                 "already_imported": imported.already_imported,
                 "pronom_attached": imported.pronom_attached,

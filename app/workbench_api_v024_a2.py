@@ -9,6 +9,7 @@ from app.application_api import DwmApiError
 from app.job_run_actions_v024_a2 import ResumeOption, can_reset, resume_option
 from app.workbench_api_v020_a2 import DwmWorkbenchAPI as _V020WorkbenchAPI
 from noark5_workflow.core.job import JobStatus
+from app.recovery_v027_a19 import recover_completed_stop
 
 
 class DwmWorkbenchAPI(_V020WorkbenchAPI):
@@ -24,6 +25,12 @@ class DwmWorkbenchAPI(_V020WorkbenchAPI):
                                previous_checkpoint=prev, message=job.message)
         if option.mode == 'failed_operation' and job_id not in self._work_references:
             return ResumeOption(reason='Feilet jobb mangler verifisert Work-historikk.')
+        # Read-only preview: do not move the durable cursor until the operator
+        # confirms Continue. Show the actual next operation in both GUI modes.
+        if option.allowed and job.status == JobStatus.SKIPPED:
+            ref = self._work_references.get(job_id)
+            if ref is not None and recover_completed_stop(job, ref.parent):
+                return ResumeOption(option.mode, cursor + 1, option.total)
         return option
 
     def run_job(self, job_id: str, *, allow_rerun: bool = False,
@@ -75,9 +82,14 @@ class DwmWorkbenchAPI(_V020WorkbenchAPI):
             current = self.resume_option_for_job(job_id)
             if current != option:
                 raise DwmApiError('Jobbstatus ble endret f\u00f8r fortsettelse. Pr\u00f8v p\u00e5 nytt.')
-            previous = (job.status, job.message, self._dirty)
+            previous = (job.status, job.message, self._dirty, job.next_operation_index, job.progress)
+            if option.index != job.next_operation_index:
+                # The read-only plan was revalidated inside the guard above.
+                if job.status != JobStatus.SKIPPED or option.index != job.next_operation_index + 1:
+                    raise DwmApiError('Ugyldig gjenoppretting av kjoremarkor.')
+                job.mark_operation_completed(job.next_operation_index)
             job.status = JobStatus.READY
-            job.message = f'Fortsettelse fra deljobb {option.position} av {option.total}'
+            job.message = f'Fortsettelse fra deljobb {job.next_operation_index + 1} av {option.total}'
             self._dirty = True
             try:
                 # Work is canonical and its event history is append-only.
@@ -86,7 +98,7 @@ class DwmWorkbenchAPI(_V020WorkbenchAPI):
                     raise DwmApiError('Kan ikke fortsette en feilet jobb uten verifisert Work-historikk.')
                 self._persist_work_event(job, 'job.resume_requested', job.message)
             except Exception:
-                job.status, job.message, self._dirty = previous
+                job.status, job.message, self._dirty, job.next_operation_index, job.progress = previous
                 raise
         return super().run_job(
             job_id, allow_rerun=False, continue_waiting=False,

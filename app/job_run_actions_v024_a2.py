@@ -45,7 +45,7 @@ def resume_option(*, status: str, cursor: int, total: int,
         if i == 0 or not previous_checkpoint:
             return ResumeOption(reason='Ventestatus er ikke knyttet til et gyldig kontrollpunkt.')
         return ResumeOption('checkpoint', i, n)
-    if state == 'Feil':
+    if state in ('Feil', 'Avbrutt') or (state == 'Hoppet over' and str(message or '').startswith('Avbrutt')):
         # A real operation failure leaves its zero-based index pointing at
         # the failed operation. Retry that operation; do not skip it.
         if str(message or '').startswith('Konfigurasjon endret'):
@@ -63,7 +63,7 @@ def can_reset(*, status: str, cursor: int, progress: float = 0.0) -> bool:
     state = str(getattr(status, 'value', status) or '')
     if state.startswith('Frakoblet') or state == 'Kj\u00f8rer':
         return False
-    if state in ('Feil', 'Ferdig', 'Hoppet over', 'Venter ved kontrollpunkt'):
+    if state in ('Feil', 'Ferdig', 'Hoppet over', 'Avbrutt', 'Venter ved kontrollpunkt'):
         return True
     try:
         return state == 'Klar' and (int(cursor) > 0 or float(progress) > 0)

@@ -10,7 +10,7 @@ from noark5_workflow.core.job import Job, JobStatus
 from noark5_workflow.core.output_lock import OutputLock, OutputLockedError
 from noark5_workflow.sources.noark5_extraction import Noark5Extraction
 
-_TERMINAL_STATUSES = {JobStatus.OK, JobStatus.FAILED, JobStatus.SKIPPED}
+_TERMINAL_STATUSES = {JobStatus.OK, JobStatus.FAILED, JobStatus.SKIPPED, JobStatus.INTERRUPTED}
 
 
 @dataclass(frozen=True)
@@ -236,7 +236,7 @@ class JobRunner:
                 current_index = zero_index
                 op_id = op_ids[zero_index]
                 if cancelled_cb and cancelled_cb():
-                    job.status = JobStatus.SKIPPED
+                    job.status = JobStatus.INTERRUPTED
                     job.message = "Avbrutt"
                     log("AVBRUTT før neste operasjon")
                     state_changed()
@@ -245,6 +245,7 @@ class JobRunner:
                 operation = self._configure_operation_for_job(job, op_id)
                 self._sync_dias_output(job, op_id, operation, log)
                 log(f"START: {operation.definition.name}")
+                ctx.metadata["a19_resume_operation"] = bool(resuming and zero_index == start_index)
                 result = self.executor.execute(operation, ctx)
                 all_ok = all_ok and result.ok
                 log(result.message)
@@ -256,10 +257,19 @@ class JobRunner:
                 job.message = result.message
 
                 if cancelled_cb and cancelled_cb():
-                    job.status = JobStatus.SKIPPED
-                    job.next_operation_index = zero_index
-                    job.progress = zero_index / total
-                    job.message = f"Avbrutt under {operation.definition.name}"
+                    if result.ok:
+                        job.mark_operation_completed(zero_index)
+                    else:
+                        job.next_operation_index = zero_index
+                        job.progress = zero_index / total
+                    job.status = (JobStatus.OK if result.ok and zero_index == total - 1
+                                  else JobStatus.INTERRUPTED)
+                    if job.status == JobStatus.OK:
+                        job.message = "Workflow fullført"
+                        state_changed()
+                        return JobRunOutcome(True, True)
+                    job.message = (f"Avbrutt etter {operation.definition.name}" if result.ok
+                                   else f"Avbrutt under {operation.definition.name}")
                     log(job.message)
                     state_changed()
                     return JobRunOutcome(False, True)

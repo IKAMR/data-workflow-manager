@@ -277,14 +277,19 @@ def run_arkade5_plan(
                 on_output=_output if on_output is not None else None,
                 cancelled_cb=cancelled_cb,
             )
-        message = "Fullført" if result.ok else (
+        from app.recovery_v027_a19 import arkade_log_has_error
+        semantic_error = result.ok and (arkade_log_has_error(stdout_path) or arkade_log_has_error(stderr_path))
+        effective_ok = result.ok and not semantic_error
+        message = "Fullført" if effective_ok else (
             "Avbrutt" if result.cancelled else
             result.launch_error or
             ("Timeout" if result.timed_out else f"Exit code {result.exit_code}")
         )
 
+        if semantic_error:
+            message = "Arkade rapporterte feil i loggen til tross for exit code 0"
         generated_reports: tuple[Path, ...] = ()
-        if result.ok and plan.operation == ARKADE5_NOARK5:
+        if effective_ok and plan.operation == ARKADE5_NOARK5:
             try:
                 reports_after = discover_arkade5_reports_in_roots(
                     work_operations=plan.output_dir,
@@ -302,7 +307,7 @@ def run_arkade5_plan(
         rows.append(
             Arkade5JobRun(
                 plan=plan,
-                ok=result.ok,
+                ok=effective_ok,
                 message=message,
                 result=result,
                 generated_reports=generated_reports,
@@ -310,6 +315,6 @@ def run_arkade5_plan(
         )
 
         if on_progress:
-            on_progress(index, total, plan, "ferdig" if result.ok else "feil")
+            on_progress(index, total, plan, "ferdig" if effective_ok else "feil")
 
     return Arkade5BatchRunSummary(tuple(rows))
