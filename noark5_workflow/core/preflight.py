@@ -7,7 +7,7 @@ from typing import Iterable
 from noark5_workflow.core.job import Job, JobBatch, JobStatus
 
 
-_TERMINAL_STATUSES = {JobStatus.OK, JobStatus.FAILED, JobStatus.SKIPPED, JobStatus.INTERRUPTED}
+_TERMINAL_STATUSES = {JobStatus.OK, JobStatus.PARTIAL, JobStatus.FAILED, JobStatus.SKIPPED, JobStatus.INTERRUPTED}
 
 
 @dataclass(frozen=True)

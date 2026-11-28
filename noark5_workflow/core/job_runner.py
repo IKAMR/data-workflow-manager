@@ -9,8 +9,9 @@ from noark5_workflow.core.context import OperationContext
 from noark5_workflow.core.job import Job, JobStatus
 from noark5_workflow.core.output_lock import OutputLock, OutputLockedError
 from noark5_workflow.sources.noark5_extraction import Noark5Extraction
+from app import validator_failure_v027_a22 as a22
 
-_TERMINAL_STATUSES = {JobStatus.OK, JobStatus.FAILED, JobStatus.SKIPPED, JobStatus.INTERRUPTED}
+_TERMINAL_STATUSES = {JobStatus.OK, JobStatus.PARTIAL, JobStatus.FAILED, JobStatus.SKIPPED, JobStatus.INTERRUPTED}
 
 
 @dataclass(frozen=True)
@@ -56,6 +57,7 @@ class JobRunner:
             log_cb=log_cb,
             cancelled_cb=cancelled_cb,
         )
+        ctx.metadata["a22_deferred_validators"] = a22.failures(job)
         ctx.metadata["job_id"] = job.job_id
         ctx.metadata["run_id"] = str(self.settings.get("_current_run_id", "") or "")
         return ctx
@@ -119,6 +121,9 @@ class JobRunner:
             if log_cb:
                 log_cb(message)
 
+        if operation_id == "dias_package" and a22.failures(job):
+            log("BLOKKERT: ufullstendig validatorgrunnlag; ingen pakking.")
+            return JobRunOutcome(False, False)
         snapshot = (job.status, job.progress, job.next_operation_index, job.message)
         position = job.workflow_ids.index(operation_id) + 1
         total = len(job.workflow_ids)
@@ -207,6 +212,8 @@ class JobRunner:
             job.next_operation_index = 0
             job.progress = 0.0
 
+        if start_index == 0:
+            job.operation_params.pop(a22.STATE_KEY, None)
         resuming = start_index > 0
         job.status = JobStatus.RUNNING
         job.message = (
@@ -247,12 +254,17 @@ class JobRunner:
                 log(f"START: {operation.definition.name}")
                 ctx.metadata["a19_resume_operation"] = bool(resuming and zero_index == start_index)
                 result = self.executor.execute(operation, ctx)
-                all_ok = all_ok and result.ok
                 log(result.message)
                 for warning in result.warnings:
                     log(f"ADVARSEL: {warning}")
                 if result.data:
                     log(json.dumps(result.data, ensure_ascii=False, indent=2))
+                if op_id == a22.A230 and a22.failures(job) and not a22.audit_matches(result):
+                    from noark5_workflow.core.result import OperationResult
+                    log("BLOKKERT A230: forventet evidensmangel er ikke bekreftet.")
+                    result = OperationResult(False,
+                        "A22: audit bekrefter ikke forventet manglende Arkade Noark-evidens; stopp for kildeavklaring.",
+                        data=result.data, outputs=result.outputs, warnings=result.warnings)
                 log(f"{'OK' if result.ok else 'FEIL'}: {operation.definition.name}")
                 job.message = result.message
 
@@ -265,7 +277,9 @@ class JobRunner:
                     job.status = (JobStatus.OK if result.ok and zero_index == total - 1
                                   else JobStatus.INTERRUPTED)
                     if job.status == JobStatus.OK:
-                        job.message = "Workflow fullført"
+                        if a22.failures(job):
+                            job.status = JobStatus.PARTIAL
+                        job.message = a22.completion_message(job)
                         state_changed()
                         return JobRunOutcome(True, True)
                     job.message = (f"Avbrutt etter {operation.definition.name}" if result.ok
@@ -274,6 +288,15 @@ class JobRunner:
                     state_changed()
                     return JobRunOutcome(False, True)
 
+                if not result.ok and a22.can_defer(job, zero_index, result, ctx.work_operations):
+                    a22.defer(job, zero_index, result)
+                    ctx.metadata["a22_deferred_validators"] = a22.failures(job)
+                    job.message = "AVVIK A150: teknisk feil bevart; uavhengige deljobber fortsetter."
+                    log(job.message)
+                    state_changed()
+                    continue
+
+                all_ok = all_ok and result.ok
                 if not result.ok:
                     job.next_operation_index = zero_index
                     job.progress = zero_index / total
@@ -292,10 +315,10 @@ class JobRunner:
                     return JobRunOutcome(True, True)
 
             if all_ok:
-                job.status = JobStatus.OK
+                job.status = JobStatus.PARTIAL if a22.failures(job) else JobStatus.OK
                 job.progress = 1.0
                 job.next_operation_index = total
-                job.message = "Workflow fullført"
+                job.message = a22.completion_message(job)
             else:
                 job.status = JobStatus.FAILED
                 job.message = (

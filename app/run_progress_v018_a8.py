@@ -26,7 +26,9 @@ def saved_progress(details) -> SavedProgress:
     title = f"{job.job_id} · {status} · {current}/{count} operasjoner (lagret jobbstatus)"
     lines = []
     for operation in details.operations:
-        state = "OK (lagret)" if operation.completed else "Ikke fullført i lagret jobbstatus"
+        failure = getattr(operation, 'failure_message', '')
+        state = ('Teknisk feil: ' + failure if failure else
+                 "OK (lagret)" if operation.completed else "Ikke fullført i lagret jobbstatus")
         lines.append(f"{operation.position:>2}. {operation.name} — {state}")
     if not lines:
         lines.append("Ingen operasjoner er konfigurert.")

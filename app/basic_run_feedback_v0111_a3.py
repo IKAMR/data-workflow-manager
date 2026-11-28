@@ -11,6 +11,9 @@ def operation_caption(operations, completed: int, total: int) -> str:
     if not total:
         return 'Klargjør kontrollene ...'
     if completed == total:
+        failed = sum(bool(getattr(op, 'failure_message', '')) for op in operations)
+        if failed:
+            return f'{completed} av {total} deljobber behandlet; {failed} teknisk feil.'
         return f'{completed} av {total} deljobber fullført.'
     name = ''
     try:
@@ -67,7 +70,9 @@ def planned_operation_rows(operations, status: str, current_operation: int):
     for index, operation in enumerate(operations, 1):
         name = str(getattr(operation, 'name', '') or getattr(operation, 'operation_id', '') or '')
         op_id = str(getattr(operation, 'operation_id', '') or '')
-        if bool(getattr(operation, 'completed', False)) or index <= current:
+        if getattr(operation, 'failure_message', ''):
+            state = 'Teknisk feil'
+        elif bool(getattr(operation, 'completed', False)) or index <= current:
             state = 'Fullført'
         elif index == current + 1 and status == 'Kjører':
             state = 'Kjører'

@@ -63,7 +63,7 @@ def can_reset(*, status: str, cursor: int, progress: float = 0.0) -> bool:
     state = str(getattr(status, 'value', status) or '')
     if state.startswith('Frakoblet') or state == 'Kj\u00f8rer':
         return False
-    if state in ('Feil', 'Ferdig', 'Hoppet over', 'Avbrutt', 'Venter ved kontrollpunkt'):
+    if state in ('Feil', 'Ferdig', 'Fullf\u00f8rt med avvik', 'Hoppet over', 'Avbrutt', 'Venter ved kontrollpunkt'):
         return True
     try:
         return state == 'Klar' and (int(cursor) > 0 or float(progress) > 0)

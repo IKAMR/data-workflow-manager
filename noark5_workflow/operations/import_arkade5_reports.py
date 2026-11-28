@@ -42,6 +42,19 @@ class ImportArkade5ReportsOperation(BaseOperation):
         return []
 
     def run(self, ctx: OperationContext) -> OperationResult:
+        # A22: A150 failed, and A160 has its own independently verified
+        # evidence. Do not search old or partially produced Noark reports.
+        # The A230 audit must subsequently confirm the explicit deficit.
+        if (ctx.metadata.get('a22_deferred_validators') or {}).get('arkade5_noark5_test'):
+            if any((Path(ctx.work_operations) / 'external_evidence' / 'arkade5').glob('*/manifest.json')):
+                return OperationResult(False, 'A22: eksisterende Arkade Noark-import krever kildeavklaring.')
+            message = 'A200: automatisk Noark-import utelatt etter teknisk feil i A150; PRONOM behandles separat.'
+            ctx.progress(1.0, message)
+            return OperationResult(True, message, warnings=[message], data={
+                'found': 0, 'imported': 0, 'skipped': 0, 'failed': 0,
+                'failed_files': [], 'discovery_performed': False,
+                'arkade_noark_missing': True, 'reason': 'a150_source_access_denied',
+            })
         configured = self._configured_roots(ctx)
         ctx.progress(0.05, "Søker etter Arkade 5-rapporter")
 

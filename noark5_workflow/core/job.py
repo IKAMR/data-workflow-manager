@@ -14,6 +14,7 @@ class JobStatus(str, Enum):
     RUNNING = "Kjører"
     WAITING = "Venter ved kontrollpunkt"
     OK = "Ferdig"
+    PARTIAL = "Fullf\u00f8rt med avvik"
     FAILED = "Feil"
     SKIPPED = "Hoppet over"
     INTERRUPTED = "Avbrutt"
@@ -159,6 +160,7 @@ class Job:
         valid = set(self.workflow_ids)
         self.checkpoint_after = [oid for oid in self.checkpoint_after if oid in valid]
         if self.workflow_ids != old_workflow:
+            self.operation_params.pop("dwm_a22_deferred_validators", None)
             self.next_operation_index = 0
             if self.status == JobStatus.WAITING:
                 self.status = JobStatus.READY
@@ -187,6 +189,7 @@ class Job:
         return operation_id in self.checkpoint_after
 
     def reset_execution(self, message: str = "") -> None:
+        self.operation_params.pop("dwm_a22_deferred_validators", None)
         self.next_operation_index = 0
         self.progress = 0.0
         self.status = JobStatus.READY

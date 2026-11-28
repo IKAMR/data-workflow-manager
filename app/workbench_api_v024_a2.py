@@ -13,6 +13,30 @@ from app.recovery_v027_a19 import recover_completed_stop
 
 
 class DwmWorkbenchAPI(_V020WorkbenchAPI):
+    def job_details(self, job_id: str):
+        details = super().job_details(job_id)
+        from app.validator_failure_v027_a22 import failures
+        failed = failures(self._require_job(job_id))
+        if not failed:
+            return details
+        from dataclasses import dataclass, replace
+        from app.workbench_api_v018_a3 import OperationView
+
+        @dataclass(frozen=True)
+        class FailedOperationView(OperationView):
+            failure_message: str = ''
+
+        operations = []
+        for op in details.operations:
+            if op.operation_id in failed:
+                values = dict(vars(op))
+                values['completed'] = False
+                operations.append(FailedOperationView(**values,
+                    failure_message=failed[op.operation_id]['message']))
+            else:
+                operations.append(op)
+        return replace(details, operations=tuple(operations))
+
     def resume_option_for_job(self, job_id: str):
         job = self._require_job(job_id)
         if job_id in self._unavailable_work_ids:
@@ -116,6 +140,14 @@ class DwmWorkbenchAPI(_V020WorkbenchAPI):
                 raise DwmApiError('Jobben har ingen kj\u00f8restatus som kan nullstilles.')
             previous = (job.status, job.message, job.progress,
                         job.next_operation_index, self._dirty, self._active_job_id)
+            from app.validator_failure_v027_a22 import STATE_KEY
+            from copy import deepcopy
+            # Older Job-like adapters may not expose operation_params; an
+            # absent A22 record is valid and requires no rollback. Preserve
+            # the exact record when present, including an empty dict.
+            params = getattr(job, "operation_params", {})
+            had_failures = STATE_KEY in params
+            previous_failures = deepcopy(params.get(STATE_KEY))
             self._active_job_id = job_id
             job.reset_execution('Manuelt nullstilt - klar for ny kj\u00f8ring')
             self._dirty = True
@@ -125,6 +157,8 @@ class DwmWorkbenchAPI(_V020WorkbenchAPI):
             except Exception:
                 (job.status, job.message, job.progress,
                  job.next_operation_index, self._dirty, self._active_job_id) = previous
+                if had_failures:
+                    job.operation_params[STATE_KEY] = previous_failures
                 raise
         # The authoritative Work state is saved first. The disposable .n5jobs
         # index can be saved afterwards; disconnected index storage must never

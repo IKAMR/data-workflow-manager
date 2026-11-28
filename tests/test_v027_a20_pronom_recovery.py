@@ -93,6 +93,14 @@ class ArkadeStandaloneA20Tests(unittest.TestCase):
         self.assertEqual(model['csv']['rows'][0]['Antall'], '100')
         self.assertFalse((self.root / 'external_evidence' / 'arkade5').exists())
 
+    def test_expected_cli_run_is_enforced(self):
+        with self.assertRaises(ValueError):
+            import_preserved_pronom(self.root, **self.ids, expected_run_id='other-run')
+        self.assertFalse((self.root / 'external_evidence').exists())
+        ref = import_preserved_pronom(self.root, **self.ids,
+                                      expected_run_id=self.record['run_id'])
+        self.assertTrue(verify_standalone_reference(self.root, ref, **self.ids))
+
     def test_missing_csv_does_not_create_fake_evidence(self):
         self.csv.unlink()
         self.assertIsNone(import_preserved_pronom(self.root, **self.ids))

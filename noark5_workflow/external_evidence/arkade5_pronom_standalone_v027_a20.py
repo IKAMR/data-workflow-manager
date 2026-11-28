@@ -113,7 +113,7 @@ def _encode(data):
     return (json.dumps(data, ensure_ascii=False, indent=2, allow_nan=False) + '\n').encode('utf-8')
 
 
-def import_preserved_pronom(work, *, job_id, job_uid):
+def import_preserved_pronom(work, *, job_id, job_uid, expected_run_id=None):
     root = Path(work).resolve(strict=True)
     owner = _json(root, root / 'job.json')
     job = owner.get('job') or {}
@@ -128,6 +128,8 @@ def import_preserved_pronom(work, *, job_id, job_uid):
     if not manifests:
         return None
     manifest = manifests[0]
+    if expected_run_id is not None and manifest.parent.name != expected_run_id:
+        raise ValueError("Arkade PRONOM: siste manifest gjelder ikke forventet kjøring")
     raw_manifest = _bytes(root, manifest)
     data = json.loads(raw_manifest.decode('utf-8-sig'))
     meta = data.get('metadata') or {}

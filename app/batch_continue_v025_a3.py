@@ -96,7 +96,7 @@ def plan_remaining_jobs(
         seen.add(job_id)
         name = str(getattr(view, 'name', '') or job_id)
         status = str(getattr(view, 'status', '') or '')
-        if status == 'Ferdig':
+        if status in ('Ferdig', 'Fullf\u00f8rt med avvik'):
             done.append(job_id)
             continue
         if status.startswith('Frakoblet'):
@@ -153,4 +153,4 @@ def plan_remaining_jobs(
 
 def batch_can_advance(success: bool, status: str | None) -> bool:
     """A successful checkpoint is *not* a completed job; stop the batch."""
-    return bool(success) and str(status or '') == 'Ferdig'
+    return bool(success) and str(status or '') in ('Ferdig', 'Fullf\u00f8rt med avvik')

@@ -40,6 +40,8 @@ class _Arkade5WorkflowOperation(BaseOperation):
         )
 
     def run(self, ctx: OperationContext) -> OperationResult:
+        from app import validator_failure_v027_a22 as a22
+
         ctx.progress(0.02, f"Forbereder {self.definition.name}")
         try:
             plans = build_arkade5_plan(
@@ -69,9 +71,12 @@ class _Arkade5WorkflowOperation(BaseOperation):
         reuse = None
         if self.arkade_operation == ARKADE5_PRONOM and ctx.metadata.get("a19_resume_operation"):
             reuse = verified_pronom_run(plans[0])
-            if reuse is None:
+            if reuse is None and a22.has_pronom_history(plans[0], ctx.settings):
                 return OperationResult(False, "A19: tidligere PRONOM-output kan ikke verifiseres. Velg eksplisitt ny deljobb ved behov.")
+        before = None
         try:
+            if self.arkade_operation == ARKADE5_PRONOM and reuse is None:
+                before = a22.file_snapshot(plans[0].output_dir)
             if reuse is not None:
                 ctx.log("A19: gjenbruker bevart Arkade PRONOM-kjøring " + reuse)
                 summary = Arkade5BatchRunSummary((Arkade5JobRun(
@@ -94,7 +99,12 @@ class _Arkade5WorkflowOperation(BaseOperation):
         run = summary.runs[0] if summary.runs else None
         if run is None or not run.ok:
             message = run.message if run is not None else "Ingen Arkade 5-kjøring ble utført."
-            return OperationResult(False, f"Arkade 5 feilet teknisk: {message}")
+            details = {}
+            if self.arkade_operation == ARKADE5_NOARK5 and run is not None:
+                failure = a22.access_failure(run, ctx.extraction_root)
+                if failure is not None:
+                    details['a22_validator_failure'] = failure
+            return OperationResult(False, f"Arkade 5 feilet teknisk: {message}", data=details)
 
         ctx.progress(0.86, "Importerer Arkade 5-evidens")
         try:
@@ -118,6 +128,33 @@ class _Arkade5WorkflowOperation(BaseOperation):
             self.arkade_operation == ARKADE5_PRONOM
             and imported.pronom_attached == 0
         )
+        missing_noark = (self.arkade_operation == ARKADE5_NOARK5
+                         and imported.imported + imported.already_imported == 0)
+        if missing_noark:
+            warnings.append('A150: CLI fullfort, men ingen Noark 5-rapport ble importert.')
+        standalone = None
+        if missing_pronom and imported.failed + imported.pronom_failed == 0:
+            try:
+                from noark5_workflow.core.work_paths import resolve_dwm_work_root
+                from noark5_workflow.external_evidence.arkade5_pronom_standalone_v027_a20 import (
+                    import_preserved_pronom, verify_standalone_reference,
+                )
+                settings = ctx.settings
+                work = resolve_dwm_work_root(ctx.work_operations, settings=settings)
+                uid = str(ctx.metadata.get('job_uid') or ctx.settings.get('_current_job_uid') or '')
+                if not uid or run.plan is None:
+                    raise ValueError('PRONOM mangler varig jobbidentitet eller kjoreplan')
+                if reuse is None and not a22.fresh_output(before, a22.file_snapshot(run.plan.output_dir)):
+                    raise ValueError('PRONOM-output mangler eller er ikke fornyet av denne kjøringen')
+                ids = dict(job_id=run.plan.job_id, job_uid=uid)
+                standalone = import_preserved_pronom(work, **ids, expected_run_id=run.plan.run_id)
+                if not standalone or not verify_standalone_reference(work, standalone, **ids):
+                    raise ValueError('Selvstendig PRONOM kunne ikke verifiseres')
+                missing_pronom = False
+                ctx.log('A22: Arkade PRONOM bevart som selvstendig evidens for samme kjøring.')
+            except (OSError, ValueError, RuntimeError, TypeError, KeyError, AttributeError) as exc:
+                standalone = None
+                warnings.append('A22: ' + str(exc))
         if missing_pronom:
             output_location = outputs[0] if outputs else "ukjent output-mappe"
             detail = (
@@ -136,10 +173,14 @@ class _Arkade5WorkflowOperation(BaseOperation):
             f"PRONOM koblet: {imported.pronom_attached}; "
             f"importfeil: {imported.failed + imported.pronom_failed}."
         )
+        if missing_noark:
+            message += " Noark 5-rapport mangler; kontrollen er ikke dokumentert."
+        if standalone:
+            message += " PRONOM er bevart som selvstendig evidens."
         if missing_pronom:
             message += " PRONOM-evidens mangler; se kjørelogg og Arkade-output."
         return OperationResult(
-            ok=(imported.failed + imported.pronom_failed) == 0 and (not missing_pronom or reuse is not None),
+            ok=(imported.failed + imported.pronom_failed) == 0 and not missing_pronom and not missing_noark,
             message=message,
             data={
                 "arkade_operation": self.arkade_operation,
@@ -150,6 +191,8 @@ class _Arkade5WorkflowOperation(BaseOperation):
                 "pronom_attached": imported.pronom_attached,
                 "pronom_unattached": imported.pronom_unattached,
                 "pronom_statistics_missing": missing_pronom,
+                "standalone_pronom": standalone,
+                "noark_report_missing": missing_noark,
                 "import_failed": imported.failed + imported.pronom_failed,
             },
             warnings=warnings,

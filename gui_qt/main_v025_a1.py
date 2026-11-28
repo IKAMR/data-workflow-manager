@@ -111,3 +111,41 @@ class DwmMainWindow(_V024Window):
                 and callable(getattr(self, '_a11_queue_fit', None))):
             self._a11_queue_fit(allow_expand=True)
         return result
+
+    def _refresh(self, *args, **kwargs):
+        result = super()._refresh(*args, **kwargs)
+        tree = getattr(self, 'workflow_tree', None)
+        job_id = getattr(self, '_active_id', None)
+        if tree is None or not job_id:
+            return result
+        try:
+            details = self.api.job_details(job_id)
+            errors = {op.operation_id: op.failure_message for op in details.operations
+                      if getattr(op, 'failure_message', '')}
+        except (AttributeError, KeyError, RuntimeError, ValueError):
+            return result
+        if not errors:
+            return result
+        from PySide6.QtCore import Qt
+        for index in range(tree.topLevelItemCount()):
+            row = tree.topLevelItem(index)
+            message = errors.get(row.data(0, Qt.ItemDataRole.UserRole))
+            if message:
+                row.setText(2, 'Teknisk feil')
+                row.setToolTip(2, message)
+        return result
+
+    def _sync_basic_status(self):
+        result = super()._sync_basic_status()
+        if not getattr(self, '_active_id', None) or not hasattr(self, 'basic_results_button'):
+            return result
+        try:
+            details = self.api.job_details(self._active_id)
+        except (AttributeError, KeyError, RuntimeError, ValueError):
+            return result
+        if details.job.status == 'Fullført med avvik' and not self._v025_run_is_active():
+            self.basic_results_button.setEnabled(True)
+            if hasattr(self, 'basic_status'):
+                self.basic_status.setText(f'{details.job.job_id} · Fullført med avvik · '
+                                          '100 % behandlet. A150 teknisk feil; se resultatgrunnlag.')
+        return result
